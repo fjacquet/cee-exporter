@@ -7,47 +7,47 @@
 
 ### CEPA Protocol
 
-- [ ] **CEPA-01**: Listener completes the RegisterRequest handshake with HTTP 200 OK and strictly empty body
-- [ ] **CEPA-02**: Listener responds to heartbeat PUT requests within 3 seconds to prevent SDNAS_CEPP_ALL_SERVERS_UNREACHABLE alerts
-- [ ] **CEPA-03**: Listener parses single-event CEE XML payloads into CEPAEvent structs
-- [ ] **CEPA-04**: Listener parses VCAPS bulk batch XML payloads (EventBatch containing multiple CEEEvents)
-- [ ] **CEPA-05**: HTTP handler ACKs immediately and delegates event processing to an async queue
+- [x] **CEPA-01**: Listener completes the RegisterRequest handshake with HTTP 200 OK and strictly empty body
+- [x] **CEPA-02**: Listener responds to heartbeat PUT requests within 3 seconds to prevent SDNAS_CEPP_ALL_SERVERS_UNREACHABLE alerts
+- [x] **CEPA-03**: Listener parses single-event CEE XML payloads into CEPAEvent structs
+- [x] **CEPA-04**: Listener parses VCAPS bulk batch XML payloads (EventBatch containing multiple CEEEvents)
+- [x] **CEPA-05**: HTTP handler ACKs immediately and delegates event processing to an async queue
 
 ### Semantic Mapping
 
-- [ ] **MAP-01**: CEPP_CREATE_FILE / CEPP_CREATE_DIRECTORY maps to Windows EventID 4663 with WriteData access mask
-- [ ] **MAP-02**: CEPP_FILE_READ maps to Windows EventID 4663 with ReadData access mask
-- [ ] **MAP-03**: CEPP_FILE_WRITE maps to Windows EventID 4663 with WriteData access mask
-- [ ] **MAP-04**: CEPP_DELETE_FILE / CEPP_DELETE_DIRECTORY maps to Windows EventID 4660 with DELETE access mask
-- [ ] **MAP-05**: CEPP_SETACL_FILE / CEPP_SETACL_DIRECTORY maps to Windows EventID 4670 with WRITE_DAC access mask
-- [ ] **MAP-06**: CEPP_CLOSE_MODIFIED maps to Windows EventID 4663 with I/O statistics (bytesRead, bytesWritten) preserved
+- [x] **MAP-01**: CEPP_CREATE_FILE / CEPP_CREATE_DIRECTORY maps to Windows EventID 4663 with WriteData access mask
+- [x] **MAP-02**: CEPP_FILE_READ maps to Windows EventID 4663 with ReadData access mask
+- [x] **MAP-03**: CEPP_FILE_WRITE maps to Windows EventID 4663 with WriteData access mask
+- [x] **MAP-04**: CEPP_DELETE_FILE / CEPP_DELETE_DIRECTORY maps to Windows EventID 4660 with DELETE access mask
+- [x] **MAP-05**: CEPP_SETACL_FILE / CEPP_SETACL_DIRECTORY maps to Windows EventID 4670 with WRITE_DAC access mask
+- [x] **MAP-06**: CEPP_CLOSE_MODIFIED maps to Windows EventID 4663 with I/O statistics (bytesRead, bytesWritten) preserved
 
 ### Output — GELF (Cross-Platform)
 
-- [ ] **GELF-01**: GELFWriter emits valid GELF 1.1 JSON payloads over UDP to a configurable host:port
-- [ ] **GELF-02**: GELFWriter supports TCP transport (in addition to UDP)
-- [ ] **GELF-03**: GELF payload includes _event_id, _object_name, _account_name, _account_domain, _client_address, _access_mask, _cepa_event_type fields
-- [ ] **GELF-04**: GELFWriter reconnects automatically after a lost TCP connection
+- [x] **GELF-01**: GELFWriter emits valid GELF 1.1 JSON payloads over UDP to a configurable host:port
+- [x] **GELF-02**: GELFWriter supports TCP transport (in addition to UDP)
+- [x] **GELF-03**: GELF payload includes _event_id, _object_name, _account_name, _account_domain, _client_address, _access_mask, _cepa_event_type fields
+- [x] **GELF-04**: GELFWriter reconnects automatically after a lost TCP connection
 
 ### Output — Win32 (Windows)
 
-- [ ] **WIN-01**: Win32EventLogWriter writes events to the Windows Application log via ReportEvent API
-- [ ] **WIN-02**: Win32EventLogWriter registers the "PowerStore-CEPA" event source on first start
+- [x] **WIN-01**: Win32EventLogWriter writes events to the Windows Application log via ReportEvent API
+- [x] **WIN-02**: Win32EventLogWriter registers the "PowerStore-CEPA" event source on first start
 
 ### Output — Multi
 
-- [ ] **MULTI-01**: MultiWriter fans events to all configured backends; a failure in one backend does not prevent delivery to others
+- [x] **MULTI-01**: MultiWriter fans events to all configured backends; a failure in one backend does not prevent delivery to others
 
 ### Transport Security
 
-- [ ] **TLS-01**: Listener supports HTTPS with a configurable x509 certificate and key
-- [ ] **TLS-02**: TLS certificate expiry is logged at startup; WARN logged when < 30 days remain
+- [x] **TLS-01**: Listener supports HTTPS with a configurable x509 certificate and key
+- [x] **TLS-02**: TLS certificate expiry is logged at startup; WARN logged when < 30 days remain
 
 ### Observability
 
-- [ ] **OBS-01**: GET /health returns JSON with uptime, queue depth, events received/written/dropped, writer type/target
-- [ ] **OBS-02**: Structured JSON logs (slog) include event_type, file_path, client_ip, queue_depth, latency_ms per received batch
-- [ ] **OBS-03**: Dropped events (queue overflow) are logged at WARN with running total
+- [x] **OBS-01**: GET /health returns JSON with uptime, queue depth, events received/written/dropped, writer type/target
+- [x] **OBS-02**: Structured JSON logs (slog) include event_type, file_path, client_ip, queue_depth, latency_ms per received batch
+- [x] **OBS-03**: Dropped events (queue overflow) are logged at WARN with running total
 
 ### Quality
 
@@ -56,7 +56,7 @@
 - [ ] **QUAL-03**: Unit tests cover queue (enqueue, drop on full, drain on stop)
 - [ ] **QUAL-04**: Unit tests cover GELFWriter payload construction (field presence, GELF 1.1 compliance)
 - [ ] **QUAL-05**: Fix readBody nil ResponseWriter bug (panic on oversized payload)
-- [ ] **QUAL-06**: `go build ./...` and `go vet ./...` pass with zero warnings on Linux and Windows targets
+- [x] **QUAL-06**: `go build ./...` and `go vet ./...` pass with zero warnings on Linux and Windows targets
 
 ### Build & Distribution
 
@@ -100,51 +100,52 @@
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CEPA-01 | — | Pending |
-| CEPA-02 | — | Pending |
-| CEPA-03 | — | Pending |
-| CEPA-04 | — | Pending |
-| CEPA-05 | — | Pending |
-| MAP-01 | — | Pending |
-| MAP-02 | — | Pending |
-| MAP-03 | — | Pending |
-| MAP-04 | — | Pending |
-| MAP-05 | — | Pending |
-| MAP-06 | — | Pending |
-| GELF-01 | — | Pending |
-| GELF-02 | — | Pending |
-| GELF-03 | — | Pending |
-| GELF-04 | — | Pending |
-| WIN-01 | — | Pending |
-| WIN-02 | — | Pending |
-| MULTI-01 | — | Pending |
-| TLS-01 | — | Pending |
-| TLS-02 | — | Pending |
-| OBS-01 | — | Pending |
-| OBS-02 | — | Pending |
-| OBS-03 | — | Pending |
-| QUAL-01 | — | Pending |
-| QUAL-02 | — | Pending |
-| QUAL-03 | — | Pending |
-| QUAL-04 | — | Pending |
-| QUAL-05 | — | Pending |
-| QUAL-06 | — | Pending |
-| BUILD-01 | — | Pending |
-| BUILD-02 | — | Pending |
-| DOC-01 | — | Pending |
-| DOC-02 | — | Pending |
-| DOC-03 | — | Pending |
-| DOC-04 | — | Pending |
+| CEPA-01 | Done (pre-roadmap) | Complete |
+| CEPA-02 | Done (pre-roadmap) | Complete |
+| CEPA-03 | Done (pre-roadmap) | Complete |
+| CEPA-04 | Done (pre-roadmap) | Complete |
+| CEPA-05 | Done (pre-roadmap) | Complete |
+| MAP-01 | Done (pre-roadmap) | Complete |
+| MAP-02 | Done (pre-roadmap) | Complete |
+| MAP-03 | Done (pre-roadmap) | Complete |
+| MAP-04 | Done (pre-roadmap) | Complete |
+| MAP-05 | Done (pre-roadmap) | Complete |
+| MAP-06 | Done (pre-roadmap) | Complete |
+| GELF-01 | Done (pre-roadmap) | Complete |
+| GELF-02 | Done (pre-roadmap) | Complete |
+| GELF-03 | Done (pre-roadmap) | Complete |
+| GELF-04 | Done (pre-roadmap) | Complete |
+| WIN-01 | Done (pre-roadmap) | Complete |
+| WIN-02 | Done (pre-roadmap) | Complete |
+| MULTI-01 | Done (pre-roadmap) | Complete |
+| TLS-01 | Done (pre-roadmap) | Complete |
+| TLS-02 | Done (pre-roadmap) | Complete |
+| OBS-01 | Done (pre-roadmap) | Complete |
+| OBS-02 | Done (pre-roadmap) | Complete |
+| OBS-03 | Done (pre-roadmap) | Complete |
+| QUAL-01 | Phase 1 | Pending |
+| QUAL-02 | Phase 1 | Pending |
+| QUAL-03 | Phase 1 | Pending |
+| QUAL-04 | Phase 1 | Pending |
+| QUAL-05 | Phase 1 | Pending |
+| QUAL-06 | Done (pre-roadmap) | Complete |
+| BUILD-01 | Phase 2 | Pending |
+| BUILD-02 | Phase 2 | Pending |
+| DOC-01 | Phase 3 | Pending |
+| DOC-02 | Phase 3 | Pending |
+| DOC-03 | Phase 3 | Pending |
+| DOC-04 | Phase 3 | Pending |
 
 **Coverage:**
 - v1.0 requirements: 35 total
-- Mapped to phases: 0
-- Unmapped: 35 ⚠️ (roadmap pending)
+- Complete (pre-roadmap): 24
+- Mapped to Phase 1: 5 (QUAL-01 through QUAL-05)
+- Mapped to Phase 2: 2 (BUILD-01, BUILD-02)
+- Mapped to Phase 3: 4 (DOC-01 through DOC-04)
+- Unmapped: 0 (100% coverage) ✓
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 after initial definition*
+*Last updated: 2026-03-02 — Traceability populated after roadmap creation*
