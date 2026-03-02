@@ -53,8 +53,8 @@
 
 - [x] **QUAL-01**: Unit tests cover CEE XML parser (single event, VCAPS batch, malformed input, RegisterRequest detection)
 - [x] **QUAL-02**: Unit tests cover CEPA → WindowsEvent mapper (all 6 event types, field propagation)
-- [ ] **QUAL-03**: Unit tests cover queue (enqueue, drop on full, drain on stop)
-- [ ] **QUAL-04**: Unit tests cover GELFWriter payload construction (field presence, GELF 1.1 compliance)
+- [x] **QUAL-03**: Unit tests cover queue (enqueue, drop on full, drain on stop)
+- [x] **QUAL-04**: Unit tests cover GELFWriter payload construction (field presence, GELF 1.1 compliance)
 - [x] **QUAL-05**: Fix readBody nil ResponseWriter bug (panic on oversized payload)
 - [x] **QUAL-06**: `go build ./...` and `go vet ./...` pass with zero warnings on Linux and Windows targets
 
@@ -127,8 +127,8 @@
 | OBS-03 | Done (pre-roadmap) | Complete |
 | QUAL-01 | Phase 1 | Complete |
 | QUAL-02 | Phase 1 | Complete |
-| QUAL-03 | Phase 1 | Pending |
-| QUAL-04 | Phase 1 | Pending |
+| QUAL-03 | Phase 1 | Complete |
+| QUAL-04 | Phase 1 | Complete |
 | QUAL-05 | Phase 1 (01-01) | Complete |
 | QUAL-06 | Done (pre-roadmap) | Complete |
 | BUILD-01 | Phase 2 | Pending |

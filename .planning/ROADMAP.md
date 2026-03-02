@@ -12,7 +12,7 @@ The core pipeline of cee-exporter is already implemented and compiles cleanly. T
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Quality** - Fix readBody bug and add unit tests for parser, mapper, queue, and GELF payload builder
+- [x] **Phase 1: Quality** - Fix readBody bug and add unit tests for parser, mapper, queue, and GELF payload builder (completed 2026-03-02)
 - [ ] **Phase 2: Build** - Makefile with build, test, lint, and cross-compile targets; Windows binary verified
 - [ ] **Phase 3: Documentation** - README with quickstart, config reference, TLS setup, and CEPA registration
 
@@ -70,6 +70,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Quality | 2/3 | In progress | - |
+| 1. Quality | 3/3 | Complete   | 2026-03-02 |
 | 2. Build | 0/1 | Not started | - |
 | 3. Documentation | 0/2 | Not started | - |
