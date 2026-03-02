@@ -60,8 +60,8 @@
 
 ### Build & Distribution
 
-- [ ] **BUILD-01**: Makefile with `build`, `build-windows`, `test`, `lint`, `clean` targets
-- [ ] **BUILD-02**: Cross-compiled Windows binary (`GOOS=windows GOARCH=amd64`) produced by `make build-windows`
+- [x] **BUILD-01**: Makefile with `build`, `build-windows`, `test`, `lint`, `clean` targets
+- [x] **BUILD-02**: Cross-compiled Windows binary (`GOOS=windows GOARCH=amd64`) produced by `make build-windows`
 
 ### Documentation
 
@@ -131,8 +131,8 @@
 | QUAL-04 | Phase 1 | Complete |
 | QUAL-05 | Phase 1 (01-01) | Complete |
 | QUAL-06 | Done (pre-roadmap) | Complete |
-| BUILD-01 | Phase 2 | Pending |
-| BUILD-02 | Phase 2 | Pending |
+| BUILD-01 | Phase 2 (02-01) | Complete |
+| BUILD-02 | Phase 2 (02-01) | Complete |
 | DOC-01 | Phase 3 | Pending |
 | DOC-02 | Phase 3 | Pending |
 | DOC-03 | Phase 3 | Pending |
@@ -149,4 +149,4 @@
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 — QUAL-05 marked complete (01-01: readBody nil ResponseWriter fix)*
+*Last updated: 2026-03-02 — BUILD-01, BUILD-02 marked complete (02-01: Makefile build pipeline)*

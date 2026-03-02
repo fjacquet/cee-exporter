@@ -5,32 +5,35 @@
 See: .planning/PROJECT.md (updated 2026-03-02)
 
 **Core value:** Any SIEM can ingest Dell PowerStore file-system audit events as native Windows EventLog or GELF, from any Linux or Windows host, with no external dependencies beyond the Go binary.
-**Current focus:** Phase 1 — Quality
+**Current focus:** Phase 2 — Build
 
 ## Current Position
 
-Phase: 1 of 3 (Quality)
-Plan: 3 of 3 in current phase
+Phase: 2 of 3 (Build)
+Plan: 1 of 1 in current phase
 Status: In progress
-Last activity: 2026-03-02 — Plan 01-03 complete: queue and GELF unit tests (QUAL-03, QUAL-04)
+Last activity: 2026-03-02 — Plan 02-01 complete: Makefile build pipeline (BUILD-01, BUILD-02)
 
-Progress: [██████░░░░] 60% (parser/mapper/queue/GELF tested; handler tests, build pipeline, docs remain)
+Progress: [███████░░░] 70% (all tests pass; build pipeline done; docs remain)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+
+- Total plans completed: 4
 - Average duration: 2 min
-- Total execution time: 6 min
+- Total execution time: 8 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-quality | 3 | 6 min | 2 min |
+| 02-build | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (2 min), 01-02 (2 min), 01-03 (2 min)
+
+- Last 5 plans: 01-01 (2 min), 01-02 (2 min), 01-03 (2 min), 02-01 (2 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -47,6 +50,7 @@ Recent decisions affecting current work:
 - 01-01 (QUAL-05): Pass http.ResponseWriter (not nil) to http.MaxBytesReader so >64 MiB bodies close connection gracefully instead of panicking
 - 01-02 (QUAL-01/02): White-box (same-package) table-driven tests chosen for parser and mapper; stdlib only (no testify)
 - 01-03 (QUAL-03/04): White-box queue tests use fakeWriter.done channel for deterministic sync (no time.Sleep); GELF tests assert float64 for JSON numeric fields
+- 02-01 (BUILD-01/02): CGO_ENABLED=0 on both targets for static linking; GOOS=linux hardcoded in build target (not host arch); -trimpath for reproducibility; make test excludes -race (incompatible with CGO=0)
 
 ### Pending Todos
 
@@ -60,5 +64,5 @@ None captured yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 01-03-PLAN.md — queue and GELF unit tests
+Stopped at: Completed 02-01-PLAN.md — Makefile build pipeline (BUILD-01, BUILD-02)
 Resume file: None
