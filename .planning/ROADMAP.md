@@ -28,12 +28,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Parser tests cover single-event XML, VCAPS batch XML, malformed input, and RegisterRequest detection
   4. Mapper tests verify all 6 CEPA event types produce correct Windows EventID and access mask
   5. Queue tests confirm enqueue, drop-on-full, and drain-on-stop behaviour
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Fix readBody nil ResponseWriter panic (QUAL-05)
-- [ ] 01-02: Write unit tests for parser and mapper packages (QUAL-01, QUAL-02)
-- [ ] 01-03: Write unit tests for queue and GELF payload builder (QUAL-03, QUAL-04)
+- [ ] 01-01-PLAN.md — Fix readBody nil ResponseWriter panic and add regression test
+- [ ] 01-02-PLAN.md — Write unit tests for parser and mapper packages
+- [ ] 01-03-PLAN.md — Write unit tests for queue and GELF payload builder
 
 ### Phase 2: Build
 **Goal**: Any developer or CI system can build a Linux binary and a cross-compiled Windows binary with a single make command
