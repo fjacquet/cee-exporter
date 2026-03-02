@@ -48,7 +48,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer r.Body.Close()
-	body, err := readBody(r)
+	body, err := readBody(w, r)
 	if err != nil {
 		slog.Error("cepa_body_read_error", "remote", r.RemoteAddr, "error", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -116,9 +116,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // readBody reads up to 64 MiB from the request body.
-func readBody(r *http.Request) ([]byte, error) {
+func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	const maxBody = 64 << 20 // 64 MiB
-	r.Body = http.MaxBytesReader(nil, r.Body, maxBody)
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 32*1024)
 	for {
