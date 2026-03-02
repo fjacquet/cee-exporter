@@ -31,8 +31,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Fix readBody nil ResponseWriter panic and add regression test
-- [ ] 01-02-PLAN.md — Write unit tests for parser and mapper packages
+- [x] 01-01-PLAN.md — Fix readBody nil ResponseWriter panic and add regression test
+- [x] 01-02-PLAN.md — Write unit tests for parser and mapper packages
 - [ ] 01-03-PLAN.md — Write unit tests for queue and GELF payload builder
 
 ### Phase 2: Build
@@ -70,6 +70,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Quality | 0/3 | Not started | - |
+| 1. Quality | 2/3 | In progress | - |
 | 2. Build | 0/1 | Not started | - |
 | 3. Documentation | 0/2 | Not started | - |
