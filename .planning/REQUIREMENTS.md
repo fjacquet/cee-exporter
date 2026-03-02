@@ -139,6 +139,7 @@
 | DOC-04 | Phase 3 | Pending |
 
 **Coverage:**
+
 - v1.0 requirements: 35 total
 - Complete (pre-roadmap): 24
 - Mapped to Phase 1: 5 (QUAL-01 through QUAL-05)
