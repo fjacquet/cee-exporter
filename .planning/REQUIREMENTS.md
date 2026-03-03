@@ -19,9 +19,9 @@ Requirements for the v2.0 Operations & Output Expansion milestone.
 
 - [x] **DEPLOY-01**: Linux operator is provided a hardened systemd unit file for daemon management
 - [x] **DEPLOY-02**: Linux operator can `systemctl enable --now cee-exporter` to auto-start at boot with auto-restart on failure
-- [ ] **DEPLOY-03**: Windows operator can run `cee-exporter.exe install` to register daemon with Service Control Manager
-- [ ] **DEPLOY-04**: Windows operator can run `cee-exporter.exe uninstall` to remove daemon from Service Control Manager
-- [ ] **DEPLOY-05**: Windows Service auto-restarts after unexpected crash (recovery actions configured)
+- [x] **DEPLOY-03**: Windows operator can run `cee-exporter.exe install` to register daemon with Service Control Manager
+- [x] **DEPLOY-04**: Windows operator can run `cee-exporter.exe uninstall` to remove daemon from Service Control Manager
+- [x] **DEPLOY-05**: Windows Service auto-restarts after unexpected crash (recovery actions configured)
 
 ### Output Targets
 
@@ -76,9 +76,9 @@ Which phases cover which requirements. Populated during roadmap creation.
 | OBS-05 | Phase 4 | Complete |
 | DEPLOY-01 | Phase 4 | Complete |
 | DEPLOY-02 | Phase 4 | Complete |
-| DEPLOY-03 | Phase 5 | Pending |
-| DEPLOY-04 | Phase 5 | Pending |
-| DEPLOY-05 | Phase 5 | Pending |
+| DEPLOY-03 | Phase 5 | Complete |
+| DEPLOY-04 | Phase 5 | Complete |
+| DEPLOY-05 | Phase 5 | Complete |
 | OUT-01 | Phase 6 | Pending |
 | OUT-02 | Phase 6 | Pending |
 | OUT-03 | Phase 6 | Pending |
