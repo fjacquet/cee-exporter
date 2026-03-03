@@ -29,6 +29,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	ceeprometheus "github.com/fjacquet/cee-exporter/pkg/prometheus"
 	applog "github.com/fjacquet/cee-exporter/pkg/log"
 	"github.com/fjacquet/cee-exporter/pkg/evtx"
 	"github.com/fjacquet/cee-exporter/pkg/queue"
@@ -45,6 +46,7 @@ type Config struct {
 	Output   OutputConfig   `toml:"output"`
 	Queue    QueueConfig    `toml:"queue"`
 	Logging  LoggingConfig  `toml:"logging"`
+	Metrics  MetricsConfig  `toml:"metrics"`
 	Hostname string         `toml:"hostname"` // embedded in events; default: os.Hostname()
 }
 
@@ -75,6 +77,11 @@ type LoggingConfig struct {
 	Format string `toml:"format"` // json | text
 }
 
+type MetricsConfig struct {
+	Enabled bool   `toml:"enabled"`
+	Addr    string `toml:"addr"` // default "0.0.0.0:9228"
+}
+
 func defaultConfig() Config {
 	return Config{
 		Listen: ListenConfig{
@@ -94,6 +101,10 @@ func defaultConfig() Config {
 			Level:  "info",
 			Format: "json",
 		},
+		Metrics: MetricsConfig{
+			Enabled: true,
+			Addr:    "0.0.0.0:9228",
+		},
 	}
 }
 
@@ -102,6 +113,10 @@ func defaultConfig() Config {
 // ----------------------------------------------------------------------------
 
 func main() {
+	runWithServiceManager(run)
+}
+
+func run() {
 	cfgPath := flag.String("config", "config.toml", "path to TOML configuration file")
 	flag.Parse()
 
@@ -198,6 +213,15 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	if cfg.Metrics.Enabled {
+		go func() {
+			if err := ceeprometheus.Serve(cfg.Metrics.Addr); err != nil && err != http.ErrServerClosed {
+				slog.Error("metrics_server_error", "error", err)
+			}
+		}()
+		slog.Info("metrics_server_started", "addr", cfg.Metrics.Addr)
+	}
 
 	slog.Info("cee_exporter_ready", "addr", cfg.Listen.Addr, "tls", cfg.Listen.TLS)
 
