@@ -6,8 +6,8 @@
 
 ## Quick links
 
+- [**Operator Guide**](operator-guide.md) — installation, configuration, TLS, CEPA registration
 - [GitHub repository](https://github.com/fjacquet/cee-exporter)
-- [Full README & installation guide](https://github.com/fjacquet/cee-exporter#readme)
 - [CHANGELOG](https://github.com/fjacquet/cee-exporter/blob/main/CHANGELOG.md)
 - [Releases & binaries](https://github.com/fjacquet/cee-exporter/releases)
 - [Docker image](https://ghcr.io/fjacquet/cee-exporter)
@@ -48,5 +48,6 @@ Dell PowerStore (CEPA PUT)
 
 ## Documentation
 
+- [**Operator Guide**](operator-guide.md) — installation, all config fields, TLS setup, CEPA registration, troubleshooting
 - [**Product Requirements (PRD)**](PRD.md) — problem statement, goals, personas, architecture
 - [**Architecture Decision Records**](adr/ADR-001-language-go.md) — key design decisions with context and consequences
