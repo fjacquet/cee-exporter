@@ -211,7 +211,7 @@ func buildChunkHeader(firstRecordID, lastRecordID uint64, _ uint16, freeSpaceOff
 	binary.LittleEndian.PutUint64(buf[16:], lastRecordID)    // LastEventRecordNumber
 	binary.LittleEndian.PutUint64(buf[24:], firstRecordID)   // FirstEventRecordIdentifier
 	binary.LittleEndian.PutUint64(buf[32:], lastRecordID)    // LastEventRecordIdentifier
-	binary.LittleEndian.PutUint32(buf[40:], 128)             // HeaderSize
+	binary.LittleEndian.PutUint32(buf[40:], evtxRecordsStart) // HeaderSize = offset where records start
 	binary.LittleEndian.PutUint32(buf[44:], freeSpaceOffset) // LastEventRecordDataOffset
 	binary.LittleEndian.PutUint32(buf[48:], freeSpaceOffset) // FreeSpaceOffset
 	return buf
