@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Milestone: v2.0 Operations & Output Expansion
 Phase: 7 of 7 (BinaryEvtxWriter) — In Progress
-Plan: 1 of 3 completed
+Plan: 2 of 3 completed
 Status: Phase in progress
-Last activity: 2026-03-03 — 07-01 complete: EVTX binary format helpers (toFILETIME, encodeUTF16LE, buildFileHeader, buildChunkHeader, patchChunkCRC, patchEventRecordsCRC, wrapEventRecord) + unit tests; OUT-05/OUT-06 satisfied
+Last activity: 2026-03-03 — 07-02 complete: BinaryEvtxWriter full implementation (static BinXML token stream, SDBM hashes, CRC32-correct file/chunk headers) + 5 unit tests; writer_evtx_stub.go deleted; OUT-05/OUT-06 satisfied
 
-Progress: [████████░░] ~67% (Phase 4-7 in progress, Phase 7 plan 1 complete)
+Progress: [█████████░] ~75% (Phase 4-7 in progress, Phase 7 plan 2 complete)
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [████████░░] ~67% (Phase 4-7 in progress, Phase 7 
 | Phase 06-siem-writers P02 | 3 | 3 tasks | 4 files |
 | Phase 06-siem-writers P01 | 5 | 3 tasks | 4 files |
 | Phase 07-binaryevtxwriter P01 | 8 | 2 tasks | 2 files |
+| Phase 07-binaryevtxwriter P02 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting v2.0:
 - [Phase 07-binaryevtxwriter P01]: No build tag on evtx_binformat.go — platform-agnostic math helpers enable Linux CI test coverage of the most failure-prone layer
 - [Phase 07-binaryevtxwriter P01]: CRC32 deferred-patch pattern: build headers with zero CRC fields, patch after all data assembled (per EVTX spec)
 - [Phase 07-binaryevtxwriter P01]: recordCount accepted in buildChunkHeader for API clarity but unused in header (stored in records per spec)
+- [Phase 07-binaryevtxwriter P02]: 0xrawsec/golang-evtx oracle not used — v1.2.9 CGO_ENABLED=0 fails due to missing go.sum entries; structural tests (magic + CRC32) used instead
+- [Phase 07-binaryevtxwriter P02]: Single-chunk file output; records clamped to 65024 bytes max; multi-chunk deferred
+- [Phase 07-binaryevtxwriter P02]: Static BinXML token-stream approach with SDBM name hashes; covers 4663/4660/4670 without full template-pointer infrastructure
 
 ### Pending Todos
 
@@ -100,5 +104,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 07-01-PLAN.md — EVTX binary format helpers (toFILETIME, encodeUTF16LE, buildFileHeader, buildChunkHeader, patchChunkCRC, patchEventRecordsCRC, wrapEventRecord) + 10 unit tests; OUT-05/OUT-06 satisfied; Phase 7 Plan 1 complete; ready for Plan 02 (BinaryEvtxWriter)
+Stopped at: Completed 07-02-PLAN.md — BinaryEvtxWriter full implementation (static BinXML, SDBM hashes, CRC32-correct headers) + 5 unit tests; stub deleted; OUT-05/OUT-06 satisfied; Phase 7 Plan 2 complete; ready for Plan 03
 Resume file: None
