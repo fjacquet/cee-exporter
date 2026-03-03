@@ -1,5 +1,11 @@
 # cee-exporter
 
+[![CI](https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml)
+[![Release](https://github.com/fjacquet/cee-exporter/actions/workflows/release.yml/badge.svg)](https://github.com/fjacquet/cee-exporter/actions/workflows/release.yml)
+[![Docs](https://github.com/fjacquet/cee-exporter/actions/workflows/docs.yml/badge.svg)](https://github.com/fjacquet/cee-exporter/actions/workflows/docs.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fjacquet/cee-exporter)](https://goreportcard.com/report/github.com/fjacquet/cee-exporter)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Receives Dell PowerStore CEPA audit events over HTTP and forwards them as GELF (Graylog) or Windows EventLog entries.
 
 ## Overview
