@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Any SIEM can ingest Dell PowerStore file-system audit events as native Windows EventLog or GELF, from any Linux or Windows host, with no external dependencies beyond the Go binary.
-**Current focus:** Phase 7 — BinaryEvtxWriter
+**Current focus:** Phase 8 — TLS Certificate Automation with Let's Encrypt
 
 ## Current Position
 
 Milestone: v2.0 Operations & Output Expansion
-Phase: 7 of 7 (BinaryEvtxWriter) — In Progress
-Plan: 2 of 3 completed
+Phase: 8 of 8 (TLS Certificate Automation) — In Progress
+Plan: 1 of 4 completed
 Status: Phase in progress
-Last activity: 2026-03-03 — 07-02 complete: BinaryEvtxWriter full implementation (static BinXML token stream, SDBM hashes, CRC32-correct file/chunk headers) + 5 unit tests; writer_evtx_stub.go deleted; OUT-05/OUT-06 satisfied
+Last activity: 2026-03-03 — 08-01 complete: cmd/cee-exporter/tls.go created (5 TLS builder functions: buildManualTLS, buildSelfSignedTLS, buildAutocertTLS, startACMEChallengeListener, logCertInfo); golang.org/x/crypto v0.48.0 promoted to direct dep; TLS-01/TLS-02/TLS-03 requirements satisfied
 
-Progress: [█████████░] ~75% (Phase 4-7 in progress, Phase 7 plan 2 complete)
+Progress: [█████████░] ~80% (Phase 8 plan 1 of 4 complete)
 
 ## Performance Metrics
 
@@ -49,8 +49,14 @@ Progress: [█████████░] ~75% (Phase 4-7 in progress, Phase 7 
 | Phase 06-siem-writers P01 | 5 | 3 tasks | 4 files |
 | Phase 07-binaryevtxwriter P01 | 8 | 2 tasks | 2 files |
 | Phase 07-binaryevtxwriter P02 | 3 | 2 tasks | 3 files |
+| Phase 08-tls P01 | 2 | 2 tasks | 3 files |
+| Phase 08 P02 | 8 | 2 tasks | 4 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 8 added: TLS Certificate Automation with Let's Encrypt
 
 ### Decisions
 
@@ -89,6 +95,12 @@ Recent decisions affecting v2.0:
 - [Phase 07-binaryevtxwriter P02]: 0xrawsec/golang-evtx oracle not used — v1.2.9 CGO_ENABLED=0 fails due to missing go.sum entries; structural tests (magic + CRC32) used instead
 - [Phase 07-binaryevtxwriter P02]: Single-chunk file output; records clamped to 65024 bytes max; multi-chunk deferred
 - [Phase 07-binaryevtxwriter P02]: Static BinXML token-stream approach with SDBM name hashes; covers 4663/4660/4670 without full template-pointer infrastructure
+- [Phase 08-tls P01]: No build tag on tls.go — autocert is pure Go, compiles CGO_ENABLED=0 on all platforms
+- [Phase 08-tls P01]: golang.org/x/crypto v0.48.0 promoted to direct dependency — autocert package requires explicit pinning
+- [Phase 08-tls P01]: buildSelfSignedTLS uses stdlib only (ecdsa.P256 + x509.CreateCertificate) — no external dep for self-signed mode
+- [Phase 08-tls P01]: autocert.Manager uses production Let's Encrypt by default — staging is operator responsibility via DNS/config
+- [Phase 08]: TLSMode defaults to 'off' via migrateListenConfig; legacy tls=true+cert_file auto-migrated to TLSMode='manual' for backward compat
+- [Phase 08]: go.sum updated for golang.org/x/net/idna (autocert transitive dep missing from Plan 01 execution)
 
 ### Pending Todos
 
@@ -104,5 +116,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 07-02-PLAN.md — BinaryEvtxWriter full implementation (static BinXML, SDBM hashes, CRC32-correct headers) + 5 unit tests; stub deleted; OUT-05/OUT-06 satisfied; Phase 7 Plan 2 complete; ready for Plan 03
+Stopped at: Completed 08-01-PLAN.md — cmd/cee-exporter/tls.go created with 5 TLS builder functions; golang.org/x/crypto v0.48.0 direct dep; both Linux/Windows builds pass; TLS-01/TLS-02/TLS-03 satisfied; Phase 8 Plan 1 of 4 complete; ready for Plan 02
 Resume file: None
