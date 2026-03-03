@@ -1,0 +1,1239 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Dell PowerStore CEPA audit events → Windows EventLog / GELF">
+      
+      
+      
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/">
+      
+      
+      
+        <link rel="next" href="PRD/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+    
+    
+      
+        <title>cee-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cee-exporter" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="cee-exporter" class="md-header__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cee-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="cee-exporter" class="md-nav__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cee-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-download-or-build-the-binary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Download or build the binary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-configure-cee-exporter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Configure cee-exporter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-run-cee-exporter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Run cee-exporter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-set-up-a-graylog-gelf-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Set up a Graylog GELF input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-test-the-graylog-connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Test the Graylog connection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-verify-cee-exporter-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Verify cee-exporter health
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-configure-dell-powerstore-cepa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Configure Dell PowerStore CEPA
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#environment-variable-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment Variable Overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tls-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLS Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TLS Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generate-a-self-signed-certificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate a Self-Signed Certificate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-cee-exporter-for-tls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure cee-exporter for TLS
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dell-powerstore-cepa-registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dell PowerStore CEPA Registration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dell PowerStore CEPA Registration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-an-event-publishing-pool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create an Event Publishing Pool
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocol-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol Notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building from Source
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Building from Source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#windows-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows Deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Requirements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adr/ADR-001-language-go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Language (Go)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adr/ADR-002-gelf-primary-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 GELF Primary Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adr/ADR-003-async-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 Async Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adr/ADR-004-binary-evtx-deferred/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Binary EVTX Deferred
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adr/ADR-005-cgo-disabled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 CGO Disabled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="cee-exporter">cee-exporter<a class="headerlink" href="#cee-exporter" title="Permanent link">&para;</a></h1>
+<p>Receives Dell PowerStore CEPA audit events over HTTP and forwards them as GELF (Graylog) or Windows EventLog entries.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>cee-exporter is a lightweight Go daemon that implements the Dell Common Event Publishing Agent (CEPA) protocol. It receives file-system audit events from Dell PowerStore NAS servers via HTTP PUT and forwards them to GELF-compatible SIEMs (e.g., Graylog) or to the native Windows Event Log. Linux sysadmins can ship PowerStore audit data directly into Graylog without any Windows infrastructure; Windows sysadmins can view the same events in Event Viewer. The binary has no runtime dependencies — drop it on a host, configure a TOML file, and run.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Go 1.21+</strong> — only required if building from source; pre-built binaries have no Go dependency</li>
+<li><strong>Graylog</strong> with a GELF UDP or TCP input configured (Linux/GELF path), or <strong>Windows Event Viewer</strong> (Windows path)</li>
+<li><strong>Dell PowerStore NAS</strong> with CEPA/CEE enabled (see <a href="#dell-powerstore-cepa-registration">Dell PowerStore CEPA Registration</a>)</li>
+<li><strong>Firewall rule</strong>: inbound TCP (and optionally UDP) port <code>12228</code> open from the PowerStore NAS server IP to the cee-exporter host</li>
+</ul>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<p>Follow these steps to go from binary to receiving PowerStore audit events in Graylog.</p>
+<h3 id="1-download-or-build-the-binary">1. Download or build the binary<a class="headerlink" href="#1-download-or-build-the-binary" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Build from source (requires Go 1.21+)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/fjacquet/cee-exporter.git
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">cd</span><span class="w"> </span>cee-exporter
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>make<span class="w"> </span>build<span class="w">          </span><span class="c1"># produces ./cee-exporter (Linux/amd64)</span>
+</code></pre></div>
+<p>Or download the pre-built release binary from the GitHub Releases page.</p>
+<h3 id="2-configure-cee-exporter">2. Configure cee-exporter<a class="headerlink" href="#2-configure-cee-exporter" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cp<span class="w"> </span>config.toml.example<span class="w"> </span>config.toml
+</code></pre></div>
+<p>Edit <code>config.toml</code> and set <code>gelf_host</code> to your Graylog server IP or hostname:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[output]</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w">          </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;gelf&quot;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">gelf_host</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;192.168.1.50&quot;</span><span class="w">   </span><span class="c1"># &lt;-- your Graylog IP</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">gelf_port</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">12201</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">gelf_protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;udp&quot;</span>
+</code></pre></div>
+<h3 id="3-run-cee-exporter">3. Run cee-exporter<a class="headerlink" href="#3-run-cee-exporter" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./cee-exporter<span class="w"> </span>--config<span class="w"> </span>config.toml
+</code></pre></div>
+<p>cee-exporter logs startup details (listen address, output backend) in JSON format to stdout.</p>
+<h3 id="4-set-up-a-graylog-gelf-input">4. Set up a Graylog GELF input<a class="headerlink" href="#4-set-up-a-graylog-gelf-input" title="Permanent link">&para;</a></h3>
+<p>In the Graylog web interface:</p>
+<ol>
+<li>Navigate to <strong>System &gt; Inputs</strong></li>
+<li>From the <strong>Select input</strong> dropdown, choose <strong>GELF UDP</strong></li>
+<li>Click <strong>Launch new input</strong></li>
+<li>Fill in the fields:</li>
+<li><strong>Title:</strong> <code>PowerStore CEPA Events</code></li>
+<li><strong>Bind address:</strong> <code>0.0.0.0</code></li>
+<li><strong>Port:</strong> <code>12201</code></li>
+<li>Click <strong>Launch</strong></li>
+</ol>
+<h3 id="5-test-the-graylog-connection">5. Test the Graylog connection<a class="headerlink" href="#5-test-the-graylog-connection" title="Permanent link">&para;</a></h3>
+<p>Send a test GELF message to verify Graylog is receiving data:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s1">&#39;{&quot;version&quot;:&quot;1.1&quot;,&quot;host&quot;:&quot;test&quot;,&quot;short_message&quot;:&quot;cee-exporter test&quot;,&quot;level&quot;:6}&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>nc<span class="w"> </span>-w0<span class="w"> </span>-u<span class="w"> </span>&lt;graylog-ip&gt;<span class="w"> </span><span class="m">12201</span>
+</code></pre></div>
+<p>Check the Graylog <strong>Search</strong> page — the test message should appear within a few seconds.</p>
+<h3 id="6-verify-cee-exporter-health">6. Verify cee-exporter health<a class="headerlink" href="#6-verify-cee-exporter-health" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>http://localhost:12228/health
+</code></pre></div>
+<p>Expected response:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="s2">&quot;ok&quot;</span><span class="p">,</span><span class="nt">&quot;uptime_seconds&quot;</span><span class="p">:</span><span class="mi">12</span><span class="p">,</span><span class="nt">&quot;events_received&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="nt">&quot;events_written&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="nt">&quot;queue_depth&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">}</span>
+</code></pre></div>
+<h3 id="7-configure-dell-powerstore-cepa">7. Configure Dell PowerStore CEPA<a class="headerlink" href="#7-configure-dell-powerstore-cepa" title="Permanent link">&para;</a></h3>
+<p>Follow the steps in the <a href="#dell-powerstore-cepa-registration">Dell PowerStore CEPA Registration</a> section to point your NAS server at cee-exporter. Once CEPA registration completes, file-system events will flow automatically.</p>
+<hr />
+<h2 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h2>
+<p>All configuration lives in <code>config.toml</code> (TOML format). Copy <code>config.toml.example</code> to get started.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hostname</code></td>
+<td>string</td>
+<td><code>os.Hostname()</code></td>
+<td>Hostname embedded in every generated event</td>
+<td><code>hostname = "powerstore-nas01"</code></td>
+</tr>
+<tr>
+<td><code>[listen] addr</code></td>
+<td>string</td>
+<td><code>"0.0.0.0:12228"</code></td>
+<td>TCP address and port to listen on</td>
+<td><code>addr = "0.0.0.0:12228"</code></td>
+</tr>
+<tr>
+<td><code>[listen] tls</code></td>
+<td>bool</td>
+<td><code>false</code></td>
+<td>Enable HTTPS listener</td>
+<td><code>tls = true</code></td>
+</tr>
+<tr>
+<td><code>[listen] cert_file</code></td>
+<td>string</td>
+<td><code>""</code></td>
+<td>Path to TLS certificate file (PEM format)</td>
+<td><code>cert_file = "/etc/cee-exporter/tls/server.crt"</code></td>
+</tr>
+<tr>
+<td><code>[listen] key_file</code></td>
+<td>string</td>
+<td><code>""</code></td>
+<td>Path to TLS private key file (PEM format)</td>
+<td><code>key_file = "/etc/cee-exporter/tls/server.key"</code></td>
+</tr>
+<tr>
+<td><code>[output] type</code></td>
+<td>string</td>
+<td><code>"gelf"</code></td>
+<td>Output backend: <code>gelf</code> | <code>evtx</code> | <code>multi</code></td>
+<td><code>type = "gelf"</code></td>
+</tr>
+<tr>
+<td><code>[output] targets</code></td>
+<td>[]string</td>
+<td><code>[]</code></td>
+<td>Backend list when <code>type = "multi"</code></td>
+<td><code>targets = ["gelf", "evtx"]</code></td>
+</tr>
+<tr>
+<td><code>[output] gelf_host</code></td>
+<td>string</td>
+<td><code>"localhost"</code></td>
+<td>Graylog or GELF-compatible host address</td>
+<td><code>gelf_host = "graylog.corp.local"</code></td>
+</tr>
+<tr>
+<td><code>[output] gelf_port</code></td>
+<td>int</td>
+<td><code>12201</code></td>
+<td>GELF UDP/TCP port</td>
+<td><code>gelf_port = 12201</code></td>
+</tr>
+<tr>
+<td><code>[output] gelf_protocol</code></td>
+<td>string</td>
+<td><code>"udp"</code></td>
+<td>Transport protocol: <code>udp</code> | <code>tcp</code>. Use <code>tcp</code> for production.</td>
+<td><code>gelf_protocol = "tcp"</code></td>
+</tr>
+<tr>
+<td><code>[output] gelf_tls</code></td>
+<td>bool</td>
+<td><code>false</code></td>
+<td>Enable TLS for GELF TCP transport</td>
+<td><code>gelf_tls = false</code></td>
+</tr>
+<tr>
+<td><code>[output] evtx_path</code></td>
+<td>string</td>
+<td><code>""</code></td>
+<td>Output path for binary <code>.evtx</code> files (v1: stub on Linux)</td>
+<td><code>evtx_path = "/var/log/cee-exporter"</code></td>
+</tr>
+<tr>
+<td><code>[queue] capacity</code></td>
+<td>int</td>
+<td><code>100000</code></td>
+<td>Maximum events buffered in memory before dropping</td>
+<td><code>capacity = 100000</code></td>
+</tr>
+<tr>
+<td><code>[queue] workers</code></td>
+<td>int</td>
+<td><code>4</code></td>
+<td>Number of concurrent writer goroutines</td>
+<td><code>workers = 4</code></td>
+</tr>
+<tr>
+<td><code>[logging] level</code></td>
+<td>string</td>
+<td><code>"info"</code></td>
+<td>Log verbosity: <code>debug</code> | <code>info</code> | <code>warn</code> | <code>error</code></td>
+<td><code>level = "info"</code></td>
+</tr>
+<tr>
+<td><code>[logging] format</code></td>
+<td>string</td>
+<td><code>"json"</code></td>
+<td>Log format: <code>json</code> (production) | <code>text</code> (development)</td>
+<td><code>format = "json"</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Production note:</strong> For high-volume NAS workloads (VCAPS mode with thousands of events per batch), set <code>gelf_protocol = "tcp"</code> to avoid silent UDP packet loss. UDP is acceptable for lab and testing environments.</p>
+</blockquote>
+<h3 id="environment-variable-overrides">Environment Variable Overrides<a class="headerlink" href="#environment-variable-overrides" title="Permanent link">&para;</a></h3>
+<p>Two environment variables override the corresponding <code>[logging]</code> config fields at runtime:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Overrides</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CEE_LOG_LEVEL</code></td>
+<td><code>[logging] level</code></td>
+<td><code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code></td>
+</tr>
+<tr>
+<td><code>CEE_LOG_FORMAT</code></td>
+<td><code>[logging] format</code></td>
+<td><code>json</code>, <code>text</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">CEE_LOG_LEVEL</span><span class="o">=</span>debug<span class="w"> </span><span class="nv">CEE_LOG_FORMAT</span><span class="o">=</span>text<span class="w"> </span>./cee-exporter<span class="w"> </span>--config<span class="w"> </span>config.toml
+</code></pre></div>
+<hr />
+<h2 id="tls-setup">TLS Setup<a class="headerlink" href="#tls-setup" title="Permanent link">&para;</a></h2>
+<p>TLS secures data in transit between cee-exporter and its clients. For most default PowerStore CEPA configurations, the CEPA publisher sends plain HTTP — verify with Dell support whether your firmware supports HTTPS for event publishing. TLS is recommended when cee-exporter is accessed over an untrusted network.</p>
+<h3 id="generate-a-self-signed-certificate">Generate a Self-Signed Certificate<a class="headerlink" href="#generate-a-self-signed-certificate" title="Permanent link">&para;</a></h3>
+<p>Two methods are provided depending on your openssl version.</p>
+<p><strong>Method 1 — openssl &gt;= 1.1.1 (recommended):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>openssl<span class="w"> </span>req<span class="w"> </span>-x509<span class="w"> </span>-newkey<span class="w"> </span>rsa:4096<span class="w"> </span>-sha256<span class="w"> </span>-days<span class="w"> </span><span class="m">3650</span><span class="w"> </span>-nodes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>-keyout<span class="w"> </span>server.key<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>-out<span class="w"> </span>server.crt<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>-subj<span class="w"> </span><span class="s2">&quot;/CN=cee-exporter&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>-addext<span class="w"> </span><span class="s2">&quot;subjectAltName=IP:192.168.1.10,DNS:cee-exporter.corp.local&quot;</span>
+</code></pre></div>
+<p>Replace the IP and DNS values with the actual address of your cee-exporter host. The <code>-addext subjectAltName</code> flag is required — Go TLS (&gt;= 1.15) rejects certificates without Subject Alternative Names (SANs).</p>
+<p><strong>Method 2 — openssl &lt; 1.1.1 (using extfile):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>cat<span class="w"> </span>&gt;<span class="w"> </span>san.cnf<span class="w"> </span><span class="s">&lt;&lt;&#39;EOF&#39;</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="s">[req]</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="s">distinguished_name = req_dn</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="s">x509_extensions = v3_req</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="s">prompt = no</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="s">[req_dn]</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="s">CN = cee-exporter</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="s">[v3_req]</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="s">subjectAltName = IP:192.168.1.10,DNS:cee-exporter.corp.local</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="s">EOF</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>openssl<span class="w"> </span>req<span class="w"> </span>-x509<span class="w"> </span>-newkey<span class="w"> </span>rsa:4096<span class="w"> </span>-sha256<span class="w"> </span>-days<span class="w"> </span><span class="m">3650</span><span class="w"> </span>-nodes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span>-keyout<span class="w"> </span>server.key<span class="w"> </span>-out<span class="w"> </span>server.crt<span class="w"> </span>-config<span class="w"> </span>san.cnf
+</code></pre></div>
+<h3 id="configure-cee-exporter-for-tls">Configure cee-exporter for TLS<a class="headerlink" href="#configure-cee-exporter-for-tls" title="Permanent link">&para;</a></h3>
+<p>Update <code>config.toml</code> to enable TLS and point to your certificate files:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">[listen]</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">addr</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">tls</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">cert_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/etc/cee-exporter/tls/server.crt&quot;</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">key_file</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/etc/cee-exporter/tls/server.key&quot;</span>
+</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> cee-exporter logs a <code>WARN</code> at startup if the certificate expires within 30 days.</p>
+</blockquote>
+<hr />
+<h2 id="dell-powerstore-cepa-registration">Dell PowerStore CEPA Registration<a class="headerlink" href="#dell-powerstore-cepa-registration" title="Permanent link">&para;</a></h2>
+<p>CEPA (Common Event Publishing Agent) is configured per-NAS-server in the PowerStore Web UI. Each NAS server must have its own Event Publishing Pool.</p>
+<h3 id="prerequisites_1">Prerequisites<a class="headerlink" href="#prerequisites_1" title="Permanent link">&para;</a></h3>
+<p>Port <code>12228</code> (TCP) must be open from the PowerStore NAS server IP to the cee-exporter host. Verify connectivity before configuring CEPA:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>nc<span class="w"> </span>-zv<span class="w"> </span>&lt;cee-exporter-ip&gt;<span class="w"> </span><span class="m">12228</span>
+</code></pre></div>
+<h3 id="create-an-event-publishing-pool">Create an Event Publishing Pool<a class="headerlink" href="#create-an-event-publishing-pool" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Navigate to <strong>Storage &gt; NAS Servers</strong> in the PowerStore Web UI</li>
+<li>Select the target NAS Server</li>
+<li>Go to the <strong>Security &amp; Events</strong> tab &gt; <strong>Events Publishing</strong> sub-tab</li>
+<li>Click <strong>Create new event publisher</strong> (or <strong>Modify</strong> if one already exists)</li>
+<li>Set a <strong>Publisher Name</strong> (e.g., <code>cee-exporter</code>)</li>
+<li>Under <strong>Publishing Pools</strong>, click <strong>Create Pool</strong></li>
+<li>Set a <strong>Pool Name</strong> (e.g., <code>default-pool</code>)</li>
+<li>Add a CEPA Server:</li>
+<li><strong>Host:</strong> cee-exporter IP or FQDN</li>
+<li><strong>Port:</strong> <code>12228</code></li>
+<li>Under <strong>Event Configuration &gt; Post-Events</strong> tab:</li>
+<li>Click <strong>Select all</strong></li>
+<li>Uncheck: <code>CloseDir</code>, <code>OpenDir</code>, <code>FileRead</code>, <code>OpenFileReadOffline</code>, <code>OpenFileWriteOffline</code></li>
+<li>Leave Pre-Events and Post-Error-Events unchecked</li>
+<li>Click <strong>Apply</strong></li>
+</ol>
+<h3 id="protocol-notes">Protocol Notes<a class="headerlink" href="#protocol-notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>cee-exporter responds to the RegisterRequest handshake with HTTP 200 OK and an <strong>empty body</strong> — this is required by the CEPA protocol. Any XML in the response causes a fatal parse error in the CEPA publisher. Do not modify this behavior.</li>
+<li>Heartbeat PUT requests are acknowledged within 3 seconds. cee-exporter processes events asynchronously via its internal queue.</li>
+<li>If using VCAPS mode (thousands of events per batch), set <code>gelf_protocol = "tcp"</code> to avoid UDP packet loss.</li>
+<li>CEPA is configured per NAS server. If events are not arriving, verify that the Event Publishing Pool is configured on the specific NAS server that owns the target file systems.</li>
+</ul>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SDNAS_CEPP_ALL_SERVERS_UNREACHABLE</code> alert on PowerStore</td>
+<td>Port 12228 unreachable from NAS</td>
+<td>Verify firewall: <code>nc -zv &lt;cee-exporter-ip&gt; 12228</code></td>
+</tr>
+<tr>
+<td>TLS handshake fails: <code>certificate has no suitable IP SANs</code></td>
+<td>Certificate missing Subject Alternative Name</td>
+<td>Regenerate cert with <code>-addext "subjectAltName=IP:...,DNS:..."</code></td>
+</tr>
+<tr>
+<td>No events in Graylog despite CEPA configured</td>
+<td>GELF UDP packet loss on high-volume NAS</td>
+<td>Switch to <code>gelf_protocol = "tcp"</code> in config.toml</td>
+</tr>
+<tr>
+<td>RegisterRequest causes fatal CEPA error</td>
+<td>Non-empty HTTP response body sent to CEPA</td>
+<td>Do not modify the RegisterRequest handler; cee-exporter returns an empty HTTP 200 OK by design</td>
+</tr>
+<tr>
+<td>Events arrive but from wrong NAS server</td>
+<td>CEPA configured on wrong NAS</td>
+<td>Verify CEPA Event Publishing Pool is on the NAS server that owns the target file system</td>
+</tr>
+<tr>
+<td><code>/health</code> returns connection refused</td>
+<td>cee-exporter not running or wrong port</td>
+<td>Check process: <code>ps aux | grep cee-exporter</code>; check listen addr in config.toml</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="building-from-source">Building from Source<a class="headerlink" href="#building-from-source" title="Permanent link">&para;</a></h2>
+<p>Requires Go 1.21+. No CGO dependencies (<code>CGO_ENABLED=0</code> — produces fully static binaries).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/fjacquet/cee-exporter.git
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">cd</span><span class="w"> </span>cee-exporter
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>make<span class="w"> </span>build<span class="w">          </span><span class="c1"># Linux/amd64 binary: ./cee-exporter</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>make<span class="w"> </span>build-windows<span class="w">  </span><span class="c1"># Windows/amd64 binary: ./cee-exporter.exe</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>make<span class="w"> </span><span class="nb">test</span><span class="w">           </span><span class="c1"># Run unit tests</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>make<span class="w"> </span>lint<span class="w">           </span><span class="c1"># Run go vet</span>
+</code></pre></div>
+<h3 id="windows-deployment">Windows Deployment<a class="headerlink" href="#windows-deployment" title="Permanent link">&para;</a></h3>
+<p>The Windows binary (<code>cee-exporter.exe</code>) uses the native Win32 EventLog API (<code>ReportEvent</code>). When running on Windows:</p>
+<ul>
+<li>Events are written to the Windows Application Event Log</li>
+<li>No additional configuration is required beyond setting <code>[output] type = "evtx"</code> in config.toml</li>
+<li>The GELF output path is also fully supported on Windows (both <code>gelf</code> and <code>multi</code> output types work)</li>
+</ul>
+<hr />
+<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
+<p>See <a href="LICENSE">LICENSE</a> for details.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["content.code.copy", "navigation.instant", "navigation.sections", "toc.integrate"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

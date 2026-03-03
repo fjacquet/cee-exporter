@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/PRD/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-001-language-go/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-002-gelf-primary-linux/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-003-async-queue/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-004-binary-evtx-deferred/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-005-cgo-disabled/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+</urlset>
