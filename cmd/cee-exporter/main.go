@@ -116,7 +116,7 @@ func main() {
 	runWithServiceManager(run)
 }
 
-func run() {
+func run(ctx context.Context) {
 	cfgPath := flag.String("config", "config.toml", "path to TOML configuration file")
 	flag.Parse()
 
@@ -161,8 +161,9 @@ func run() {
 
 	// Build queue.
 	q := queue.New(cfg.Queue.Capacity, cfg.Queue.Workers, w)
-	ctx, cancel := context.WithCancel(context.Background())
-	q.Start(ctx)
+	queueCtx, queueCancel := context.WithCancel(ctx)
+	defer queueCancel()
+	q.Start(queueCtx)
 
 	// Build HTTP mux.
 	mux := http.NewServeMux()
@@ -225,15 +226,19 @@ func run() {
 
 	slog.Info("cee_exporter_ready", "addr", cfg.Listen.Addr, "tls", cfg.Listen.TLS)
 
-	// Graceful shutdown on SIGTERM / SIGINT.
+	// Graceful shutdown on SIGTERM / SIGINT or context cancellation (e.g. Windows SCM Stop).
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
-	<-sig
+	select {
+	case <-sig:
+		slog.Info("shutdown_signal_received")
+	case <-ctx.Done():
+		slog.Info("shutdown_context_cancelled")
+	}
 
 	slog.Info("shutdown_initiated",
 		"queue_depth", q.Len(),
 	)
-	cancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
