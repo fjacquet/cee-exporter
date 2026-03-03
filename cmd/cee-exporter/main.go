@@ -15,7 +15,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -51,10 +50,32 @@ type Config struct {
 }
 
 type ListenConfig struct {
-	Addr    string `toml:"addr"`     // e.g. "0.0.0.0:12228"
-	TLS     bool   `toml:"tls"`
-	CertFile string `toml:"cert_file"`
-	KeyFile  string `toml:"key_file"`
+	Addr     string `toml:"addr"` // e.g. "0.0.0.0:12228"
+	// Deprecated: use TLSMode="manual" instead. Kept for backward compatibility.
+	TLS      bool   `toml:"tls"`
+	CertFile string `toml:"cert_file"` // tls_mode="manual": path to PEM certificate file
+	KeyFile  string `toml:"key_file"`  // tls_mode="manual": path to PEM private key file
+	// TLSMode selects certificate provisioning: "off" | "manual" | "acme" | "self-signed"
+	// Default "off". If empty and TLS=true+CertFile!="", migrated to "manual" automatically.
+	TLSMode           string   `toml:"tls_mode"`
+	ACMEDomains       []string `toml:"acme_domains"`        // tls_mode="acme": domain list for Let's Encrypt
+	ACMEEmail         string   `toml:"acme_email"`          // tls_mode="acme": contact email (recommended)
+	ACMECacheDir      string   `toml:"acme_cache_dir"`      // tls_mode="acme": cert cache dir, default /var/cache/cee-exporter/acme
+	ACMEChallengeAddr string   `toml:"acme_challenge_addr"` // tls_mode="acme": challenge listener addr, default :443
+}
+
+// migrateListenConfig converts the legacy tls=true + cert_file/key_file pattern
+// to tls_mode="manual" so that old config.toml files keep working after the
+// Phase 8 upgrade.
+func migrateListenConfig(cfg *ListenConfig) {
+	if cfg.TLSMode != "" {
+		return // explicit tls_mode set — no migration needed
+	}
+	if cfg.TLS && cfg.CertFile != "" {
+		cfg.TLSMode = "manual"
+		return
+	}
+	cfg.TLSMode = "off"
 }
 
 type OutputConfig struct {
@@ -134,6 +155,7 @@ func run(ctx context.Context) {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
 		os.Exit(1)
 	}
+	migrateListenConfig(&cfg.Listen)
 
 	// Environment variable overrides.
 	if v := os.Getenv("CEE_LOG_LEVEL"); v != "" {
@@ -181,7 +203,7 @@ func run(ctx context.Context) {
 		StartTime:   time.Now(),
 		WriterType:  cfg.Output.Type,
 		WriterAddr:  writerAddr,
-		TLSEnabled:  cfg.Listen.TLS,
+		TLSEnabled:  cfg.Listen.TLSMode != "off",
 		TLSCertFile: cfg.Listen.CertFile,
 	}))
 
@@ -194,15 +216,7 @@ func run(ctx context.Context) {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	if cfg.Listen.TLS {
-		tlsCfg, err := buildTLS(cfg.Listen.CertFile, cfg.Listen.KeyFile)
-		if err != nil {
-			slog.Error("tls_init_failed", "error", err)
-			os.Exit(1)
-		}
-		httpServer.TLSConfig = tlsCfg
-		logCertInfo(cfg.Listen.CertFile)
-	}
+	// TODO(phase08-plan03): wire tls_mode switch here
 
 	// Start listener.
 	ln, err := net.Listen("tcp", cfg.Listen.Addr)
@@ -212,13 +226,7 @@ func run(ctx context.Context) {
 	}
 
 	go func() {
-		var serveErr error
-		if cfg.Listen.TLS {
-			serveErr = httpServer.ServeTLS(ln, cfg.Listen.CertFile, cfg.Listen.KeyFile)
-		} else {
-			serveErr = httpServer.Serve(ln)
-		}
-		if serveErr != nil && serveErr != http.ErrServerClosed {
+		if serveErr := httpServer.Serve(ln); serveErr != nil && serveErr != http.ErrServerClosed {
 			slog.Error("http_server_error", "error", serveErr)
 			os.Exit(1)
 		}
@@ -233,7 +241,7 @@ func run(ctx context.Context) {
 		slog.Info("metrics_server_started", "addr", cfg.Metrics.Addr)
 	}
 
-	slog.Info("cee_exporter_ready", "addr", cfg.Listen.Addr, "tls", cfg.Listen.TLS)
+	slog.Info("cee_exporter_ready", "addr", cfg.Listen.Addr, "tls_mode", cfg.Listen.TLSMode)
 
 	// Graceful shutdown on SIGTERM / SIGINT or context cancellation (e.g. Windows SCM Stop).
 	sig := make(chan os.Signal, 1)
@@ -318,22 +326,3 @@ func buildWriter(cfg OutputConfig) (evtx.Writer, string, error) {
 	}
 }
 
-// ----------------------------------------------------------------------------
-// TLS helpers
-// ----------------------------------------------------------------------------
-
-func buildTLS(certFile, keyFile string) (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		return nil, fmt.Errorf("load TLS keypair: %w", err)
-	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
-	}, nil
-}
-
-func logCertInfo(certFile string) {
-	// Startup log: cert fingerprint and expiry.
-	slog.Info("tls_cert_loaded", "cert_file", certFile)
-}
