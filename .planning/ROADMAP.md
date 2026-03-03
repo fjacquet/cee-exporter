@@ -22,7 +22,7 @@
 
 - [x] **Phase 4: Observability & Linux Service** - Prometheus /metrics endpoint on port 9228 plus hardened systemd unit file (completed 2026-03-03)
 - [x] **Phase 5: Windows Service** - SCM-managed service registration via install/uninstall subcommands (completed 2026-03-03)
-- [ ] **Phase 6: SIEM Writers** - SyslogWriter (RFC 5424 UDP/TCP) and BeatsWriter (Lumberjack v2) output targets
+- [x] **Phase 6: SIEM Writers** - SyslogWriter (RFC 5424 UDP/TCP) and BeatsWriter (Lumberjack v2) output targets (completed 2026-03-03)
 - [ ] **Phase 7: BinaryEvtxWriter** - Pure-Go BinXML .evtx file writer for Linux hosts
 
 ## Phase Details
@@ -106,5 +106,5 @@ Plans:
 | 3. Documentation | v1.0 | 2/2 | Complete | 2026-03-03 |
 | 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 5. Windows Service | 3/3 | Complete   | 2026-03-03 | - |
-| 6. SIEM Writers | 2/3 | In Progress|  | - |
+| 6. SIEM Writers | 3/3 | Complete   | 2026-03-03 | - |
 | 7. BinaryEvtxWriter | v2.0 | 0/? | Not started | - |

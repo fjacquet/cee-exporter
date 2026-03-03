@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Milestone: v2.0 Operations & Output Expansion
 Phase: 6 of 7 (Syslog & Beats Writers) — In Progress
-Plan: 2 of 3 completed
-Status: In progress
-Last activity: 2026-03-03 — 06-02 complete: BeatsWriter with go-lumber SyncClient, TLS dialer injection, OUT-01/OUT-02 done
+Plan: 3 of 3 completed
+Status: Phase complete
+Last activity: 2026-03-03 — 06-03 complete: SyslogWriter + BeatsWriter wired into buildWriter; config.toml updated; OUT-01/02/03/04 satisfied
 
-Progress: [██████░░░░] ~43% (Phase 4-5 complete, Phase 6 Plan 02 done)
+Progress: [███████░░░] ~57% (Phase 4-6 complete, Phase 7 pending)
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Progress: [██████░░░░] ~43% (Phase 4-5 complete, Phase 6 Pla
 
 | Phase 05-windows-service P02 | 4 min | 1 task | 1 file |
 | Phase 05-windows-service P03 | 1 | 1 tasks | 1 files |
+| Phase 06-siem-writers P03 | 7 | 3 tasks | 3 files |
 | Phase 06-siem-writers P02 | 3 | 3 tasks | 4 files |
 | Phase 06-siem-writers P01 | 5 | 3 tasks | 4 files |
 
@@ -78,6 +79,8 @@ Recent decisions affecting v2.0:
 - [Phase 06-siem-writers]: Use crewjam/rfc5424 instead of stdlib log/syslog — log/syslog excluded from Windows builds
 - [Phase 06-siem-writers]: audit@32473 SD-ID for SyslogWriter structured data element (IANA example PEN per RFC 5612)
 - [Phase 06-siem-writers]: ProcessID uses NILVALUE '-' when WindowsEvent.ProcessID==0 to comply with RFC 5424 PROCID grammar
+- [Phase 06-siem-writers P03]: OutputConfig zero-value fields are safe — SyslogWriter/BeatsWriter constructors apply defaults (Port 514/5044, Protocol udp)
+- [Phase 06-siem-writers P03]: config.toml created from config.toml.example baseline — both files retained; new stanzas added as commented examples
 
 ### Pending Todos
 
@@ -93,5 +96,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 06-02-PLAN.md — BeatsWriter with go-lumber SyncClient, SyncDialWith TLS injection, mutex-serialized Send; OUT-01/OUT-02 satisfied; ready for Phase 6 Plan 03
+Stopped at: Completed 06-03-PLAN.md — SyslogWriter+BeatsWriter wired into buildWriter factory; config.toml created with syslog/beats stanzas; OUT-01/OUT-02/OUT-03/OUT-04 all satisfied; Phase 6 complete; ready for Phase 7
 Resume file: None
