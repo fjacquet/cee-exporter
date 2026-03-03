@@ -53,7 +53,12 @@ Plans:
   2. Operator runs `cee-exporter.exe uninstall` and the service is removed from SCM with no leftover registry entries
   3. The Windows Service starts within the SCM 30-second window (StartPending sent before Go runtime init completes) and reports Running status in services.msc
   4. If cee-exporter.exe crashes, Windows SCM restarts it automatically according to the recovery actions configured at install time
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Add kardianos/service dependency, refactor run() to accept context.Context, update service shims
+- [ ] 05-02-PLAN.md — TDD: parseCfgPath helper (pure function, no build tag, Linux CI testable)
+- [ ] 05-03-PLAN.md — Full service_windows.go SCM wrapper: install/uninstall dispatch, Stop() bridge, recovery actions
 
 ### Phase 6: SIEM Writers
 **Goal**: Operators can forward audit events to any syslog-compatible receiver and to Logstash or Graylog Beats Input via Lumberjack v2
@@ -83,7 +88,7 @@ Plans:
 | 1. Quality | v1.0 | 3/3 | Complete | 2026-03-02 |
 | 2. Build | v1.0 | 1/1 | Complete | 2026-03-02 |
 | 3. Documentation | v1.0 | 2/2 | Complete | 2026-03-03 |
-| 4. Observability & Linux Service | 3/3 | Complete    | 2026-03-03 | - |
-| 5. Windows Service | v2.0 | 0/? | Not started | - |
+| 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
+| 5. Windows Service | v2.0 | 0/3 | Not started | - |
 | 6. SIEM Writers | v2.0 | 0/? | Not started | - |
 | 7. BinaryEvtxWriter | v2.0 | 0/? | Not started | - |
