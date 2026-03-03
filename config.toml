@@ -36,7 +36,7 @@ tls_mode = "off"
 # Output backend
 #
 # type = "gelf"   → GELF JSON over UDP/TCP to Graylog (recommended for Linux)
-# type = "evtx"   → Binary .evtx file (Windows: Win32 API; Linux: stub in v1)
+# type = "evtx"   → Binary .evtx file (Windows: Win32 API; Linux: BinaryEvtxWriter)
 # type = "syslog" → RFC 5424 syslog over UDP/TCP
 # type = "beats"  → Lumberjack v2 (Beats) to Logstash/Graylog
 # type = "multi"  → Fan-out to multiple backends simultaneously
@@ -50,8 +50,8 @@ gelf_port     = 12201
 gelf_protocol = "udp"   # or "tcp"
 gelf_tls      = false   # only applies when gelf_protocol = "tcp"
 
-# EVTX output path (Linux stub / future BinaryEvtxWriter)
-# evtx_path = "/var/log/cee-exporter"
+# EVTX output: path to the .evtx file (Linux BinaryEvtxWriter writes on Close)
+# evtx_path = "/var/log/cee-exporter/audit.evtx"
 
 # Multi-target example (fan-out to both GELF and EVTX)
 # type    = "multi"
