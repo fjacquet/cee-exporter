@@ -14,10 +14,23 @@
 # HTTP listener
 # ─────────────────────────────────────────────────────────────────────────────
 [listen]
-addr      = "0.0.0.0:12228"
-tls       = false
+addr     = "0.0.0.0:12228"
+# tls_mode selects certificate provisioning: "off" | "manual" | "acme" | "self-signed"
+# Backward compat: old tls=true + cert_file/key_file is automatically migrated to tls_mode="manual"
+tls_mode = "off"
+
+# tls_mode = "manual": provide paths to certificate and private key
 # cert_file = "/etc/cee-exporter/tls/server.crt"
 # key_file  = "/etc/cee-exporter/tls/server.key"
+
+# tls_mode = "acme": Let's Encrypt automatic certificate (requires port 443 reachable)
+# acme_domains        = ["cepa.example.com"]
+# acme_email          = "ops@example.com"
+# acme_cache_dir      = "/var/cache/cee-exporter/acme"
+# acme_challenge_addr = ":443"
+
+# tls_mode = "self-signed": runtime-generated ECDSA cert, no files needed
+# (no additional fields required)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Output backend
