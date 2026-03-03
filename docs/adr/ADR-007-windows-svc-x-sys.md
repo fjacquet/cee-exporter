@@ -1,6 +1,6 @@
 # ADR-007: Use golang.org/x/sys/windows/svc for Windows Service registration
 
-**Status:** accepted
+**Status:** superseded by [ADR-010](ADR-010-kardianos-service-windows-scm.md)
 
 ## Context
 
