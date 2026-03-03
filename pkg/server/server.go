@@ -47,7 +47,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	body, err := readBody(w, r)
 	if err != nil {
 		slog.Error("cepa_body_read_error", "remote", r.RemoteAddr, "error", err)
