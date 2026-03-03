@@ -55,3 +55,12 @@ workers  = 4       # concurrent writer goroutines
 [logging]
 level  = "info"  # debug | info | warn | error
 format = "json"  # json (production) | text (development)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Prometheus /metrics endpoint
+# Scrape with: curl http://HOST:9228/metrics
+# Default port 9228 is separate from the CEPA listener port 12228.
+# ─────────────────────────────────────────────────────────────────────────────
+[metrics]
+enabled = true
+addr    = "0.0.0.0:9228"
