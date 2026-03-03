@@ -90,6 +90,7 @@ flowchart TD
 - [**Operator Guide**](operator-guide.md) — installation, all config fields, TLS setup, CEPA registration, troubleshooting
 - [**Product Requirements (PRD)**](PRD.md) — problem statement, goals, personas, v2 requirements
 - [**v2.0 Research Notes**](v2-research.md) — technology stack decisions, pitfalls, CEPA protocol findings
+- [**Research Archive**](research/index.md) — full phase-by-phase research (stack, architecture, pitfalls, code examples)
 - **Architecture Decision Records:**
   - [ADR-001](adr/ADR-001-language-go.md) — Go as implementation language
   - [ADR-002](adr/ADR-002-gelf-primary-linux.md) — GELF as primary Linux output
