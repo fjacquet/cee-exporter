@@ -7,6 +7,7 @@
 ---
 
 <phase_requirements>
+
 ## Phase Requirements
 
 | ID | Description | Research Support |
@@ -288,9 +289,9 @@ SYSTEMD_UNIT_SRC := deploy/systemd/cee-exporter.service
 SYSTEMD_UNIT_DST := /etc/systemd/system/cee-exporter.service
 
 install-systemd: $(SYSTEMD_UNIT_SRC)
-	install -m 644 $(SYSTEMD_UNIT_SRC) $(SYSTEMD_UNIT_DST)
-	systemctl daemon-reload
-	@echo "Unit installed. Run: systemctl enable --now cee-exporter"
+ install -m 644 $(SYSTEMD_UNIT_SRC) $(SYSTEMD_UNIT_DST)
+ systemctl daemon-reload
+ @echo "Unit installed. Run: systemctl enable --now cee-exporter"
 ```
 
 ### Anti-Patterns to Avoid
@@ -318,42 +319,49 @@ install-systemd: $(SYSTEMD_UNIT_SRC)
 ## Common Pitfalls
 
 ### Pitfall 1: Prometheus Mux Collision
+
 **What goes wrong:** Registering `/metrics` on the CEPA `http.ServeMux` (port 12228) causes 404 when CEPA TLS is enabled (scraper without client cert gets TLS error), or 405 when the CEPA handler rejects GET methods, or log pollution from scrape requests.
 **Why it happens:** Developers reach for the existing server variable as the obvious integration point.
 **How to avoid:** Create a dedicated `http.ServeMux` and `http.Server` in `pkg/prometheus`, bind to port 9228, start in its own goroutine. The two servers are completely independent.
 **Warning signs:** Prometheus scrape returning 404 or TLS handshake errors; CEPA logs showing `/metrics` GET requests.
 
 ### Pitfall 2: Parallel Counter Drift (DefaultRegisterer + own atomics)
+
 **What goes wrong:** If you register a `prometheus.Counter` on DefaultRegisterer AND also maintain `pkg/metrics.Store.EventsReceivedTotal` as a separate atomic, the two values diverge immediately under concurrent writes because they are incremented by different code paths.
 **Why it happens:** Temptation to use `promauto.NewCounter` (auto-registers on DefaultRegisterer) for convenience, then forget the existing `pkg/metrics` atomics are also being incremented.
 **How to avoid:** `NewCounterFunc` wraps the existing atomic. The atomic is always the value. The Prometheus callback just reads it. One source of truth.
 **Warning signs:** `cee_events_received_total` in Prometheus scrape is lower than actual event count; discrepancy grows over time.
 
 ### Pitfall 3: Cardinality Explosion via Labels
+
 **What goes wrong:** Adding `event_id` as a label with `prometheus.Labels{"event_id": strconv.Itoa(e.EventID)}` on a CounterVec. EventIDs are a small bounded set (3-4 values), so this is acceptable. But `ObjectName` or `SubjectUsername` as labels creates millions of distinct metric series.
 **Why it happens:** Over-instrumentation driven by "more is better" thinking.
 **How to avoid:** Phase 4 metrics have NO labels — they are plain counters and gauges. If per-EventID counters are wanted in future, use a `CounterVec` with ONLY `event_id` as a label dimension.
 **Warning signs:** Prometheus scrape payload growing unboundedly; Prometheus server OOM.
 
 ### Pitfall 4: Blocking Collect in CounterFunc
+
 **What goes wrong:** The `func() float64` passed to `NewCounterFunc` does expensive work (I/O, locking, network call). Prometheus calls this from the HTTP handler goroutine during `/metrics` scrape. Blocking the scrape blocks the Prometheus scraper timeout.
 **Why it happens:** Developers put non-trivial logic in the callback.
 **How to avoid:** The callback must only call `.Load()` on `pkg/metrics.Store` atomics — a nanosecond-scale operation. No I/O, no mutexes, no allocation.
 **Warning signs:** Prometheus scrape timeout errors; `/metrics` requests taking > 1 second.
 
 ### Pitfall 5: Systemd Type=forking or Type=notify
+
 **What goes wrong:** Using `Type=forking` causes systemd to wait indefinitely for a parent process to exit (Go daemons don't fork). Using `Type=notify` requires the Go binary to send `READY=1` via sd_notify socket, which is not wired in Phase 4 code — the service will be killed by systemd after `TimeoutStartSec` expires.
 **Why it happens:** Copy-paste from old unit file templates; confusion with traditional C daemons.
 **How to avoid:** Use `Type=simple`. systemd considers the service running immediately when the process starts. This is correct for Go's goroutine-based server model.
 **Warning signs:** Service shows `activating` state indefinitely; `journalctl -u cee-exporter` shows no output.
 
 ### Pitfall 6: Missing network-online.target vs network.target
+
 **What goes wrong:** Using `After=network.target` means the service starts as soon as the network stack is initialized, before any interfaces have IP addresses. If cee-exporter connects to a GELF/syslog target at startup, the connection will fail.
 **Why it happens:** `network.target` is commonly copy-pasted but is subtly wrong for services that make outbound connections.
 **How to avoid:** Use `After=network-online.target` + `Wants=network-online.target`. This waits until at least one network interface has a routable IP address. (Source: systemd.io/NETWORK_ONLINE/)
 **Warning signs:** Service fails immediately at boot with "connection refused" but works after a manual `systemctl restart cee-exporter`.
 
 ### Pitfall 7: ProtectSystem=strict Without ReadWritePaths
+
 **What goes wrong:** `ProtectSystem=strict` mounts the entire filesystem read-only. If cee-exporter writes logs to `/var/log/cee-exporter` or EVTX files to a path on the filesystem, those writes fail with "read-only file system" error.
 **Why it happens:** Enabling strict hardening without auditing what the process actually writes.
 **How to avoid:** Add `ReadWritePaths=/var/log/cee-exporter` (or wherever log/evtx output goes). The EnvironmentFile `-/etc/cee-exporter/env` is read-only — that is correct. Only write paths need `ReadWritePaths`.
@@ -522,6 +530,7 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 | `ProtectSystem=full` | `ProtectSystem=strict` + `ReadWritePaths=` | `strict` available since systemd 232 (all relevant distros) | Stricter isolation; /etc also read-only in strict mode |
 
 **Deprecated/outdated:**
+
 - `prometheus/client_golang` before v1.23.2: Avoid — older versions had `go.uber.org/atomic` and `grafana/regexp` transitive deps that break `CGO_ENABLED=0`. Version v1.23.2 (released 2025-09-05) drops these.
 - `Type=forking` for Go daemons: Never correct for Go. Go's HTTP server goroutine model is incompatible with fork semantics.
 
@@ -551,6 +560,7 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 The planner should produce tasks covering these concrete changes:
 
 **Go changes (main.go):**
+
 - [ ] Extract `main()` body into `run()` function
 - [ ] Add `runWithServiceManager(run)` call in `main()`
 - [ ] Add `MetricsConfig` struct to `Config`
@@ -559,18 +569,22 @@ The planner should produce tasks covering these concrete changes:
 - [ ] Add metrics server goroutine in `run()` after CEPA server starts
 
 **New Go file:**
+
 - [ ] Create `pkg/prometheus/handler.go` with `NewMetricsHandler()` and `Serve(addr string) error`
 - [ ] Create `cmd/cee-exporter/service_notwindows.go` with `//go:build !windows` shim
 
 **New Go test:**
+
 - [ ] Create `pkg/prometheus/handler_test.go` verifying all 4 required metric names appear in scrape output
 
 **Non-Go files:**
+
 - [ ] Create `deploy/systemd/cee-exporter.service`
 - [ ] Update `config.toml.example` with `[metrics]` section
 - [ ] Add `install-systemd` target to `Makefile`
 
 **go.mod:**
+
 - [ ] `go get github.com/prometheus/client_golang@v1.23.2`
 - [ ] `go mod tidy`
 
@@ -601,6 +615,7 @@ The planner should produce tasks covering these concrete changes:
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack (prometheus/client_golang v1.23.2): HIGH — verified at pkg.go.dev, version confirmed 2025-09-05
 - Architecture (custom registry + CounterFunc wrapping): HIGH — confirmed against official prometheus client_golang examples
 - Pitfalls (mux collision, counter drift, cardinality): HIGH — derived from codebase inspection + official library design constraints

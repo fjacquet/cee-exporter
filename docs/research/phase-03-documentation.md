@@ -5,6 +5,7 @@
 **Confidence:** HIGH
 
 <phase_requirements>
+
 ## Phase Requirements
 
 | ID | Description | Research Support |
@@ -205,6 +206,7 @@ For a self-contained daemon rather than a user-facing product:
 **Warning signs:** TLS handshake fails with `certificate has no suitable IP SANs` or `certificate relies on legacy CN`.
 
 **Correct openssl command:**
+
 ```bash
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes \
   -keyout server.key -out server.crt \
@@ -285,6 +287,7 @@ format = "json"                 # string: "json"|"text", default: "json"
 ```
 
 **Environment variable overrides:**
+
 - `CEE_LOG_LEVEL` — overrides `[logging] level`
 - `CEE_LOG_FORMAT` — overrides `[logging] format`
 
@@ -320,6 +323,7 @@ openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes \
 ```
 
 Configure cee-exporter:
+
 ```toml
 [listen]
 addr      = "0.0.0.0:12228"
@@ -343,6 +347,7 @@ key_file  = "/etc/cee-exporter/tls/server.key"
 ```
 
 Test that Graylog is receiving:
+
 ```bash
 echo -n '{"version":"1.1","host":"test","short_message":"cee-exporter test","level":6}' \
   | nc -w0 -u graylog.corp.local 12201
@@ -371,6 +376,7 @@ Steps (PowerStore Web UI):
 ```
 
 **Critical:** Port 12228 must be reachable from the PowerStore NAS server's IP to the cee-exporter host. Verify with:
+
 ```bash
 # From a host that can reach both:
 nc -zv <cee-exporter-ip> 12228
@@ -500,6 +506,7 @@ Based on the key decisions documented in PROJECT.md and STATE.md:
 | Long-form ADR with 10+ fields | Nygard 3-field ADR (Context, Decision, Consequences) | 2011 (Nygard), dominant ~2019 | Simpler and more widely adopted |
 
 **Deprecated/outdated:**
+
 - `openssl req -subj '/CN=hostname'` without SAN: rejected by Go TLS, modern browsers, and Java since ~2020
 - GELF chunked UDP messages for large payloads: still supported by Graylog but TCP is cleaner
 
@@ -537,14 +544,14 @@ Based on the key decisions documented in PROJECT.md and STATE.md:
 - `docs/PowerStore_CEPA_CEE vers EVTX.txt` — Architecture analysis with protocol details
 - `.planning/PROJECT.md` — Key decisions table used for ADR derivation
 - `.planning/REQUIREMENTS.md` — DOC-01..DOC-04 requirement text
-- https://keepachangelog.com/en/1.0.0/ — Keep a Changelog format specification (fetched, verified)
-- https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions.html — Nygard ADR format (fetched, verified)
+- <https://keepachangelog.com/en/1.0.0/> — Keep a Changelog format specification (fetched, verified)
+- <https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions.html> — Nygard ADR format (fetched, verified)
 
 ### Secondary (MEDIUM confidence)
 
-- https://kb.peersoftware.com/kb/dell-powerstore-configuration-guide — PowerStore CEPA configuration steps (fetched, detailed and consistent with Dell docs)
-- https://go2docs.graylog.org/current/getting_in_log_data/gelf.html — Graylog GELF input setup (verified via WebSearch)
-- https://www.dell.com/support/manuals/en-us/powerstore-500t/pwrstr-cfg-nfs/events-publishing — Dell PowerStore event publishing (403 on direct fetch; steps confirmed via WebSearch and PeerSoftware KB)
+- <https://kb.peersoftware.com/kb/dell-powerstore-configuration-guide> — PowerStore CEPA configuration steps (fetched, detailed and consistent with Dell docs)
+- <https://go2docs.graylog.org/current/getting_in_log_data/gelf.html> — Graylog GELF input setup (verified via WebSearch)
+- <https://www.dell.com/support/manuals/en-us/powerstore-500t/pwrstr-cfg-nfs/events-publishing> — Dell PowerStore event publishing (403 on direct fetch; steps confirmed via WebSearch and PeerSoftware KB)
 - WebSearch results for openssl SAN certificate generation — multiple sources agree on `-addext` approach for openssl >= 1.1.1
 
 ### Tertiary (LOW confidence)
@@ -556,6 +563,7 @@ Based on the key decisions documented in PROJECT.md and STATE.md:
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH — no new libraries; pure documentation
 - README content (config, TLS): HIGH — extracted directly from source code
 - CEPA configuration steps: MEDIUM — confirmed via PeerSoftware KB and WebSearch; direct Dell docs returned 403

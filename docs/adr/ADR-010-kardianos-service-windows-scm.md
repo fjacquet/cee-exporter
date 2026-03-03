@@ -52,6 +52,7 @@ service.KeyValue{
 ```
 
 The `runWithServiceManager` function in `cmd/cee-exporter/service_windows.go` handles:
+
 - `install` subcommand → `s.Install()`
 - `uninstall` subcommand → `s.Uninstall()`
 - SCM context → `s.Run()` (calls `Start`/`Stop` methods)

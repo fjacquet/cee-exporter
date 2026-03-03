@@ -234,6 +234,7 @@ Key constraints:
 | `"self-signed"` | Air-gapped, private networks, testing | None |
 
 Key ACME operational constraints:
+
 - Let's Encrypt rate limit: 5 duplicate certificates per 7 days — use `acme_staging = true` during development.
 - `DirCache` must be on persistent storage (mount a volume in Docker).
 - Port 443 binding requires `AmbientCapabilities=CAP_NET_BIND_SERVICE` in the systemd unit.
