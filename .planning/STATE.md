@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Milestone: v2.0 Operations & Output Expansion
 Phase: 4 of 7 (Observability & Linux Service)
-Plan: — (ready to plan)
-Status: Ready to plan
-Last activity: 2026-03-03 — v2.0 roadmap created (phases 4-7 defined, 16/16 requirements mapped)
+Plan: 2 of N completed
+Status: In progress
+Last activity: 2026-03-03 — 04-02 complete: hardened systemd unit file and Makefile install-systemd target
 
-Progress: [░░░░░░░░░░] 0% (v2.0 phases not started)
+Progress: [██░░░░░░░░] ~10% (Phase 4 plans 04-01, 04-02 complete)
 
 ## Performance Metrics
 
@@ -32,13 +32,15 @@ Progress: [░░░░░░░░░░] 0% (v2.0 phases not started)
 | 01-quality | 3 | 6 min | 2 min |
 | 02-build | 1 | 2 min | 2 min |
 | 03-documentation | 2 | 4 min | 2 min |
+| 04-observability-linux-service | 2 (in progress) | 2 min | 1 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-02 (2 min), 01-03 (2 min), 02-01 (2 min), 03-01 (2 min), 03-02 (2 min)
+- Last 5 plans: 01-03 (2 min), 02-01 (2 min), 03-01 (2 min), 03-02 (2 min), 04-02 (1 min)
 - Trend: Stable
 
 *Updated after each plan completion*
+| Phase 04-observability-linux-service P04-01 | 2 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -53,6 +55,10 @@ Recent decisions affecting v2.0:
 - BeatsWriter wraps `go-lumber` SyncClient behind `sync.Mutex` — mirrors GELFWriter reconnect pattern
 - BinaryEvtxWriter isolated in Phase 7 — highest complexity, independent of all other phases
 - Phase 5 (Windows Service) depends on Phase 4 for `main()` → `run()` refactor before adding service wrapper
+- 04-02: Type=simple for Go daemon systemd unit (not Type=notify — sd_notify deferred to OBS-F02)
+- 04-02: Wants=network-online.target (not Requires=) to avoid hard boot failure if networkd absent
+- [Phase 04-observability-linux-service]: Used prometheus.NewRegistry() (private) not DefaultRegisterer — keeps scrape output clean (cee_* only)
+- [Phase 04-observability-linux-service]: Package named ceeprometheus to avoid import collision with prometheus client library
 
 ### Pending Todos
 
@@ -68,5 +74,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: v2.0 roadmap created — phases 4-7 defined, all 16 requirements mapped
+Stopped at: Completed 04-02-PLAN.md — hardened systemd unit file and Makefile install-systemd target
 Resume file: None
