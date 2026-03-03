@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Quality** - Fix readBody bug and add unit tests for parser, mapper, queue, and GELF payload builder (completed 2026-03-02)
 - [x] **Phase 2: Build** - Makefile with build, test, lint, and cross-compile targets; Windows binary verified (completed 2026-03-02)
-- [ ] **Phase 3: Documentation** - README with quickstart, config reference, TLS setup, and CEPA registration
+- [ ] **Phase 3: Documentation** - README with quickstart, config reference, TLS setup, and CEPA registration; plus ADR files, PRD, and CHANGELOG
 
 ## Phase Details
 
@@ -57,7 +57,7 @@ Plans:
 
 ### Phase 3: Documentation
 
-**Goal**: An operator unfamiliar with the codebase can install, configure, and connect cee-exporter to Graylog and a Dell PowerStore CEPA publisher using only the README
+**Goal**: An operator unfamiliar with the codebase can install, configure, and connect cee-exporter to Graylog and a Dell PowerStore CEPA publisher using only the README; project governance artifacts (ADR, PRD, CHANGELOG) are present for future contributors
 **Depends on**: Phase 2
 **Requirements**: DOC-01, DOC-02, DOC-03, DOC-04
 **Success Criteria** (what must be TRUE):
@@ -66,12 +66,15 @@ Plans:
   2. README documents every config.toml field with type, default, and example value
   3. README shows how to generate a self-signed TLS certificate and configure cee-exporter to use it
   4. README explains how to configure a Dell PowerStore Event Publishing Pool to send events to cee-exporter
-**Plans**: TBD
+  5. CHANGELOG.md documents the v1.0.0 release with all shipped features
+  6. Five ADR files document the key architectural decisions in Nygard format
+  7. docs/PRD.md describes product intent, personas, and scope
+**Plans**: 2 plans
 
 Plans:
 
-- [ ] 03-01: Write README quickstart and config reference sections (DOC-01, DOC-02)
-- [ ] 03-02: Write README TLS setup and CEPA registration sections (DOC-03, DOC-04)
+- [ ] 03-01-PLAN.md — Write complete README.md (quickstart, config reference, TLS setup, CEPA registration) (DOC-01, DOC-02, DOC-03, DOC-04)
+- [ ] 03-02-PLAN.md — Write CHANGELOG.md, docs/PRD.md, and five ADR files in docs/adr/
 
 ## Progress
 
