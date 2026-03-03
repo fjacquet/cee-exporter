@@ -25,10 +25,10 @@ Requirements for the v2.0 Operations & Output Expansion milestone.
 
 ### Output Targets
 
-- [ ] **OUT-01**: Operator can configure BeatsWriter to forward events to Logstash or Graylog Beats Input via Lumberjack v2 protocol
-- [ ] **OUT-02**: BeatsWriter supports TLS for encrypted Beats transport
-- [ ] **OUT-03**: Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over UDP
-- [ ] **OUT-04**: Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over TCP
+- [x] **OUT-01**: Operator can configure BeatsWriter to forward events to Logstash or Graylog Beats Input via Lumberjack v2 protocol
+- [x] **OUT-02**: BeatsWriter supports TLS for encrypted Beats transport
+- [x] **OUT-03**: Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over UDP
+- [x] **OUT-04**: Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over TCP
 - [ ] **OUT-05**: Operator can configure BinaryEvtxWriter to write native `.evtx` files on Linux
 - [ ] **OUT-06**: `.evtx` files generated on Linux open correctly in Windows Event Viewer and can be parsed by forensics tools
 
@@ -79,14 +79,15 @@ Which phases cover which requirements. Populated during roadmap creation.
 | DEPLOY-03 | Phase 5 | Complete |
 | DEPLOY-04 | Phase 5 | Complete |
 | DEPLOY-05 | Phase 5 | Complete |
-| OUT-01 | Phase 6 | Pending |
-| OUT-02 | Phase 6 | Pending |
-| OUT-03 | Phase 6 | Pending |
-| OUT-04 | Phase 6 | Pending |
+| OUT-01 | Phase 6 | Complete |
+| OUT-02 | Phase 6 | Complete |
+| OUT-03 | Phase 6 | Complete |
+| OUT-04 | Phase 6 | Complete |
 | OUT-05 | Phase 7 | Pending |
 | OUT-06 | Phase 7 | Pending |
 
 **Coverage:**
+
 - v2 requirements: 16 total
 - Mapped to phases: 16 (roadmap complete)
 - Unmapped: 0

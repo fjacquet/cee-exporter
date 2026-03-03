@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Milestone: v2.0 Operations & Output Expansion
-Phase: 5 of 7 (Windows Service) — COMPLETE
-Plan: 3 of 3 completed
+Phase: 6 of 7 (Syslog & Beats Writers) — In Progress
+Plan: 2 of 3 completed
 Status: In progress
-Last activity: 2026-03-03 — 05-03 complete: full Windows SCM wrapper, DEPLOY-03/04/05 done
+Last activity: 2026-03-03 — 06-02 complete: BeatsWriter with go-lumber SyncClient, TLS dialer injection, OUT-01/OUT-02 done
 
-Progress: [█████░░░░░] ~29% (Phase 4 complete, Phase 5 complete — all 3 plans done)
+Progress: [██████░░░░] ~43% (Phase 4-5 complete, Phase 6 Plan 02 done)
 
 ## Performance Metrics
 
@@ -44,6 +44,8 @@ Progress: [█████░░░░░] ~29% (Phase 4 complete, Phase 5 compl
 
 | Phase 05-windows-service P02 | 4 min | 1 task | 1 file |
 | Phase 05-windows-service P03 | 1 | 1 tasks | 1 files |
+| Phase 06-siem-writers P02 | 3 | 3 tasks | 4 files |
+| Phase 06-siem-writers P01 | 5 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -52,6 +54,7 @@ Progress: [█████░░░░░] ~29% (Phase 4 complete, Phase 5 compl
 Full decision log in PROJECT.md Key Decisions table.
 
 Recent decisions affecting v2.0:
+
 - Use `prometheus/client_golang` v1.23.2+ to avoid CGO_ENABLED=0 breakage from older transitive deps
 - Prometheus /metrics on dedicated port 9228 (not on CEPA mux port 12228) — avoids TLS scrape config and log pollution
 - Use `crewjam/rfc5424` + `net.Conn` for SyslogWriter — avoids stdlib `log/syslog` Windows build exclusion
@@ -69,6 +72,12 @@ Recent decisions affecting v2.0:
 - [Phase 05-windows-service]: parseCfgPath has no build tag — compiles on Linux CI without Win32 surface, enabling full TDD coverage cross-platform
 - [Phase 05-windows-service]: Test file uses package main (white-box) per CLAUDE.md convention; stdlib only, no testify
 - [Phase 05-windows-service]: service_windows.go full SCM wrapper: Start() goroutine, Stop() cancel(), Arguments stripped of subcommand, DelayedAutoStart + OnFailure recovery via kardianos/service KeyValue
+- [Phase 06-siem-writers]: go-lumber TLS injection via SyncDialWith with tls.Dialer (MinVersion TLS 1.2) — go-lumber has no TLS Option
+- [Phase 06-siem-writers]: sync.Mutex wraps every SyncClient.Send — SyncClient is not thread-safe
+- [Phase 06-siem-writers]: SyncClient closed and recreated on error (cannot recover) — mirrors GELFWriter reconnect pattern
+- [Phase 06-siem-writers]: Use crewjam/rfc5424 instead of stdlib log/syslog — log/syslog excluded from Windows builds
+- [Phase 06-siem-writers]: audit@32473 SD-ID for SyslogWriter structured data element (IANA example PEN per RFC 5612)
+- [Phase 06-siem-writers]: ProcessID uses NILVALUE '-' when WindowsEvent.ProcessID==0 to comply with RFC 5424 PROCID grammar
 
 ### Pending Todos
 
@@ -79,10 +88,10 @@ None.
 - Win32 EventID registration: IDs 4663/4660/4670 may need message DLL for correct Event Viewer display — deferred to v2 follow-up
 - Phase 7 scope estimate (600-1200 LOC) unvalidated — spike implementation required as first Phase 7 task
 - Phase 5: COMPLETE — kardianos/service SCM wrapper deployed, DEPLOY-03/04/05 satisfied
-- Phase 6: verify go-lumber `SyncDialWith` TLS reconnect API from source before BeatsWriter implementation
+- Phase 6: go-lumber `SyncDialWith` TLS API verified from source — BeatsWriter implemented (Plan 02 complete)
 
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 05-03-PLAN.md — full Windows SCM wrapper in service_windows.go; DEPLOY-03/04/05 complete; Phase 5 done; ready for Phase 6
+Stopped at: Completed 06-02-PLAN.md — BeatsWriter with go-lumber SyncClient, SyncDialWith TLS injection, mutex-serialized Send; OUT-01/OUT-02 satisfied; ready for Phase 6 Plan 03
 Resume file: None
