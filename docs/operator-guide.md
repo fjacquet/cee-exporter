@@ -101,7 +101,7 @@ level  = "info"               # debug | info | warn | error
 format = "json"               # json | text
 ```
 
-### Full config reference
+### TLS config reference
 
 ```toml
 # Optional: override the hostname embedded in every event.
@@ -355,6 +355,7 @@ cee-exporter starts a TLS-ALPN-01 challenge listener on port 443 in addition to 
 CEPA listener on 12228. The certificate is automatically renewed 30 days before expiry.
 
 **Prerequisites:**
+
 - Port 443/TCP must be reachable from the internet
 - `acme_cache_dir` must be on persistent storage (mount a volume if using Docker)
 - On Linux: the systemd unit must have `AmbientCapabilities=CAP_NET_BIND_SERVICE`
@@ -397,9 +398,11 @@ CEPA (Common Event Publishing Agent) is the PowerStore mechanism that sends file
 2. Navigate to **Settings → Security → Audit & CEE**.
 3. In the **CEE servers** section, click **Add**.
 4. Enter the cee-exporter endpoint URL using `http://` — CEPA supports HTTP only:
-   ```
+
+   ```text
    http://192.168.1.10:12228
    ```
+
 5. Leave the **Username** and **Password** fields empty (cee-exporter uses no authentication).
 6. Under **Events to publish**, select all audit event types you want to capture (file create, read, write, delete, ACL change, etc.).
 7. Click **Save**.
