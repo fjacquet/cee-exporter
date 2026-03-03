@@ -82,5 +82,17 @@ Any SIEM can ingest Dell PowerStore file-system audit events as native Windows E
 | Multi-stage Docker (scratch final) | Minimal attack surface; <10 MB image; no shell in prod container | ✓ Good |
 | mkdocs-material for docs site | GitHub Pages deployment from `docs/` with MkDocs Material theme | ✓ Good |
 
+## Current Milestone: v2.0 Operations & Output Expansion
+
+**Goal:** Make cee-exporter production-deployable as a managed service on Linux and Windows, add Prometheus observability, and expand SIEM output targets to cover Beats, syslog, and native .evtx on Linux.
+
+**Target features:**
+- Prometheus `/metrics` endpoint (`cee_events_received_total`, `cee_events_dropped_total`, `cee_queue_depth`)
+- Systemd unit file for Linux service deployment
+- Windows native Service registration
+- Pure-Go BinaryEvtxWriter generating valid .evtx files on Linux (BinXML format)
+- BeatsWriter (Lumberjack v2 protocol) for Logstash/Graylog Beats Input
+- SyslogWriter (RFC 5424 over UDP/TCP)
+
 ---
-*Last updated: 2026-03-03 after v1.0 milestone shipped*
+*Last updated: 2026-03-03 after v2.0 milestone started*

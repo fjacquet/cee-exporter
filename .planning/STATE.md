@@ -9,9 +9,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 ## Current Position
 
-Milestone: v1.0 MVP — SHIPPED 2026-03-03
-Status: Milestone complete — planning v2.0
-Last activity: 2026-03-03 — v1.0 milestone archived (3 phases, 6 plans)
+Milestone: v2.0 Operations & Output Expansion
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-03 — Milestone v2.0 started
 
 ## Performance Metrics
 
