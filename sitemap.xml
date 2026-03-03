@@ -13,6 +13,10 @@
          <lastmod>2026-03-03</lastmod>
     </url>
     <url>
+         <loc>https://fjacquet.github.io/cee-exporter/v2-research/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-001-language-go/</loc>
          <lastmod>2026-03-03</lastmod>
     </url>
@@ -30,6 +34,22 @@
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-005-cgo-disabled/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-006-prometheus-separate-port/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-007-windows-svc-x-sys/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-008-rfc5424-crewjam/</loc>
+         <lastmod>2026-03-03</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-009-binary-evtx-scratch/</loc>
          <lastmod>2026-03-03</lastmod>
     </url>
 </urlset>

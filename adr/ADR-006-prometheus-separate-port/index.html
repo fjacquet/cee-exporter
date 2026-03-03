@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/adr/ADR-001-language-go/">
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/adr/ADR-006-prometheus-separate-port/">
       
       
-        <link rel="prev" href="../../PRD/">
+        <link rel="prev" href="../ADR-005-cgo-disabled/">
       
       
-        <link rel="next" href="../ADR-002-gelf-primary-linux/">
+        <link rel="next" href="../ADR-007-windows-svc-x-sys/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>ADR-001 Language (Go) - cee-exporter</title>
+        <title>ADR-006 Prometheus Port - cee-exporter</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-001-use-go-as-the-implementation-language" class="md-skip">
+        <a href="#adr-006-expose-prometheus-metrics-on-a-dedicated-port-9228" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-001 Language (Go)
+              ADR-006 Prometheus Port
             
           </span>
         </div>
@@ -366,37 +366,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ADR-001 Language (Go)
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../ADR-001-language-go/" class="md-nav__link">
         
   
   
@@ -412,59 +385,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -586,10 +506,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../ADR-006-prometheus-separate-port/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Prometheus Port
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -605,6 +552,59 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -748,22 +748,46 @@
   
 
 
-<h1 id="adr-001-use-go-as-the-implementation-language">ADR-001: Use Go as the implementation language<a class="headerlink" href="#adr-001-use-go-as-the-implementation-language" title="Permanent link">&para;</a></h1>
+<h1 id="adr-006-expose-prometheus-metrics-on-a-dedicated-port-9228">ADR-006: Expose Prometheus /metrics on a dedicated port (9228)<a class="headerlink" href="#adr-006-expose-prometheus-metrics-on-a-dedicated-port-9228" title="Permanent link">&para;</a></h1>
 <p><strong>Status:</strong> accepted</p>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The exporter must run as a single binary on both Linux and Windows without requiring a
-runtime installation (no Python, JVM, Node.js). It must handle concurrent HTTP requests
-within the CEPA 3-second heartbeat timeout. The primary developer has Go expertise. The
-project requires cross-compilation from a Linux CI host to a Windows target.</p>
+<p>v2.0 adds a Prometheus <code>/metrics</code> endpoint to expose the existing atomic counters
+(<code>events_received_total</code>, <code>events_dropped_total</code>, <code>queue_depth</code>, <code>writer_errors_total</code>).</p>
+<p>Two options were considered for where to mount the endpoint:</p>
+<ol>
+<li><strong>Same mux as CEPA</strong> — add <code>/metrics</code> as a fourth route on <code>:12228</code> alongside the
+   CEPA PUT handler and <code>/health</code>.</li>
+<li><strong>Separate HTTP server</strong> — start a second <code>net/http</code> server on a dedicated port
+   (default <code>:9228</code>).</li>
+</ol>
+<p>Arguments against option 1:</p>
+<ul>
+<li>In production, the CEPA listener may be TLS-only (operator configures
+  <code>listen.tls = true</code>). Mounting <code>/metrics</code> on the same mux would force every
+  Prometheus scraper to present a valid TLS client configuration — an operational
+  burden Prometheus operators do not expect.</li>
+<li>Mixing protocol concerns: <code>:12228</code> is a CEPA ingestion endpoint gated for
+  PowerStore network access. Prometheus scrapers typically come from a separate
+  monitoring VLAN and should not be whitelisted on the CEPA firewall rule.</li>
+<li>Industry standard for Go exporters and daemons is a <strong>dedicated metrics port</strong>
+  in the <code>9000–9999</code> range (Prometheus default allocations use <code>:9090</code>, exporters
+  use <code>:9100</code>, <code>:9187</code>, etc.).</li>
+</ul>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>We will implement cee-exporter in Go.</p>
+<p>Prometheus <code>/metrics</code> is served on a <strong>separate HTTP server</strong> bound to a configurable
+port (default <code>0.0.0.0:9228</code>). The existing CEPA mux on <code>:12228</code> is unchanged.</p>
+<p>A new config key <code>[metrics] addr = "0.0.0.0:9228"</code> controls the bind address.
+Setting <code>addr = ""</code> disables the metrics server entirely.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
-<p>Cross-compilation is trivial via GOOS/GOARCH environment variables. The binary has no
-external runtime dependencies. Goroutines and channels map naturally to the async queue
-pattern required by CEPA timing constraints. Win32 API access is available via
-golang.org/x/sys/windows without CGO on the happy path. The trade-off is that pure-Go
-binary EVTX generation requires implementing the BinXML binary format (~500-1500 LOC),
-which is deferred to v2 (see ADR-004).</p>
+<ul>
+<li>The CEPA listener and metrics endpoint can be firewalled independently.</li>
+<li>Prometheus scrapers require no TLS configuration regardless of CEPA TLS settings.</li>
+<li>Operators must open port <code>9228/TCP</code> if scraping from a remote Prometheus instance.</li>
+<li>A second <code>net/http.Server</code> goroutine is started at daemon boot; it participates
+  in the graceful-shutdown sequence alongside the CEPA server.</li>
+<li>Port <code>9228</code> follows the Prometheus convention of allocating ports near the
+  application's primary port (<code>12228</code> → <code>9228</code> by dropping the leading <code>1</code>).</li>
+</ul>
 
 
 

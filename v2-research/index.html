@@ -10,13 +10,11 @@
       
       
       
-        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/PRD/">
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/v2-research/">
       
       
-        <link rel="prev" href="../operator-guide/">
+        <link rel="prev" href="../adr/ADR-009-binary-evtx-scratch/">
       
-      
-        <link rel="next" href="../adr/ADR-001-language-go/">
       
       
         
@@ -27,7 +25,7 @@
     
     
       
-        <title>Product Requirements - cee-exporter</title>
+        <title>v2 Research - cee-exporter</title>
       
     
     
@@ -76,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#product-requirements-document-cee-exporter" class="md-skip">
+        <a href="#v20-research-notes" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +110,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Product Requirements
+              v2 Research
             
           </span>
         </div>
@@ -285,37 +283,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Product Requirements
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../PRD/" class="md-nav__link">
         
   
   
@@ -331,125 +302,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#problem-statement" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Problem Statement
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Goals
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#non-goals-v10" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Non-Goals (v1.0)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#user-personas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        User Personas
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#functional-requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Functional Requirements
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#non-functional-requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Non-Functional Requirements
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#architecture-summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Architecture Summary
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#v10-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        v1.0 Scope
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#success-metrics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Success Metrics
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -769,10 +621,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../v2-research/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2 Research
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -788,6 +667,192 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#v20-feature-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v2.0 Feature Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview-v2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview (v2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#technology-stack-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Technology Stack Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Technology Stack Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-was-already-in-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What was already in v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-dependencies-in-v2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        New dependencies in v2
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-architectural-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Architectural Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Architectural Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prometheus-separate-port-9228" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prometheus: Separate Port 9228
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#windows-service-xsyswindowssvc-not-kardianosservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows Service: x/sys/windows/svc (not kardianos/service)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#syslog-crewjamrfc5424-not-stdlib-logsyslog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Syslog: crewjam/rfc5424 (not stdlib log/syslog)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binaryevtxwriter-implement-from-scratch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BinaryEvtxWriter: Implement from scratch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prometheus-metric-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prometheus Metric Definitions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#binaryevtxwriter-format-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BinaryEvtxWriter — Format Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-pitfalls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Pitfalls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -812,91 +877,317 @@
   
 
 
-<h1 id="product-requirements-document-cee-exporter">Product Requirements Document: cee-exporter<a class="headerlink" href="#product-requirements-document-cee-exporter" title="Permanent link">&para;</a></h1>
-<p><strong>Version:</strong> 1.0.0
-<strong>Date:</strong> 2026-03-03
-<strong>Status:</strong> Implemented</p>
+<h1 id="v20-research-notes">v2.0 Research Notes<a class="headerlink" href="#v20-research-notes" title="Permanent link">&para;</a></h1>
+<p>Research conducted 2026-03-03 before milestone planning. Covers technology stack
+selection, feature design, architecture integration, and known pitfalls for the six
+new capabilities added in v2.0.</p>
 <hr />
-<h2 id="problem-statement">Problem Statement<a class="headerlink" href="#problem-statement" title="Permanent link">&para;</a></h2>
-<p>Dell PowerStore file-system audit events use the CEPA/CEE protocol, which was designed
-for Windows CEE agents. Organizations running Linux-based SIEMs (Graylog, Elasticsearch)
-or unable to deploy Windows infrastructure have no native way to consume these events.</p>
-<p>cee-exporter bridges this gap: it receives CEPA events over HTTP, maps them to Windows
-Event Log semantics, and forwards them to any GELF-capable SIEM or to the native Windows
-Event Log.</p>
+<h2 id="v20-feature-overview">v2.0 Feature Overview<a class="headerlink" href="#v20-feature-overview" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Category</th>
+<th>Complexity</th>
+<th>New Dependency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prometheus <code>/metrics</code> endpoint</td>
+<td>Table stakes</td>
+<td>Low</td>
+<td><code>prometheus/client_golang</code> v1.23.2</td>
+</tr>
+<tr>
+<td>Systemd unit file</td>
+<td>Table stakes</td>
+<td>None (text artifact)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Windows Service registration</td>
+<td>Table stakes</td>
+<td>Medium</td>
+<td>none (x/sys already present)</td>
+</tr>
+<tr>
+<td>SyslogWriter (RFC 5424)</td>
+<td>Table stakes</td>
+<td>Medium</td>
+<td><code>crewjam/rfc5424</code> v0.1.0</td>
+</tr>
+<tr>
+<td>BeatsWriter (Lumberjack v2)</td>
+<td>Differentiator</td>
+<td>Medium</td>
+<td><code>elastic/go-lumber</code> v0.1.1</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter (pure-Go BinXML)</td>
+<td>Differentiator</td>
+<td>High</td>
+<td>none (stdlib only)</td>
+</tr>
+</tbody>
+</table>
 <hr />
-<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h2>
+<h2 id="architecture-overview-v2">Architecture Overview (v2)<a class="headerlink" href="#architecture-overview-v2" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    PS["Dell PowerStore\n(CEPA HTTP PUT)"]
+    Prom["Prometheus\n(scrape /metrics)"]
+
+    subgraph server["pkg/server — :12228"]
+        H["CEPA Handler\nPUT /"]
+        HH["HealthHandler\nGET /health"]
+    end
+
+    subgraph metrics_srv["pkg/prometheus — :9228"]
+        MH["MetricsHandler\nGET /metrics"]
+    end
+
+    subgraph proc["Processing"]
+        P["pkg/parser\nCEE XML → []CEPAEvent"]
+        M["pkg/mapper\nCEPAEvent → WindowsEvent"]
+    end
+
+    Q["pkg/queue\nAsync worker pool"]
+
+    subgraph writers["pkg/evtx — Writers"]
+        GW["GELFWriter\nUDP/TCP"]
+        WW["Win32Writer\nWindows only"]
+        MW["MultiWriter\nfan-out"]
+        BW["BeatsWriter\nLumberjack v2"]
+        SW["SyslogWriter\nRFC 5424 UDP/TCP"]
+        EW["BinaryEvtxWriter\npure-Go .evtx"]
+    end
+
+    subgraph service["Platform Service"]
+        SVC_L["systemd unit\nlinux"]
+        SVC_W["Windows SCM\nwindows"]
+    end
+
+    subgraph atomic["pkg/metrics"]
+        CNT["Atomic Counters\nreceived / dropped / depth"]
+    end
+
+    PS --&gt; H
+    H --&gt; P
+    P --&gt; M
+    M --&gt; Q
+    Q --&gt; GW &amp; WW &amp; MW &amp; BW &amp; SW &amp; EW
+    Q --&gt; CNT
+    CNT --&gt; MH
+    Prom --&gt; MH
+    SVC_L -.manages.-&gt; server
+    SVC_W -.manages.-&gt; server</code></pre>
+<hr />
+<h2 id="technology-stack-decisions">Technology Stack Decisions<a class="headerlink" href="#technology-stack-decisions" title="Permanent link">&para;</a></h2>
+<h3 id="what-was-already-in-v1">What was already in v1<a class="headerlink" href="#what-was-already-in-v1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Version</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>net/http</code></td>
+<td>stdlib</td>
+<td>CEPA listener, TLS</td>
+</tr>
+<tr>
+<td><code>encoding/xml</code></td>
+<td>stdlib</td>
+<td>CEPA XML parsing</td>
+</tr>
+<tr>
+<td><code>log/slog</code></td>
+<td>stdlib</td>
+<td>Structured logging</td>
+</tr>
+<tr>
+<td><code>github.com/BurntSushi/toml</code></td>
+<td>v1.6.0</td>
+<td>Config parsing</td>
+</tr>
+<tr>
+<td><code>golang.org/x/sys</code></td>
+<td>v0.31.0</td>
+<td>Win32 EventLog API</td>
+</tr>
+</tbody>
+</table>
+<h3 id="new-dependencies-in-v2">New dependencies in v2<a class="headerlink" href="#new-dependencies-in-v2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Version</th>
+<th>Feature</th>
+<th>CGO-free</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/prometheus/client_golang</code></td>
+<td>v1.23.2</td>
+<td>Prometheus /metrics</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>github.com/elastic/go-lumber</code></td>
+<td>v0.1.1</td>
+<td>BeatsWriter</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>github.com/crewjam/rfc5424</code></td>
+<td>v0.1.0</td>
+<td>SyslogWriter</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No new dependencies for:</strong> Systemd unit file (text artifact), Windows Service
+(<code>x/sys</code> already present), BinaryEvtxWriter (stdlib only).</p>
+<hr />
+<h2 id="key-architectural-decisions">Key Architectural Decisions<a class="headerlink" href="#key-architectural-decisions" title="Permanent link">&para;</a></h2>
+<h3 id="prometheus-separate-port-9228">Prometheus: Separate Port 9228<a class="headerlink" href="#prometheus-separate-port-9228" title="Permanent link">&para;</a></h3>
+<p>The CEPA listener (<code>:12228</code>) may be TLS-only in production. Mounting <code>/metrics</code> on the
+same mux would require every Prometheus scraper to handle TLS. Industry practice for Go
+exporters is a dedicated port in the <code>9xxx</code> range. <strong>Port 9228</strong> follows from <code>12228</code>
+by convention. See <a href="../adr/ADR-006-prometheus-separate-port/">ADR-006</a>.</p>
+<h3 id="windows-service-xsyswindowssvc-not-kardianosservice">Windows Service: x/sys/windows/svc (not kardianos/service)<a class="headerlink" href="#windows-service-xsyswindowssvc-not-kardianosservice" title="Permanent link">&para;</a></h3>
+<p><code>golang.org/x/sys/windows/svc</code> is already in <code>go.mod</code> for the Win32 EventLog writer.
+<code>kardianos/service</code> is a wrapper that adds no functionality over <code>x/sys</code> for this
+use case. See <a href="../adr/ADR-007-windows-svc-x-sys/">ADR-007</a>.</p>
+<h3 id="syslog-crewjamrfc5424-not-stdlib-logsyslog">Syslog: crewjam/rfc5424 (not stdlib log/syslog)<a class="headerlink" href="#syslog-crewjamrfc5424-not-stdlib-logsyslog" title="Permanent link">&para;</a></h3>
+<p>stdlib <code>log/syslog</code> has the build constraint <code>//go:build !windows</code> and does not compile
+on Windows. It also produces RFC 3164 format (no structured data). <code>crewjam/rfc5424</code>
+is pure Go, cross-platform, and produces correct RFC 5424 SD-ELEMENTs.
+See <a href="../adr/ADR-008-rfc5424-crewjam/">ADR-008</a>.</p>
+<h3 id="binaryevtxwriter-implement-from-scratch">BinaryEvtxWriter: Implement from scratch<a class="headerlink" href="#binaryevtxwriter-implement-from-scratch" title="Permanent link">&para;</a></h3>
+<p>No pure-Go EVTX <em>writer</em> library exists — all known Go EVTX projects are parsers only.
+The implementation uses only stdlib (<code>encoding/binary</code>, <code>hash/crc32</code>, <code>unicode/utf16</code>).
+Estimated at 600–1 200 LOC; assigned its own roadmap phase.
+See <a href="../adr/ADR-009-binary-evtx-scratch/">ADR-009</a>.</p>
+<hr />
+<h2 id="prometheus-metric-definitions">Prometheus Metric Definitions<a class="headerlink" href="#prometheus-metric-definitions" title="Permanent link">&para;</a></h2>
+<p>The existing <code>pkg/metrics</code> atomic counters map directly to Prometheus metrics:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Type</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cee_events_received_total</code></td>
+<td>Counter</td>
+<td><code>metrics.M.EventsReceivedTotal</code></td>
+</tr>
+<tr>
+<td><code>cee_events_dropped_total</code></td>
+<td>Counter</td>
+<td><code>metrics.M.EventsDroppedTotal</code></td>
+</tr>
+<tr>
+<td><code>cee_events_written_total</code></td>
+<td>Counter</td>
+<td><code>metrics.M.EventsWrittenTotal</code></td>
+</tr>
+<tr>
+<td><code>cee_writer_errors_total</code></td>
+<td>Counter</td>
+<td><code>metrics.M.WriterErrorsTotal</code></td>
+</tr>
+<tr>
+<td><code>cee_queue_depth</code></td>
+<td>Gauge</td>
+<td><code>metrics.M.QueueDepth()</code></td>
+</tr>
+</tbody>
+</table>
+<p>Counters use <code>prometheus.NewCounterFunc</code> wrapping the existing atomics. No state
+duplication. Queue depth uses <code>prometheus.NewGaugeFunc</code>.</p>
+<hr />
+<h2 id="binaryevtxwriter-format-summary">BinaryEvtxWriter — Format Summary<a class="headerlink" href="#binaryevtxwriter-format-summary" title="Permanent link">&para;</a></h2>
+<p>The EVTX binary format (per [MS-EVEN6]) has three layers:</p>
+<pre class="mermaid"><code>flowchart LR
+    FH["File Header\n4 096 bytes\nmagic ElfFile\\0\nCRC32 of first 120 B"] --&gt; CH
+    CH["Chunk Header\n512 bytes\nmagic ElfChnk\\0\nstring table\nCRC32"] --&gt; ER
+    ER["Event Records\nvariable length\nBinXML fragment\nFILETIME timestamp\nCRC32 of records"]</code></pre>
+<p>Key constraints:
+- Chunks are exactly 65 536 bytes; new chunk on overflow.
+- Each record carries a globally-monotonic <code>EventRecordID</code>.
+- Timestamps are Windows FILETIME (100 ns intervals since 1601-01-01).
+- BinXML strings are UTF-16LE encoded.
+- v2 implementation: self-contained BinXML fragments per event (no cross-event
+  template sharing). Larger files, simpler implementation, 100% spec-compliant.</p>
+<hr />
+<h2 id="known-pitfalls">Known Pitfalls<a class="headerlink" href="#known-pitfalls" title="Permanent link">&para;</a></h2>
+<p>Critical issues identified during research:</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Pitfall</th>
+<th>Prevention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>CRC32 must use the ANSI polynomial, not IEEE</td>
+<td>Use <code>crc32.ChecksumIEEE</code> — Go's default IS the ANSI poly</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>FILETIME epoch is 1601-01-01, not Unix 1970</td>
+<td>Add 116 444 736 000 000 000 to Unix nanoseconds / 100</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>String table offsets are relative to chunk start</td>
+<td>All offsets computed from chunk base, not file base</td>
+</tr>
+<tr>
+<td>Prometheus</td>
+<td>Registering on <code>prometheus.DefaultRegisterer</code> breaks tests</td>
+<td>Use a custom <code>prometheus.NewRegistry()</code></td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td><code>svc.IsWindowsService()</code> must be called before any log output</td>
+<td>Detect SCM context as the first action in <code>main()</code></td>
+</tr>
+<tr>
+<td>SyslogWriter</td>
+<td>SD-PARAM values must escape <code>"</code>, <code>\</code>, <code>]</code></td>
+<td><code>crewjam/rfc5424</code> handles this; do not pre-escape</td>
+</tr>
+<tr>
+<td>BeatsWriter</td>
+<td>go-lumber <code>SyncClient</code> blocks until ACK</td>
+<td>Use the existing <code>pkg/queue</code> async layer; never call from handler goroutine</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Any SIEM can ingest Dell PowerStore file-system audit events without a Windows host</li>
-<li>Zero runtime dependencies — a single statically-linked Go binary runs on Linux or Windows</li>
-<li>CEPA protocol-compliant listener handles the RegisterRequest handshake and heartbeat
-  timing requirements (3-second response window)</li>
-<li>Operator can configure and run the daemon using only the README (no source code required)</li>
-</ul>
-<hr />
-<h2 id="non-goals-v10">Non-Goals (v1.0)<a class="headerlink" href="#non-goals-v10" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Binary .evtx file generation on Linux (deferred to v2 — see ADR-004)</li>
-<li>Prometheus /metrics endpoint (v2)</li>
-<li>Windows Service installer / systemd unit file (v2)</li>
-<li>High-availability load-balancer configuration (operational concern)</li>
-<li>CAVA antivirus event processing (out of scope)</li>
-<li>RPC/MSRPC transport (Windows-only, adds significant complexity)</li>
-</ul>
-<hr />
-<h2 id="user-personas">User Personas<a class="headerlink" href="#user-personas" title="Permanent link">&para;</a></h2>
-<p><strong>Linux sysadmin (primary)</strong>
-- Runs Graylog on Linux
-- Needs PowerStore NAS file-system audit events in Graylog without deploying Windows
-- Configures cee-exporter with <code>type = "gelf"</code> and directs it at their Graylog GELF input</p>
-<p><strong>Windows sysadmin (secondary)</strong>
-- Uses native Windows Event Viewer or Winlogbeat
-- Deploys cee-exporter.exe on a Windows host
-- Win32 EventLog writer activates automatically on Windows</p>
-<hr />
-<h2 id="functional-requirements">Functional Requirements<a class="headerlink" href="#functional-requirements" title="Permanent link">&para;</a></h2>
-<p>Full requirement list: see <a href=".planning/REQUIREMENTS.md">REQUIREMENTS.md</a></p>
-<p>Summary of v1.0 scope:
-- CEPA protocol: CEPA-01 through CEPA-05
-- Semantic mapping: MAP-01 through MAP-06
-- GELF output: GELF-01 through GELF-04
-- Win32 output: WIN-01, WIN-02
-- Multi-backend: MULTI-01
-- TLS: TLS-01, TLS-02
-- Observability: OBS-01 through OBS-03
-- Quality: QUAL-01 through QUAL-06
-- Build: BUILD-01, BUILD-02
-- Documentation: DOC-01 through DOC-04</p>
-<hr />
-<h2 id="non-functional-requirements">Non-Functional Requirements<a class="headerlink" href="#non-functional-requirements" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>Latency:</strong> HTTP handler must ACK within 3 seconds (CEPA heartbeat constraint)</li>
-<li><strong>Throughput:</strong> Queue capacity 100,000 events default; handles VCAPS batches of thousands per PUT</li>
-<li><strong>Portability:</strong> Single binary; no CGO dependencies; compiles for linux/amd64 and windows/amd64</li>
-<li><strong>Reliability:</strong> TCP GELF reconnects automatically; failed backend does not block others (MultiWriter)</li>
-<li><strong>Observability:</strong> Health endpoint and structured logs on every received batch</li>
-</ul>
-<hr />
-<h2 id="architecture-summary">Architecture Summary<a class="headerlink" href="#architecture-summary" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg/evtx (writers)
-</code></pre></div>
-<ul>
-<li><strong>server:</strong> HTTP handler; ACKs immediately; enqueues events</li>
-<li><strong>parser:</strong> CEE XML → []CEPAEvent</li>
-<li><strong>mapper:</strong> CEPAEvent → WindowsEvent (CEPA type → Windows EventID + access mask)</li>
-<li><strong>queue:</strong> Async worker pool; drops events on overflow with WARN log</li>
-<li><strong>evtx writers:</strong> GELFWriter (UDP/TCP), Win32EventLogWriter, MultiWriter, BinaryEvtxWriter (stub v1)</li>
-</ul>
-<p>For architectural decisions, see <code>docs/adr/</code>.</p>
-<hr />
-<h2 id="v10-scope">v1.0 Scope<a class="headerlink" href="#v10-scope" title="Permanent link">&para;</a></h2>
-<p>All requirements marked v1.0 in REQUIREMENTS.md. Delivered as a single Go binary.</p>
-<hr />
-<h2 id="success-metrics">Success Metrics<a class="headerlink" href="#success-metrics" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>go test ./...</code> passes with zero failures</li>
-<li><code>make build</code> and <code>make build-windows</code> produce runnable binaries</li>
-<li>An operator can follow the README quickstart and see events in Graylog within 15 minutes</li>
+<li><a href="https://github.com/prometheus/client_golang">prometheus/client_golang GitHub</a> — v1.23.2, 2025-09-05</li>
+<li><a href="https://github.com/elastic/go-lumber">elastic/go-lumber GitHub</a> — v0.1.1, Lumberjack v2</li>
+<li><a href="https://github.com/crewjam/rfc5424">crewjam/rfc5424 GitHub</a> — v0.1.0, RFC 5424 read/write</li>
+<li><a href="https://pkg.go.dev/golang.org/x/sys/windows/svc">golang.org/x/sys/windows/svc</a> — Windows Service API</li>
+<li><a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-even6/e6fc7c72-b8c0-475b-aef7-25eaf1a64530">MS-EVEN6 BinXML spec</a></li>
+<li><a href="https://github.com/libyal/libevtx/blob/main/documentation/Windows%20XML%20Event%20Log%20(EVTX).asciidoc">libyal/libevtx format docs</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc5424">RFC 5424</a> — The Syslog Protocol</li>
 </ul>
 
 

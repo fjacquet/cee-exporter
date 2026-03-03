@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/adr/ADR-001-language-go/">
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/adr/ADR-009-binary-evtx-scratch/">
       
       
-        <link rel="prev" href="../../PRD/">
+        <link rel="prev" href="../ADR-008-rfc5424-crewjam/">
       
       
-        <link rel="next" href="../ADR-002-gelf-primary-linux/">
+        <link rel="next" href="../../v2-research/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>ADR-001 Language (Go) - cee-exporter</title>
+        <title>ADR-009 BinaryEvtx Scratch - cee-exporter</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-001-use-go-as-the-implementation-language" class="md-skip">
+        <a href="#adr-009-implement-binaryevtxwriter-from-scratch-no-library-exists" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-001 Language (Go)
+              ADR-009 BinaryEvtx Scratch
             
           </span>
         </div>
@@ -366,37 +366,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ADR-001 Language (Go)
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../ADR-001-language-go/" class="md-nav__link">
         
   
   
@@ -412,59 +385,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -670,10 +590,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../ADR-009-binary-evtx-scratch/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 BinaryEvtx Scratch
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -689,6 +636,59 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -748,22 +748,102 @@
   
 
 
-<h1 id="adr-001-use-go-as-the-implementation-language">ADR-001: Use Go as the implementation language<a class="headerlink" href="#adr-001-use-go-as-the-implementation-language" title="Permanent link">&para;</a></h1>
+<h1 id="adr-009-implement-binaryevtxwriter-from-scratch-no-library-exists">ADR-009: Implement BinaryEvtxWriter from scratch (no library exists)<a class="headerlink" href="#adr-009-implement-binaryevtxwriter-from-scratch-no-library-exists" title="Permanent link">&para;</a></h1>
 <p><strong>Status:</strong> accepted</p>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The exporter must run as a single binary on both Linux and Windows without requiring a
-runtime installation (no Python, JVM, Node.js). It must handle concurrent HTTP requests
-within the CEPA 3-second heartbeat timeout. The primary developer has Go expertise. The
-project requires cross-compilation from a Linux CI host to a Windows target.</p>
+<p>v1 ships a <code>BinaryEvtxWriter</code> stub that returns an error on every call (see ADR-004).
+v2.0 aims to replace the stub with a working implementation that produces <code>.evtx</code> files
+on Linux that Windows Event Viewer, Splunk, Elastic Agent, and forensics tools can open.</p>
+<p>A prerequisite research phase investigated existing Go libraries for EVTX writing:</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/0xrawsec/golang-evtx</code></td>
+<td>Parser only — no write capability</td>
+</tr>
+<tr>
+<td><code>www.velocidex.com/golang/evtx</code></td>
+<td>Parser only</td>
+</tr>
+<tr>
+<td><code>github.com/Velocidex/evtx</code></td>
+<td>Parser only</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No pure-Go EVTX writer library exists in the Go ecosystem as of 2026-03.</strong></p>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>We will implement cee-exporter in Go.</p>
+<p>Implement <code>BinaryEvtxWriter</code> from scratch in <code>pkg/evtx/</code> using only Go standard
+library packages:</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>encoding/binary</code></td>
+<td>Little-endian binary struct serialisation</td>
+</tr>
+<tr>
+<td><code>hash/crc32</code></td>
+<td>Chunk checksum calculation (CRC32 ANSI polynomial)</td>
+</tr>
+<tr>
+<td><code>bytes</code></td>
+<td>In-memory buffer for chunk assembly before flush</td>
+</tr>
+<tr>
+<td><code>unicode/utf16</code></td>
+<td>BinXML stores strings as UTF-16LE</td>
+</tr>
+<tr>
+<td><code>os</code> / <code>io</code></td>
+<td>File write handle and rotation</td>
+</tr>
+</tbody>
+</table>
+<p>The implementation targets the EVTX format as documented in:</p>
+<ul>
+<li>[MS-EVEN6] Windows XML Event Log binary format specification</li>
+<li><code>libyal/libevtx</code> ASCIIDOC format documentation</li>
+</ul>
+<p><strong>Minimum viable structure:</strong></p>
+<ol>
+<li>EVTX file header (4 096 bytes): magic <code>ElfFile\x00</code>, chunk count, CRC32 of first 120 bytes.</li>
+<li>One chunk per N events or per file rotation (65 536 bytes): chunk header <code>ElfChnk\x00</code>,
+   string table, template pointers, CRC32.</li>
+<li>Each <code>WindowsEvent</code> encoded as a self-contained BinXML fragment (no cross-event
+   template sharing in v2 — larger on disk but simpler to implement and verify).</li>
+<li>File rotation when a chunk is full or a configurable interval elapses.</li>
+</ol>
+<p>The writer must implement the existing <code>evtx.Writer</code> interface (<code>WriteEvent</code>, <code>Close</code>).
+It carries the build tag <code>//go:build !windows</code> — on Windows, the <code>Win32EventLogWriter</code>
+writes directly to the Windows Security log, making a file-based writer redundant.</p>
+<p><strong>Verification strategy:</strong> The test suite round-trips generated <code>.evtx</code> files through
+<code>0xrawsec/golang-evtx</code> (parser only, safe to use as a test dependency) to validate
+that every written event can be parsed back correctly.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
-<p>Cross-compilation is trivial via GOOS/GOARCH environment variables. The binary has no
-external runtime dependencies. Goroutines and channels map naturally to the async queue
-pattern required by CEPA timing constraints. Win32 API access is available via
-golang.org/x/sys/windows without CGO on the happy path. The trade-off is that pure-Go
-binary EVTX generation requires implementing the BinXML binary format (~500-1500 LOC),
-which is deferred to v2 (see ADR-004).</p>
+<ul>
+<li>No new production dependencies added to <code>go.mod</code>. Test-only dependency on
+  <code>0xrawsec/golang-evtx</code>.</li>
+<li>Implementation is estimated at 600–1 200 LOC — the highest-complexity feature in v2.0.
+  It is assigned its own roadmap phase.</li>
+<li>The self-contained BinXML approach (no cross-event template sharing) produces larger
+  files than an optimised template-based encoder. Template optimisation is deferred
+  to a future minor release.</li>
+<li>File rotation is an operational necessity (EVTX files are not append-unlimited);
+  operators must configure <code>evtx_rotation_size</code> or <code>evtx_rotation_interval</code>.</li>
+<li><code>CGO_ENABLED=0</code> constraint is satisfied — all packages used are stdlib.</li>
+</ul>
 
 
 

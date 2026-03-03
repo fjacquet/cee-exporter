@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/adr/ADR-001-language-go/">
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/adr/ADR-007-windows-svc-x-sys/">
       
       
-        <link rel="prev" href="../../PRD/">
+        <link rel="prev" href="../ADR-006-prometheus-separate-port/">
       
       
-        <link rel="next" href="../ADR-002-gelf-primary-linux/">
+        <link rel="next" href="../ADR-008-rfc5424-crewjam/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>ADR-001 Language (Go) - cee-exporter</title>
+        <title>ADR-007 Windows Service - cee-exporter</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-001-use-go-as-the-implementation-language" class="md-skip">
+        <a href="#adr-007-use-golangorgxsyswindowssvc-for-windows-service-registration" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-001 Language (Go)
+              ADR-007 Windows Service
             
           </span>
         </div>
@@ -366,37 +366,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ADR-001 Language (Go)
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../ADR-001-language-go/" class="md-nav__link">
         
   
   
@@ -412,59 +385,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -614,10 +534,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../ADR-007-windows-svc-x-sys/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 Windows Service
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -633,6 +580,59 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -748,22 +748,54 @@
   
 
 
-<h1 id="adr-001-use-go-as-the-implementation-language">ADR-001: Use Go as the implementation language<a class="headerlink" href="#adr-001-use-go-as-the-implementation-language" title="Permanent link">&para;</a></h1>
+<h1 id="adr-007-use-golangorgxsyswindowssvc-for-windows-service-registration">ADR-007: Use golang.org/x/sys/windows/svc for Windows Service registration<a class="headerlink" href="#adr-007-use-golangorgxsyswindowssvc-for-windows-service-registration" title="Permanent link">&para;</a></h1>
 <p><strong>Status:</strong> accepted</p>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The exporter must run as a single binary on both Linux and Windows without requiring a
-runtime installation (no Python, JVM, Node.js). It must handle concurrent HTTP requests
-within the CEPA 3-second heartbeat timeout. The primary developer has Go expertise. The
-project requires cross-compilation from a Linux CI host to a Windows target.</p>
+<p>v2.0 adds native Windows Service support so operators can register cee-exporter with
+the Windows Service Control Manager (SCM) instead of using NSSM or manual startup.</p>
+<p>Three implementation approaches were evaluated:</p>
+<ol>
+<li><strong><code>golang.org/x/sys/windows/svc</code> + <code>svc/mgr</code></strong> — the official Go extended stdlib
+   packages for Windows service lifecycle and SCM management.</li>
+<li><strong><code>github.com/kardianos/service</code></strong> — a cross-platform wrapper that delegates to
+   <code>x/sys/windows/svc</code> on Windows and to systemd/launchd on other platforms.</li>
+<li><strong>NSSM (Non-Sucking Service Manager)</strong> — an external executable that wraps any
+   binary as a Windows Service.</li>
+</ol>
+<p>Arguments against option 2 (<code>kardianos/service</code>):</p>
+<ul>
+<li><code>kardianos/service</code> is a thin wrapper around <code>golang.org/x/sys/windows/svc</code>. It
+  adds no functionality that the underlying package does not already provide.</li>
+<li><code>x/sys</code> is <strong>already in <code>go.mod</code></strong> (v0.31.0) as a dependency of the existing
+  Win32 EventLog writer. Using <code>kardianos/service</code> adds a new transitive dependency
+  for zero functional gain.</li>
+<li>The cross-platform abstraction (Linux/macOS service support) is not a goal for
+  cee-exporter: systemd integration on Linux is handled by a static unit file
+  (ADR-implicit), and macOS is not a supported platform.</li>
+</ul>
+<p>Arguments against option 3 (NSSM):</p>
+<ul>
+<li>Breaks the single-artifact deployment contract: the binary is no longer
+  self-sufficient; operators must install NSSM separately.</li>
+<li>Not reproducible in CI/CD pipelines that build and package the daemon.</li>
+</ul>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>We will implement cee-exporter in Go.</p>
+<p>Use <code>golang.org/x/sys/windows/svc</code> and <code>golang.org/x/sys/windows/svc/mgr</code> directly.</p>
+<p>The <code>main</code> binary gains <code>install</code>, <code>uninstall</code>, <code>start</code>, <code>stop</code>, and <code>status</code>
+subcommands implemented in a <code>cmd/cee-exporter/service_windows.go</code> build-tag file.
+At startup, <code>svc.IsWindowsService()</code> detects SCM context and delegates to
+<code>svc.Run("cee-exporter", handler)</code>.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
-<p>Cross-compilation is trivial via GOOS/GOARCH environment variables. The binary has no
-external runtime dependencies. Goroutines and channels map naturally to the async queue
-pattern required by CEPA timing constraints. Win32 API access is available via
-golang.org/x/sys/windows without CGO on the happy path. The trade-off is that pure-Go
-binary EVTX generation requires implementing the BinXML binary format (~500-1500 LOC),
-which is deferred to v2 (see ADR-004).</p>
+<ul>
+<li>No new external dependencies added to <code>go.mod</code>.</li>
+<li>All SCM code is confined to <code>_windows.go</code> build-tag files; Linux build is unaffected.</li>
+<li><code>golang.org/x/sys</code> is an official Go project; breaking changes follow the Go
+  compatibility promise.</li>
+<li>Service installation requires Administrator privileges (<code>mgr.Connect()</code> needs them);
+  this must be documented clearly.</li>
+<li>Recovery actions (auto-restart on failure) are set via <code>mgr.RecoveryActions</code> with a
+  5-second delay — equivalent to <code>Restart=on-failure, RestartSec=5s</code> in systemd.</li>
+</ul>
 
 
 
