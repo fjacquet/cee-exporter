@@ -1,0 +1,79 @@
+# cee-exporter configuration
+# Edit for your environment.
+#
+# Environment variable overrides:
+#   CEE_LOG_LEVEL   — debug | info | warn | error
+#   CEE_LOG_FORMAT  — json | text
+
+# Hostname embedded in every generated event.
+# Defaults to os.Hostname() if not set.
+# Tip: set this to the PowerStore NAS hostname for easier correlation.
+# hostname = "powerstore-nas01"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTTP listener
+# ─────────────────────────────────────────────────────────────────────────────
+[listen]
+addr      = "0.0.0.0:12228"
+tls       = false
+# cert_file = "/etc/cee-exporter/tls/server.crt"
+# key_file  = "/etc/cee-exporter/tls/server.key"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Output backend
+#
+# type = "gelf"   → GELF JSON over UDP/TCP to Graylog (recommended for Linux)
+# type = "evtx"   → Binary .evtx file (Windows: Win32 API; Linux: stub in v1)
+# type = "syslog" → RFC 5424 syslog over UDP/TCP
+# type = "beats"  → Lumberjack v2 (Beats) to Logstash/Graylog
+# type = "multi"  → Fan-out to multiple backends simultaneously
+# ─────────────────────────────────────────────────────────────────────────────
+[output]
+type = "gelf"
+
+# GELF output (Graylog)
+gelf_host     = "graylog.corp.local"
+gelf_port     = 12201
+gelf_protocol = "udp"   # or "tcp"
+gelf_tls      = false   # only applies when gelf_protocol = "tcp"
+
+# EVTX output path (Linux stub / future BinaryEvtxWriter)
+# evtx_path = "/var/log/cee-exporter"
+
+# Multi-target example (fan-out to both GELF and EVTX)
+# type    = "multi"
+# targets = ["gelf", "evtx"]
+
+# --- Syslog output (set type = "syslog" to enable) ---
+# syslog_host     = "syslog.corp.local"
+# syslog_port     = 514           # default: 514
+# syslog_protocol = "udp"         # "udp" or "tcp" (tcp uses RFC 6587 octet-counting)
+# syslog_app_name = "cee-exporter" # default: "cee-exporter"
+
+# --- Beats/Lumberjack v2 output (set type = "beats" to enable) ---
+# beats_host = "logstash.corp.local"
+# beats_port = 5044               # default: 5044 (Logstash/Graylog Beats Input standard port)
+# beats_tls  = false              # true = TLS (requires receiver with TLS Beats Input)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Async queue
+# ─────────────────────────────────────────────────────────────────────────────
+[queue]
+capacity = 100000  # max events buffered before dropping
+workers  = 4       # concurrent writer goroutines
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logging
+# ─────────────────────────────────────────────────────────────────────────────
+[logging]
+level  = "info"  # debug | info | warn | error
+format = "json"  # json (production) | text (development)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Prometheus /metrics endpoint
+# Scrape with: curl http://HOST:9228/metrics
+# Default port 9228 is separate from the CEPA listener port 12228.
+# ─────────────────────────────────────────────────────────────────────────────
+[metrics]
+enabled = true
+addr    = "0.0.0.0:9228"
