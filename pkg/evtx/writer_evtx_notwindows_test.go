@@ -19,6 +19,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf16"
 )
 
 // TestBinaryEvtxWriter_WriteClose verifies that WriteEvent + Close produce a
@@ -36,40 +37,40 @@ func TestBinaryEvtxWriter_WriteClose(t *testing.T) {
 	now := time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC)
 	events := []WindowsEvent{
 		{
-			EventID:        4663,
-			TimeCreated:    now,
-			Computer:       "testhost",
-			ProviderName:   "Microsoft-Windows-Security-Auditing",
-			ObjectName:     "/nas/share/file.txt",
-			SubjectUserSID: "S-1-5-21-123",
+			EventID:         4663,
+			TimeCreated:     now,
+			Computer:        "testhost",
+			ProviderName:    "Microsoft-Windows-Security-Auditing",
+			ObjectName:      "/nas/share/file.txt",
+			SubjectUserSID:  "S-1-5-21-123",
 			SubjectUsername: "testuser",
-			SubjectDomain:  "DOMAIN",
-			AccessMask:     "0x2",
-			CEPAEventType:  "CEPP_FILE_WRITE",
+			SubjectDomain:   "DOMAIN",
+			AccessMask:      "0x2",
+			CEPAEventType:   "CEPP_FILE_WRITE",
 		},
 		{
-			EventID:        4660,
-			TimeCreated:    now.Add(time.Second),
-			Computer:       "testhost",
-			ProviderName:   "Microsoft-Windows-Security-Auditing",
-			ObjectName:     "/nas/share/old.txt",
-			SubjectUserSID: "S-1-5-21-123",
+			EventID:         4660,
+			TimeCreated:     now.Add(time.Second),
+			Computer:        "testhost",
+			ProviderName:    "Microsoft-Windows-Security-Auditing",
+			ObjectName:      "/nas/share/old.txt",
+			SubjectUserSID:  "S-1-5-21-123",
 			SubjectUsername: "testuser",
-			SubjectDomain:  "DOMAIN",
-			AccessMask:     "0x10000",
-			CEPAEventType:  "CEPP_DELETE_FILE",
+			SubjectDomain:   "DOMAIN",
+			AccessMask:      "0x10000",
+			CEPAEventType:   "CEPP_DELETE_FILE",
 		},
 		{
-			EventID:        4670,
-			TimeCreated:    now.Add(2 * time.Second),
-			Computer:       "testhost",
-			ProviderName:   "Microsoft-Windows-Security-Auditing",
-			ObjectName:     "/nas/share/dir",
-			SubjectUserSID: "S-1-5-21-456",
+			EventID:         4670,
+			TimeCreated:     now.Add(2 * time.Second),
+			Computer:        "testhost",
+			ProviderName:    "Microsoft-Windows-Security-Auditing",
+			ObjectName:      "/nas/share/dir",
+			SubjectUserSID:  "S-1-5-21-456",
 			SubjectUsername: "admin",
-			SubjectDomain:  "DOMAIN",
-			AccessMask:     "0x4",
-			CEPAEventType:  "CEPP_SETACL_FILE",
+			SubjectDomain:   "DOMAIN",
+			AccessMask:      "0x4",
+			CEPAEventType:   "CEPP_SETACL_FILE",
 		},
 	}
 
@@ -181,16 +182,16 @@ func TestBinaryEvtxWriter_Concurrent(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			e := WindowsEvent{
-				EventID:        4663,
-				TimeCreated:    time.Now(),
-				Computer:       "testhost",
-				ProviderName:   "Microsoft-Windows-Security-Auditing",
-				ObjectName:     "/nas/file.txt",
-				SubjectUserSID: "S-1-5-21-999",
+				EventID:         4663,
+				TimeCreated:     time.Now(),
+				Computer:        "testhost",
+				ProviderName:    "Microsoft-Windows-Security-Auditing",
+				ObjectName:      "/nas/file.txt",
+				SubjectUserSID:  "S-1-5-21-999",
 				SubjectUsername: "user",
-				SubjectDomain:  "DOMAIN",
-				AccessMask:     "0x2",
-				CEPAEventType:  "CEPP_FILE_WRITE",
+				SubjectDomain:   "DOMAIN",
+				AccessMask:      "0x2",
+				CEPAEventType:   "CEPP_FILE_WRITE",
 			}
 			if err := w.WriteEvent(context.Background(), e); err != nil {
 				t.Errorf("goroutine %d WriteEvent: %v", n, err)
@@ -250,5 +251,121 @@ func TestBinaryEvtxWriter_ParentDirCreated(t *testing.T) {
 
 	if _, err := os.Stat(outPath); err != nil {
 		t.Fatalf("output file not found at nested path: %v", err)
+	}
+}
+
+// TestBinaryEvtxWriter_NameNodeOffsets verifies the static name table layout:
+// - Total size == nameTableSize (242 bytes)
+// - Each entry in nameOffsets points to the correct NameNode in the table
+// - The NameNode at each offset decodes to the expected name
+func TestBinaryEvtxWriter_NameNodeOffsets(t *testing.T) {
+	table := buildNameTable()
+	if uint32(len(table)) != nameTableSize {
+		t.Fatalf("name table size mismatch: got %d bytes, want %d", len(table), nameTableSize)
+	}
+
+	names := []string{
+		"Event", "System", "Provider", "Name", "EventID",
+		"Level", "TimeCreated", "SystemTime", "Computer", "EventData", "Data",
+	}
+
+	for _, name := range names {
+		chunkOffset, ok := nameOffsets[name]
+		if !ok {
+			t.Errorf("name %q missing from nameOffsets", name)
+			continue
+		}
+		// Convert chunk offset to table-relative index (table starts at chunk offset 512)
+		tableIdx := int(chunkOffset) - int(nameTableOffset)
+		if tableIdx < 0 || tableIdx+8 > len(table) {
+			t.Errorf("name %q: chunk offset %d maps to table index %d (out of range)", name, chunkOffset, tableIdx)
+			continue
+		}
+		// NameNode layout: [next(4B)][hash(2B)][length(2B)][UTF-16LE chars]
+		// Read string_length at tableIdx+6
+		strLen := int(table[tableIdx+6]) | int(table[tableIdx+7])<<8
+		if strLen != len([]rune(name)) {
+			t.Errorf("name %q: NameNode string_length = %d, want %d", name, strLen, len([]rune(name)))
+			continue
+		}
+		// Decode UTF-16LE from tableIdx+8
+		u16Bytes := table[tableIdx+8 : tableIdx+8+strLen*2]
+		decoded := make([]uint16, strLen)
+		for i := 0; i < strLen; i++ {
+			decoded[i] = uint16(u16Bytes[i*2]) | uint16(u16Bytes[i*2+1])<<8
+		}
+		got := string(utf16.Decode(decoded))
+		if got != name {
+			t.Errorf("name %q: NameNode decoded as %q", name, got)
+		}
+	}
+}
+
+// TestBinaryEvtxWriter_ChunkLayout verifies the binary layout of the generated chunk:
+// - Name table starts at byte 512 of the chunk (byte 4608 of the file)
+// - The first event record starts at byte 754 of the chunk (byte 4850 of the file)
+// - The first event record begins with the EVTX record signature 0x00002A2A
+func TestBinaryEvtxWriter_ChunkLayout(t *testing.T) {
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "layout.evtx")
+
+	w, err := NewBinaryEvtxWriter(outPath)
+	if err != nil {
+		t.Fatalf("NewBinaryEvtxWriter: %v", err)
+	}
+
+	e := WindowsEvent{
+		EventID:         4663,
+		TimeCreated:     time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC),
+		Computer:        "testhost",
+		ProviderName:    "Microsoft-Windows-Security-Auditing",
+		ObjectName:      "/nas/share/file.txt",
+		SubjectUserSID:  "S-1-5-21-123",
+		SubjectUsername: "testuser",
+		SubjectDomain:   "DOMAIN",
+		AccessMask:      "0x2",
+		CEPAEventType:   "CEPP_FILE_WRITE",
+	}
+	if err := w.WriteEvent(context.Background(), e); err != nil {
+		t.Fatalf("WriteEvent: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	// Chunk starts at evtxFileHeaderSize (4096).
+	chunkStart := evtxFileHeaderSize
+	// Name table at chunk offset 512 → file offset 4608.
+	nameTableFileOffset := chunkStart + int(nameTableOffset)
+	if len(data) < nameTableFileOffset+int(nameTableSize) {
+		t.Fatalf("file too short to contain name table: got %d bytes", len(data))
+	}
+
+	// First NameNode at file offset 4608 should decode "Event" (5 chars, UTF-16LE).
+	// NameNode: [next(4)][hash(2)][length(2)][UTF-16LE chars]
+	nn := data[nameTableFileOffset:]
+	strLen := int(nn[6]) | int(nn[7])<<8
+	if strLen != 5 {
+		t.Errorf("first NameNode string_length = %d, want 5 ('Event')", strLen)
+	}
+
+	// Event record starts at chunk offset 754 → file offset 4096 + 754 = 4850.
+	recordFileOffset := chunkStart + int(evtxRecordsStart)
+	if len(data) < recordFileOffset+4 {
+		t.Fatalf("file too short to reach first record signature: %d bytes", len(data))
+	}
+
+	sig := uint32(data[recordFileOffset]) |
+		uint32(data[recordFileOffset+1])<<8 |
+		uint32(data[recordFileOffset+2])<<16 |
+		uint32(data[recordFileOffset+3])<<24
+	if sig != evtxRecordSignature {
+		t.Errorf("first record signature at offset %d: got 0x%08x, want 0x%08x",
+			recordFileOffset, sig, evtxRecordSignature)
 	}
 }
