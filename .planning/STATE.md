@@ -40,7 +40,6 @@ Progress: [██░░░░░░░░] ~10% (Phase 4 plans 04-01, 04-02 comp
 - Trend: Stable
 
 *Updated after each plan completion*
-| Phase 04-observability-linux-service P04-01 | 2 | 3 tasks | 4 files |
 
 ## Accumulated Context
 

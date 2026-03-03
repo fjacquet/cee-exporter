@@ -9,11 +9,11 @@ Requirements for the v2.0 Operations & Output Expansion milestone.
 
 ### Observability
 
-- [ ] **OBS-01**: Operator can scrape `cee_events_received_total` counter from `/metrics` endpoint
-- [ ] **OBS-02**: Operator can scrape `cee_events_dropped_total` counter from `/metrics` endpoint
-- [ ] **OBS-03**: Operator can scrape `cee_queue_depth` gauge from `/metrics` endpoint
-- [ ] **OBS-04**: Operator can scrape `cee_writer_errors_total` counter from `/metrics` endpoint
-- [ ] **OBS-05**: `/metrics` endpoint is served on a configurable dedicated port (default 9228, separate from CEPA port 12228)
+- [x] **OBS-01**: Operator can scrape `cee_events_received_total` counter from `/metrics` endpoint
+- [x] **OBS-02**: Operator can scrape `cee_events_dropped_total` counter from `/metrics` endpoint
+- [x] **OBS-03**: Operator can scrape `cee_queue_depth` gauge from `/metrics` endpoint
+- [x] **OBS-04**: Operator can scrape `cee_writer_errors_total` counter from `/metrics` endpoint
+- [x] **OBS-05**: `/metrics` endpoint is served on a configurable dedicated port (default 9228, separate from CEPA port 12228)
 
 ### Service Deployment
 
@@ -69,11 +69,11 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OBS-01 | Phase 4 | Pending |
-| OBS-02 | Phase 4 | Pending |
-| OBS-03 | Phase 4 | Pending |
-| OBS-04 | Phase 4 | Pending |
-| OBS-05 | Phase 4 | Pending |
+| OBS-01 | Phase 4 | Complete |
+| OBS-02 | Phase 4 | Complete |
+| OBS-03 | Phase 4 | Complete |
+| OBS-04 | Phase 4 | Complete |
+| OBS-05 | Phase 4 | Complete |
 | DEPLOY-01 | Phase 4 | Complete |
 | DEPLOY-02 | Phase 4 | Complete |
 | DEPLOY-03 | Phase 5 | Pending |
