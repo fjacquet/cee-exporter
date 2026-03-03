@@ -28,10 +28,12 @@
 ## Phase Details
 
 ### Phase 4: Observability & Linux Service
+
 **Goal**: Operators can scrape live telemetry from the daemon and deploy it as a managed Linux service
 **Depends on**: Phase 3 (v1.0 complete)
 **Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05, DEPLOY-01, DEPLOY-02
 **Success Criteria** (what must be TRUE):
+
   1. Operator runs `curl http://host:9228/metrics` and receives Prometheus text with `cee_events_received_total`, `cee_events_dropped_total`, `cee_queue_depth`, and `cee_writer_errors_total` counters
   2. Operator changes the metrics listen address in config.toml and the /metrics endpoint binds to the new port without touching the CEPA port 12228
   3. Operator copies `deploy/systemd/cee-exporter.service` to `/etc/systemd/system/` and runs `systemctl enable --now cee-exporter` and the daemon starts and stays running
@@ -40,15 +42,18 @@
 **Plans**: 3 plans
 
 Plans:
+
 - [ ] 04-01-PLAN.md — Add prometheus/client_golang dependency, implement pkg/prometheus/handler.go, write unit test
 - [ ] 04-02-PLAN.md — Create hardened systemd unit file and Makefile install-systemd target
 - [ ] 04-03-PLAN.md — Refactor main() to run(), wire metrics goroutine, create service_notwindows.go shim
 
 ### Phase 5: Windows Service
+
 **Goal**: Windows operators can register, start, and recover cee-exporter as a native SCM-managed service without external tools
 **Depends on**: Phase 4
 **Requirements**: DEPLOY-03, DEPLOY-04, DEPLOY-05
 **Success Criteria** (what must be TRUE):
+
   1. Operator runs `cee-exporter.exe install` on Windows and the service appears in the Services snap-in (services.msc) with Automatic Delayed Start
   2. Operator runs `cee-exporter.exe uninstall` and the service is removed from SCM with no leftover registry entries
   3. The Windows Service starts within the SCM 30-second window (StartPending sent before Go runtime init completes) and reports Running status in services.msc
@@ -56,26 +61,37 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
+
 - [ ] 05-01-PLAN.md — Add kardianos/service dependency, refactor run() to accept context.Context, update service shims
 - [ ] 05-02-PLAN.md — TDD: parseCfgPath helper (pure function, no build tag, Linux CI testable)
 - [ ] 05-03-PLAN.md — Full service_windows.go SCM wrapper: install/uninstall dispatch, Stop() bridge, recovery actions
 
 ### Phase 6: SIEM Writers
+
 **Goal**: Operators can forward audit events to any syslog-compatible receiver and to Logstash or Graylog Beats Input via Lumberjack v2
 **Depends on**: Phase 4
 **Requirements**: OUT-01, OUT-02, OUT-03, OUT-04
 **Success Criteria** (what must be TRUE):
+
   1. Operator sets `type = "syslog"` with `syslog_protocol = "udp"` in config.toml and audit events arrive at the syslog receiver as valid RFC 5424 messages with structured-data containing audit fields
   2. Operator sets `syslog_protocol = "tcp"` and audit events flow over a persistent TCP connection to the syslog server
   3. Operator sets `type = "beats"` with Logstash or Graylog Beats Input address and audit events arrive as Lumberjack v2 frames readable by the receiver
   4. Operator enables `beats_tls = true` and the Beats connection is established over TLS — plaintext is refused
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+
+- [ ] 06-01-PLAN.md — TDD: SyslogWriter (crewjam/rfc5424 + net.Conn, UDP datagram + TCP octet-counting framing)
+- [ ] 06-02-PLAN.md — TDD: BeatsWriter (go-lumber SyncClient + TLS dialer via SyncDialWith)
+- [ ] 06-03-PLAN.md — Wire SyslogWriter and BeatsWriter into main.go OutputConfig + buildWriter factory
 
 ### Phase 7: BinaryEvtxWriter
+
 **Goal**: Linux operators can configure cee-exporter to write native .evtx files that open correctly in Windows Event Viewer and forensics tools
 **Depends on**: Phase 4
 **Requirements**: OUT-05, OUT-06
 **Success Criteria** (what must be TRUE):
+
   1. Operator sets `type = "evtx"` with an output file path on a Linux host and the daemon writes a .evtx file without crashing or emitting errors
   2. The .evtx file produced on Linux is copied to a Windows machine and opens in Event Viewer showing correct EventIDs (4663, 4660, 4670) with readable audit fields
   3. A forensics tool (Splunk, Elastic Agent, or the `0xrawsec/golang-evtx` parser) reads the file and extracts event records with correct timestamps and subject/object fields
@@ -90,5 +106,5 @@ Plans:
 | 3. Documentation | v1.0 | 2/2 | Complete | 2026-03-03 |
 | 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 5. Windows Service | 3/3 | Complete   | 2026-03-03 | - |
-| 6. SIEM Writers | v2.0 | 0/? | Not started | - |
+| 6. SIEM Writers | v2.0 | 0/3 | Not started | - |
 | 7. BinaryEvtxWriter | v2.0 | 0/? | Not started | - |
