@@ -73,7 +73,7 @@ Plans:
 
 Plans:
 
-- [ ] 03-01-PLAN.md — Write complete README.md (quickstart, config reference, TLS setup, CEPA registration) (DOC-01, DOC-02, DOC-03, DOC-04)
+- [x] 03-01-PLAN.md — Write complete README.md (quickstart, config reference, TLS setup, CEPA registration) (DOC-01, DOC-02, DOC-03, DOC-04)
 - [ ] 03-02-PLAN.md — Write CHANGELOG.md, docs/PRD.md, and five ADR files in docs/adr/
 
 ## Progress
@@ -85,4 +85,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Quality | 3/3 | Complete    | 2026-03-02 |
 | 2. Build | 1/1 | Complete    | 2026-03-02 |
-| 3. Documentation | 0/2 | Not started | - |
+| 3. Documentation | 1/2 | In progress | - |

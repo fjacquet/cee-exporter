@@ -65,10 +65,10 @@
 
 ### Documentation
 
-- [ ] **DOC-01**: README covers installation, prerequisites, quick-start (GELF → Graylog)
-- [ ] **DOC-02**: README documents all config.toml fields with examples
-- [ ] **DOC-03**: README covers TLS setup (self-signed cert generation example)
-- [ ] **DOC-04**: README covers CEPA registration (Dell PowerStore Event Publishing Pool configuration)
+- [x] **DOC-01**: README covers installation, prerequisites, quick-start (GELF → Graylog)
+- [x] **DOC-02**: README documents all config.toml fields with examples
+- [x] **DOC-03**: README covers TLS setup (self-signed cert generation example)
+- [x] **DOC-04**: README covers CEPA registration (Dell PowerStore Event Publishing Pool configuration)
 
 ## v2 Requirements
 
@@ -133,10 +133,10 @@
 | QUAL-06 | Done (pre-roadmap) | Complete |
 | BUILD-01 | Phase 2 (02-01) | Complete |
 | BUILD-02 | Phase 2 (02-01) | Complete |
-| DOC-01 | Phase 3 | Pending |
-| DOC-02 | Phase 3 | Pending |
-| DOC-03 | Phase 3 | Pending |
-| DOC-04 | Phase 3 | Pending |
+| DOC-01 | Phase 3 (03-01) | Complete |
+| DOC-02 | Phase 3 (03-01) | Complete |
+| DOC-03 | Phase 3 (03-01) | Complete |
+| DOC-04 | Phase 3 (03-01) | Complete |
 
 **Coverage:**
 
@@ -149,4 +149,4 @@
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 — BUILD-01, BUILD-02 marked complete (02-01: Makefile build pipeline)*
+*Last updated: 2026-03-03 — DOC-01, DOC-02, DOC-03, DOC-04 marked complete (03-01: README.md operator guide)*
