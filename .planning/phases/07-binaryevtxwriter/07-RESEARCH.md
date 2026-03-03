@@ -7,6 +7,7 @@
 ---
 
 <phase_requirements>
+
 ## Phase Requirements
 
 | ID | Description | Research Support |
@@ -59,9 +60,11 @@ The existing stub in `pkg/evtx/writer_evtx_stub.go` (`//go:build !windows`) is t
 | 0xrawsec/golang-evtx as runtime dep | Velocidex/evtx | Either works as test oracle; 0xrawsec is more widely referenced |
 
 **Installation (test-only oracle):**
+
 ```bash
 go get github.com/0xrawsec/golang-evtx@latest
 ```
+
 Place only in `_test.go` imports so it does not enter the production binary.
 
 ---
@@ -90,6 +93,7 @@ The file `writer_evtx_stub.go` must be **deleted** and replaced with `writer_evt
 **Why:** Full BinXML encoding (name hash table, template pointer array, string deduplication) is 600-1000 LOC. Static template substitution is ~150-200 LOC and produces valid files that pass round-trip parsing.
 
 **Key fields to substitute per event:**
+
 - EventID (uint16 at known offset)
 - TimeCreated SystemTime attribute (FILETIME uint64 at known offset)
 - EventRecordID (uint64 in event record header)
@@ -109,6 +113,7 @@ The file `writer_evtx_stub.go` must be **deleted** and replaced with `writer_evt
 **What:** Write placeholder zeros for CRC32 fields during initial construction. Patch them in the final buffer using slice indexing before flushing to disk.
 
 **Example (Go stdlib):**
+
 ```go
 // Source: libevtx spec + hash/crc32 stdlib
 import "hash/crc32"
@@ -129,6 +134,7 @@ binary.LittleEndian.PutUint32(chunkBuf[124:128], chunkCRC.Sum32())
 **What:** Windows FILETIME = 100-nanosecond intervals since 1601-01-01 00:00:00 UTC. Go `time.Time` → FILETIME requires a fixed epoch offset.
 
 **Example:**
+
 ```go
 // Source: windows FILETIME spec (libevtx documentation)
 // FILETIME epoch: January 1, 1601 UTC
@@ -168,41 +174,49 @@ func toFILETIME(t time.Time) uint64 {
 ## Common Pitfalls
 
 ### Pitfall 1: Incorrect CRC32 Scope for Chunk Header
+
 **What goes wrong:** File rejected by parsers with "corrupt chunk" error.
 **Why it happens:** Chunk header CRC32 covers bytes 0-119 AND 128-511, NOT bytes 0-511. The 8 bytes at 120-127 (flags) are included but the CRC field itself (124-127) must be zero when computing.
 **How to avoid:** Zero out bytes 120-127 before computing, then patch the CRC at offset 124.
 **Warning signs:** 0xrawsec parser returns CRC error; Windows Event Viewer shows "The event log file is corrupted".
 
 ### Pitfall 2: Wrong FILETIME Epoch
+
 **What goes wrong:** Event timestamps appear as year ~1601 or distant future in Event Viewer.
 **Why it happens:** Confusing Unix epoch (1970) with FILETIME epoch (1601). The delta is 116444736000000000 hundred-nanosecond intervals.
 **How to avoid:** Use the constant `filetimeEpochDelta` and always convert via `time.UTC().UnixNano()/100 + delta`.
 **Warning signs:** Events show 1601-01-01 or 2106+ timestamps in Event Viewer.
 
 ### Pitfall 3: Event Record Size Mismatch
+
 **What goes wrong:** Parser panic or parse failure after the first event.
 **Why it happens:** The event record size field at offset 4 AND the size-copy field at the end of the record must both equal the total record length. If BinXML payload grows/shrinks, both must be updated.
 **How to avoid:** Assemble the full event record in a `bytes.Buffer`, then patch the size fields once the final length is known.
 **Warning signs:** Round-trip test fails on second event; parser returns "unexpected EOF" or "size mismatch".
 
 ### Pitfall 4: Empty String UTF-16LE Encoding
+
 **What goes wrong:** Strings appear garbled in Event Viewer; parser extracts empty fields.
 **Why it happens:** EVTX strings are UTF-16LE (not UTF-8). String values in BinXML are length-prefixed (character count as uint16) followed by UTF-16LE bytes with a null terminator.
 **How to avoid:** Use `unicode/utf16` + `encoding/binary` for all string encoding:
+
 ```go
 // Source: BinXML spec (libevtx documentation)
 import "unicode/utf16"
 runes := utf16.Encode([]rune(s))
 // write uint16(len(runes)) then each uint16 in LittleEndian, then 0x0000
 ```
+
 **Warning signs:** Event Viewer shows "?" characters; 0xrawsec extracts empty strings.
 
 ### Pitfall 5: File Header "Next Record Identifier" Off-By-One
+
 **What goes wrong:** Forensics tools report record ID gaps.
 **Why it happens:** The file header `Next Record Identifier` must equal the last written record ID + 1. It is incremented atomically with each event.
 **How to avoid:** Track a monotonically incrementing `recordID uint64` counter guarded by the mutex; write it to the file header on `Close()`.
 
 ### Pitfall 6: CGO_ENABLED=0 Incompatibility
+
 **What goes wrong:** Build fails if any dependency uses CGO.
 **Why it happens:** The project mandates `CGO_ENABLED=0` (CLAUDE.md). The `0xrawsec/golang-evtx` library must be checked for CGO dependencies before use as a test oracle.
 **How to avoid:** Verify `0xrawsec/golang-evtx` compiles with `CGO_ENABLED=0`. If it does not, use `Velocidex/evtx` or `refractionPOINT/evtx` instead.
@@ -215,6 +229,7 @@ runes := utf16.Encode([]rune(s))
 Verified patterns from specifications and stdlib:
 
 ### File Header Construction (encoding/binary pattern)
+
 ```go
 // Source: libevtx specification (github.com/libyal/libevtx) + stdlib encoding/binary
 import (
@@ -257,6 +272,7 @@ func buildFileHeader(chunkCount uint16, nextRecordID uint64) []byte {
 ```
 
 ### Chunk Header CRC32 (dual-range checksum)
+
 ```go
 // Source: libevtx specification — CRC covers bytes 0-119 AND 128-511
 func patchChunkCRC(chunk []byte) {
@@ -270,6 +286,7 @@ func patchChunkCRC(chunk []byte) {
 ```
 
 ### FILETIME Conversion
+
 ```go
 // Source: Windows FILETIME specification
 // FILETIME epoch: 1601-01-01 00:00:00 UTC = 11644473600 seconds before Unix epoch
@@ -281,6 +298,7 @@ func toFILETIME(t time.Time) uint64 {
 ```
 
 ### UTF-16LE String Encoding for BinXML
+
 ```go
 // Source: BinXML value type specification (libevtx)
 import "unicode/utf16"
@@ -297,6 +315,7 @@ func encodeUTF16LE(s string) []byte {
 ```
 
 ### Event Record Wrapper
+
 ```go
 // Source: libevtx event record format
 const evtxRecordSignature = uint32(0x00002A2A) // "**\x00\x00"
@@ -315,6 +334,7 @@ func wrapEventRecord(recordID uint64, timestamp uint64, binXMLPayload []byte) []
 ```
 
 ### Test Structure (matching CLAUDE.md conventions)
+
 ```go
 //go:build !windows
 
@@ -346,6 +366,7 @@ func TestBinaryEvtxWriter_RoundTrip(t *testing.T) {
 | Per-event BinXML template | Cross-event template sharing (OUT-F01) | Future (deferred) | Would reduce file size ~40%; deferred beyond v2.0 |
 
 **Deferred/out-of-scope per REQUIREMENTS.md:**
+
 - `OUT-F01: BinaryEvtxWriter uses cross-event template sharing` — reduces file size but adds significant complexity; future work.
 - Rolling/chunked streaming mid-chunk — explicitly out of scope; flush-on-close is the v2 approach.
 
@@ -378,17 +399,20 @@ func TestBinaryEvtxWriter_RoundTrip(t *testing.T) {
 ## Sources
 
 ### Primary (HIGH confidence)
+
 - [libyal/libevtx EVTX specification](https://github.com/libyal/libevtx/blob/main/documentation/Windows%20XML%20Event%20Log%20(EVTX).asciidoc) — file header, chunk header, event record, BinXML token structure
 - [MS-EVEN6: Event type schema (Microsoft Learn)](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-even6/8c61aef7-bd4b-4edb-8dfd-3c9a7537886b) — official XML schema for `Event/System` and `Event/EventData`
 - `pkg.go.dev/encoding/binary` — stdlib write API (HIGH — stdlib)
 - `pkg.go.dev/hash/crc32` — CRC32 IEEE table (HIGH — stdlib)
 
 ### Secondary (MEDIUM confidence)
+
 - [JPCERTCC/xml2evtx — Python reference implementation](https://github.com/JPCERTCC/xml2evtx/blob/main/xml2evtx.py) — BinXML token encoding, SDBM hash algorithm, chunk construction patterns; MEDIUM because Python code not directly tested in Go context
 - [0xrawsec/golang-evtx](https://github.com/0xrawsec/golang-evtx) — binary constants, chunk/file magic values, token types; MEDIUM because it is a parser (not writer) but defines the same constants
 - [Velocidex/evtx chunk structure](https://pkg.go.dev/www.velocidex.com/golang/evtx) — cross-reference for chunk header layout confirmation
 
 ### Tertiary (LOW confidence)
+
 - WebSearch results confirming no EVTX writer library exists in Go ecosystem — useful negative result but LOW because absence of evidence
 - Windows FILETIME epoch delta value — verified against libevtx and xml2evtx independently (MEDIUM after cross-reference)
 
@@ -397,6 +421,7 @@ func TestBinaryEvtxWriter_RoundTrip(t *testing.T) {
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH — stdlib only; no library choices to get wrong
 - Binary format spec: MEDIUM-HIGH — libevtx + MS-EVEN6 are authoritative; xml2evtx provides reference Python impl
 - BinXML encoding: MEDIUM — static template approach reduces risk; full encoding remains complex

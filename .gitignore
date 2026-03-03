@@ -1,3 +1,21 @@
+# Binaries
 /cee-exporter
 /cee-exporter-darwin
 /cee-exporter.exe
+
+# Go test & coverage artifacts
+*.test
+coverage.out
+*.coverprofile
+
+# MkDocs generated site
+/site/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+*.swp
+*.swo
