@@ -9,6 +9,11 @@ require (
 )
 
 require (
+	github.com/crewjam/rfc5424 v0.1.0 // indirect
+	github.com/elastic/go-lumber v0.1.1 // indirect
+)
+
+require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
