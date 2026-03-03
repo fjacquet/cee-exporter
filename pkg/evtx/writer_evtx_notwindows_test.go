@@ -97,7 +97,7 @@ func TestBinaryEvtxWriter_WriteClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open output file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	magic := make([]byte, 8)
 	if _, err := io.ReadFull(f, magic); err != nil {

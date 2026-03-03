@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"hash/crc32"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -115,6 +116,29 @@ func (w *BinaryEvtxWriter) Close() error {
 		return nil
 	}
 	return w.flushToFile()
+}
+
+// buildChunkHeader constructs the 512-byte EVTX chunk header.
+// buf[124:128] (HeaderCRC32) is left zero — caller MUST call patchChunkCRC.
+// buf[52:56] (EventRecordsCRC32) is left zero — caller MUST call patchEventRecordsCRC.
+func buildChunkHeader(firstRecordID, lastRecordID uint64, _ uint16, freeSpaceOffset uint32) []byte {
+	buf := make([]byte, evtxChunkHeaderSize)
+	copy(buf[0:8], evtxChunkMagic)
+	binary.LittleEndian.PutUint64(buf[8:], firstRecordID)    // FirstEventRecordNumber
+	binary.LittleEndian.PutUint64(buf[16:], lastRecordID)    // LastEventRecordNumber
+	binary.LittleEndian.PutUint64(buf[24:], firstRecordID)   // FirstEventRecordIdentifier
+	binary.LittleEndian.PutUint64(buf[32:], lastRecordID)    // LastEventRecordIdentifier
+	binary.LittleEndian.PutUint32(buf[40:], 128)             // HeaderSize
+	binary.LittleEndian.PutUint32(buf[44:], freeSpaceOffset) // LastEventRecordDataOffset
+	binary.LittleEndian.PutUint32(buf[48:], freeSpaceOffset) // FreeSpaceOffset
+	return buf
+}
+
+// patchEventRecordsCRC computes CRC32 over the event records region and writes
+// it into the chunk header at offset 52.
+func patchEventRecordsCRC(chunk []byte, recordsStart, recordsEnd int) {
+	crc := crc32.Checksum(chunk[recordsStart:recordsEnd], crc32.IEEETable)
+	binary.LittleEndian.PutUint32(chunk[52:], crc)
 }
 
 // flushChunkLocked appends the current chunk to the on-disk file and resets

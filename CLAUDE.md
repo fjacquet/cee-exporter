@@ -29,7 +29,7 @@ golangci-lint run
 
 The pipeline is linear:
 
-```
+```text
 CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg/evtx (writers)
 ```
 

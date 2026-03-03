@@ -98,50 +98,6 @@ func buildFileHeader(chunkCount uint16, nextRecordID uint64) []byte {
 	return buf
 }
 
-// buildChunkHeader constructs the 512-byte EVTX chunk header.
-//
-// NOTE: buf[124:128] (HeaderCRC32) is left zero — caller MUST call patchChunkCRC
-// after appending all event records to the chunk.
-//
-// NOTE: buf[52:56] (EventRecordsCRC32) is left zero — caller MUST call
-// patchEventRecordsCRC after assembling all records.
-//
-// Field layout:
-//
-//	[0:8]    Signature "ElfChnk\x00"
-//	[8:16]   FirstEventRecordNumber = firstRecordID
-//	[16:24]  LastEventRecordNumber  = lastRecordID
-//	[24:32]  FirstEventRecordIdentifier = firstRecordID
-//	[32:40]  LastEventRecordIdentifier  = lastRecordID
-//	[40:44]  HeaderSize = 128
-//	[44:48]  LastEventRecordDataOffset  = freeSpaceOffset
-//	[48:52]  FreeSpaceOffset            = freeSpaceOffset
-//	[52:56]  EventRecordsCRC32 = 0 (caller patches)
-//	[56:120] reserved zeros
-//	[120:124] Flags = 0
-//	[124:128] HeaderCRC32 = 0 (caller must call patchChunkCRC)
-//	[128:512] string table / reserved zeros
-func buildChunkHeader(firstRecordID, lastRecordID uint64, recordCount uint16, freeSpaceOffset uint32) []byte {
-	buf := make([]byte, evtxChunkHeaderSize)
-
-	copy(buf[0:8], evtxChunkMagic)
-	binary.LittleEndian.PutUint64(buf[8:], firstRecordID)    // FirstEventRecordNumber
-	binary.LittleEndian.PutUint64(buf[16:], lastRecordID)    // LastEventRecordNumber
-	binary.LittleEndian.PutUint64(buf[24:], firstRecordID)   // FirstEventRecordIdentifier
-	binary.LittleEndian.PutUint64(buf[32:], lastRecordID)    // LastEventRecordIdentifier
-	binary.LittleEndian.PutUint32(buf[40:], 128)             // HeaderSize
-	binary.LittleEndian.PutUint32(buf[44:], freeSpaceOffset) // LastEventRecordDataOffset
-	binary.LittleEndian.PutUint32(buf[48:], freeSpaceOffset) // FreeSpaceOffset
-	// buf[52:56]  — EventRecordsCRC32 = 0 (caller patches)
-	// buf[56:120] — reserved zeros
-	// buf[120:124] — Flags = 0
-	// buf[124:128] — HeaderCRC32 = 0 (caller patches via patchChunkCRC)
-	// buf[128:512] — string table / reserved zeros
-
-	_ = recordCount // stored in records themselves; not a header field
-	return buf
-}
-
 // patchChunkCRC computes and writes the chunk header CRC32.
 //
 // Per EVTX spec the HeaderCRC32 covers bytes [0:120] and [128:512],
@@ -157,15 +113,6 @@ func patchChunkCRC(chunk []byte) {
 	h.Write(chunk[0:120])
 	h.Write(chunk[128:512])
 	binary.LittleEndian.PutUint32(chunk[124:], h.Sum32())
-}
-
-// patchEventRecordsCRC computes CRC32 over the event records region and writes
-// it into the chunk header at offset 52.
-//
-// chunk[recordsStart:recordsEnd] should span all serialised event record bytes.
-func patchEventRecordsCRC(chunk []byte, recordsStart, recordsEnd int) {
-	crc := crc32.Checksum(chunk[recordsStart:recordsEnd], crc32.IEEETable)
-	binary.LittleEndian.PutUint32(chunk[52:], crc)
 }
 
 // wrapEventRecord assembles a complete EVTX event record from its constituent parts.

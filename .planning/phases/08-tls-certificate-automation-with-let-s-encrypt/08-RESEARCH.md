@@ -11,6 +11,7 @@
 The central finding of this research is that the Dell PowerStore CEPA protocol **sends events over plain HTTP only**. Multiple independent documentation sources confirm the CEPA event receiver URL is always configured using `http://` (not `https://`). This fundamentally changes the rationale for TLS on the cee-exporter CEPA listener port (12228): TLS there protects a channel that CEPA itself cannot use, which means TLS on port 12228 is only relevant if a reverse proxy or future CEPA version supports it.
 
 The existing codebase already has TLS scaffolding in `main.go` (`ListenConfig.TLS`, `buildTLS()`, `ServeTLS()`). What Phase 8 must add is **automatic certificate provisioning via ACME** so operators no longer hand-manage cert/key files. The two in-process Go options are:
+
 1. `golang.org/x/crypto/acme/autocert` — works with Let's Encrypt via HTTP-01 (requires port 80 open) or TLS-ALPN-01 (requires port 443 open). Both conflict with cee-exporter's non-standard port 12228. A port-forwarding shim (port 80 or 443 → 12228) is required in production.
 2. `go-acme/lego` — full-featured ACME client with DNS-01 support; better for air-gapped or private-network deployments.
 
@@ -34,6 +35,7 @@ No HTTPS variant appears in any CEPA configuration documentation. Dell's own doc
 > "When a host generates an event on the file system over SMB or NFS, the information is forwarded to the CEPA server over an **HTTP connection**."
 
 **Consequence for Phase 8:** TLS on the cee-exporter CEPA listener (port 12228) does **not** benefit the CEPA event channel because the PowerStore sends plain HTTP to it. TLS on port 12228 is useful only if:
+
 - A reverse proxy terminates CEPA traffic (non-standard deployment)
 - A future PowerStore version supports HTTPS receivers
 - The CEPA listener is also used for other clients that support TLS
@@ -45,6 +47,7 @@ The existing `ListenConfig.TLS` feature (already coded in `main.go`) should be k
 ## Standard Stack
 
 ### Core
+
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
 | `golang.org/x/crypto/acme/autocert` | v0.48.0 (Feb 2026) | Automatic ACME certificate management (HTTP-01, TLS-ALPN-01) | Official Go extended library; zero new C deps; CGO_ENABLED=0 safe |
@@ -52,12 +55,14 @@ The existing `ListenConfig.TLS` feature (already coded in `main.go`) should be k
 | `crypto/x509` (stdlib) | Go 1.24 | X509 certificate creation for self-signed mode | Standard library; no new deps |
 
 ### Supporting
+
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
 | `go-acme/lego` v4 | latest | Full ACME client with 180+ DNS providers | DNS-01 challenge; air-gapped / private networks |
 | Caddy (external) | 2.x | Reverse proxy with automatic HTTPS | Operators who prefer not to embed ACME in the daemon |
 
 ### Alternatives Considered
+
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
 | `autocert` in-process | Caddy/Traefik reverse proxy | Proxy is operationally simpler (no port 80/443 changes to cee-exporter) but adds external dependency; violates "no external deps beyond Go binary" core value |
@@ -65,9 +70,11 @@ The existing `ListenConfig.TLS` feature (already coded in `main.go`) should be k
 | Let's Encrypt public CA | Internal ACME CA (e.g., step-ca) | Internal CA works for air-gapped; DNS not required; operator must run their own CA |
 
 **Installation:**
+
 ```bash
 go get golang.org/x/crypto@v0.48.0
 ```
+
 (Note: `golang.org/x/crypto` is already an indirect dep via `golang.org/x/sys`. This promotes it to a direct dep.)
 
 ---
@@ -91,6 +98,7 @@ No new packages needed. All TLS logic stays in `cmd/cee-exporter/`.
 **When to use:** Always — gives operators choice for different deployment contexts.
 
 Config struct changes:
+
 ```go
 // Source: based on existing ListenConfig in main.go
 type ListenConfig struct {
@@ -219,36 +227,42 @@ func generateSelfSigned(hosts []string) (*tls.Certificate, error) {
 ## Common Pitfalls
 
 ### Pitfall 1: ACME Challenge Port vs CEPA Port Confusion
+
 **What goes wrong:** Operator sets `tls_mode="acme"` but does not forward port 443 to cee-exporter. Let's Encrypt cannot complete the TLS-ALPN-01 challenge. Certificate is never issued. Service starts but TLS handshakes all fail with "no certificates" error.
 **Why it happens:** cee-exporter listens on 12228; ACME requires the challenge to arrive on 443.
 **How to avoid:** The ACME challenge listener must be a separate `net.Listen(":443")` goroutine, distinct from the CEPA listener on 12228. Document the port 443 requirement explicitly in config comments.
 **Warning signs:** `autocert: missing certificate` or `acme: error 400` in logs on startup.
 
 ### Pitfall 2: DirCache Not Persistent Across Restarts in Container/Scratch Image
+
 **What goes wrong:** cee-exporter runs in the `scratch` Docker image. `ACMECacheDir` points to an in-container path that is wiped on restart. Rate limits hit after ~5 restarts (5 certs/same-set/7 days limit).
 **Why it happens:** Scratch image has no persistent filesystem by default.
 **How to avoid:** Require operators to mount a volume at the `acme_cache_dir` path. Default to `/var/cache/cee-exporter/acme` (matches systemd `StateDirectory` idiom). Document that Docker must mount this path.
 **Warning signs:** `too many certificates already issued` in logs.
 
 ### Pitfall 3: CEPA Cannot Use TLS (Protocol Mismatch)
+
 **What goes wrong:** Operator enables TLS on port 12228 and registers cee-exporter as `SomeApp@https://host:12228` in PowerStore. PowerStore CEPA client actually sends plain HTTP; TLS handshake fails from PowerStore's side. Events stop arriving.
 **Why it happens:** CEPA protocol only supports HTTP receivers (confirmed by multiple sources).
 **How to avoid:** Document clearly that TLS on the CEPA listener does **not** encrypt the PowerStore→exporter connection. Only use TLS on 12228 if a TLS-capable reverse proxy sits in front.
 **Warning signs:** CEE registration succeeds but no events arrive; CEPA pool shows connection errors.
 
 ### Pitfall 4: Let's Encrypt Rate Limits During Development
+
 **What goes wrong:** Developer tests certificate issuance by restarting the daemon multiple times. After ~5 restarts with the same domain, issuance is blocked for 7 days.
 **Why it happens:** Each restart (without DirCache) issues a new certificate request; 5-per-7-days cap for identical identifier sets.
 **How to avoid:** Always use Let's Encrypt staging (`https://acme-staging-v02.api.letsencrypt.org/directory`) during development. In `autocert.Manager`, set `Client: &acme.Client{DirectoryURL: acme.LetsEncryptURL}` for prod or the staging URL for dev. Add an `acme_staging` config boolean.
 **Warning signs:** `urn:ietf:params:acme:error:rateLimited` in logs.
 
 ### Pitfall 5: `autocert` API Stability Disclaimer
+
 **What goes wrong:** Upstream changes to `autocert` break unexpectedly after a `go get -u`.
 **Why it happens:** The package explicitly states "no API stability promises."
 **How to avoid:** Pin the `golang.org/x/crypto` version in `go.mod` (already done for other uses). Do not auto-upgrade without review. The API has been stable in practice for several years despite the disclaimer.
 **Warning signs:** Build failures after updating `golang.org/x/crypto`.
 
 ### Pitfall 6: Windows Service + Port 443
+
 **What goes wrong:** Windows service cannot bind to port 443 without elevated privileges or HTTP.sys reservation.
 **Why it happens:** Windows restricts binding to ports < 1024 to administrators or services with explicit ACL grants (`netsh http add urlacl`).
 **How to avoid:** On Windows, autocert mode with TLS-ALPN-01 on 443 requires either: running as SYSTEM (default for services), or running `netsh http add urlacl url=https://+:443/ user=...`. Document this. DNS-01 via `lego` avoids the port 443 constraint on Windows.
@@ -261,6 +275,7 @@ func generateSelfSigned(hosts []string) (*tls.Certificate, error) {
 Verified patterns from official sources:
 
 ### autocert Manager Setup (TLS-ALPN-01, no port 80)
+
 ```go
 // Source: pkg.go.dev/golang.org/x/crypto/acme/autocert (verified HIGH confidence)
 import (
@@ -298,6 +313,7 @@ func startACMEChallengeListener(m *autocert.Manager) error {
 ```
 
 ### Self-Signed Certificate Generation (stdlib only)
+
 ```go
 // Source: go.dev/src/crypto/tls/generate_cert.go (verified HIGH confidence)
 import (
@@ -350,6 +366,7 @@ func generateSelfSignedTLS(hosts []string) (*tls.Config, error) {
 ```
 
 ### Backward-Compatible Config Migration
+
 ```go
 // Source: project pattern (based on existing main.go ListenConfig)
 // Ensure old config.toml with tls=true still works after Phase 8
@@ -377,6 +394,7 @@ func migrateListenConfig(cfg *ListenConfig) {
 | No ARI | ACME Renewal Information (ARI) | 2024 (Let's Encrypt) | Renewals exempt from rate limits |
 
 **Deprecated/outdated:**
+
 - `autocert.NewListener("domain")`: One-liner that binds to `:443` and cannot coexist with other services on that port. Not suitable for cee-exporter which has its own port.
 - `tls_mode="acme"` on the CEPA port directly: Not valid — ACME challenges cannot be completed on non-standard ports.
 
@@ -408,6 +426,7 @@ func migrateListenConfig(cfg *ListenConfig) {
 ## Sources
 
 ### Primary (HIGH confidence)
+
 - `pkg.go.dev/golang.org/x/crypto/acme/autocert` — Manager struct, TLSConfig(), HTTPHandler(), DirCache, HostWhitelist, TLS-ALPN-01 support
 - `github.com/golang/crypto/blob/master/acme/autocert/autocert.go` — API stability disclaimer, HTTPHandler port 80 requirement
 - `letsencrypt.org/docs/challenge-types/` — HTTP-01 port 80 only, DNS-01 no port, TLS-ALPN-01 port 443
@@ -415,12 +434,14 @@ func migrateListenConfig(cfg *ListenConfig) {
 - `go.dev/src/crypto/tls/generate_cert.go` — Self-signed cert generation pattern (stdlib)
 
 ### Secondary (MEDIUM confidence)
+
 - `kb.peersoftware.com/kb/dell-powerstore-configuration-guide` — CEPA endpoint always `http://`, no HTTPS
 - `kb.peersoftware.com/kb/dell-unity-configuration-guide` — Confirms HTTP-only, port 12228 (or 9843 for PeerSoftware agent)
 - Multiple Dell documentation sources confirming "forwarded to CEPA server over an **HTTP connection**"
 - `github.com/golang/crypto` commit history — TLS-ALPN-01 added in 2018
 
 ### Tertiary (LOW confidence)
+
 - WebSearch results suggesting newer PowerStore CEPA might support HTTPS — not found in official Dell docs, not verified
 
 ---
@@ -428,6 +449,7 @@ func migrateListenConfig(cfg *ListenConfig) {
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack (autocert, stdlib crypto): HIGH — verified from official pkg.go.dev docs
 - CEPA HTTP-only constraint: MEDIUM — multiple third-party guides confirm; Dell official docs blocked by 403; no counter-evidence found
 - Architecture patterns: HIGH — derived directly from autocert API + existing codebase analysis
@@ -438,6 +460,7 @@ func migrateListenConfig(cfg *ListenConfig) {
 **Valid until:** 2026-06-03 (90 days — autocert API stable in practice; Let's Encrypt rate limits stable)
 
 **Phase 8 minimum viable scope (suggested):**
+
 1. Config: Add `tls_mode` field with values `off|manual|acme|self-signed`; migrate old `tls=true` to `tls_mode="manual"`
 2. Mode `acme`: Wire `autocert.Manager` with `DirCache`, `HostWhitelist`, separate port-443 challenge listener goroutine
 3. Mode `self-signed`: `generateSelfSignedTLS()` using stdlib only; no ACME, no external ports needed
