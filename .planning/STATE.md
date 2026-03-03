@@ -30,14 +30,12 @@ Progress: [██████████] 100% (all tests pass; build pipeline 
 |-------|-------|-------|----------|
 | 01-quality | 3 | 6 min | 2 min |
 | 02-build | 1 | 2 min | 2 min |
-| 03-documentation | 1 | 2 min | 2 min |
+| 03-documentation | 2 | 4 min | 2 min |
 
 **Recent Trend:**
 
 - Last 5 plans: 01-02 (2 min), 01-03 (2 min), 02-01 (2 min), 03-01 (2 min), 03-02 (2 min)
 - Trend: Stable
-
-| 03-documentation | 2 | 4 min | 2 min |
 
 *Updated after each plan completion*
 
