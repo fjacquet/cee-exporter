@@ -1,0 +1,29 @@
+[Unit]
+Description=Dell PowerStore CEPA to Windows Event Log bridge
+Documentation=https://github.com/fjacquet/cee-exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cee-exporter
+Group=cee-exporter
+WorkingDirectory=/etc/cee-exporter
+ExecStart=/usr/local/bin/cee-exporter -config /etc/cee-exporter/config.toml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+Environment=CEE_LOG_FORMAT=json
+EnvironmentFile=-/etc/cee-exporter/env
+
+# File descriptor limit for high-throughput CEPA ingestion
+LimitNOFILE=65536
+
+# Filesystem hardening — daemon only needs write access to its log dir
+ProtectSystem=strict
+ReadWritePaths=/var/log/cee-exporter
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
