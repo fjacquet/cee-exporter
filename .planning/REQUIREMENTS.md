@@ -32,6 +32,18 @@ Requirements for the v2.0 Operations & Output Expansion milestone.
 - [x] **OUT-05**: Operator can configure BinaryEvtxWriter to write native `.evtx` files on Linux
 - [x] **OUT-06**: `.evtx` files generated on Linux open correctly in Windows Event Viewer and can be parsed by forensics tools
 
+## v3 Requirements
+
+Requirements for Phase 8: TLS Certificate Automation with Let's Encrypt.
+
+### TLS Certificate Management
+
+- [ ] **TLS-01**: Operator can set `tls_mode="acme"` with `acme_domains` in config.toml and the daemon automatically obtains and renews a TLS certificate from Let's Encrypt via ACME TLS-ALPN-01 challenge on port 443
+- [ ] **TLS-02**: Operator can set `tls_mode="self-signed"` and the daemon generates a runtime ECDSA certificate at startup — no files, no network access, no external dependencies
+- [ ] **TLS-03**: Operator can set `tls_mode="manual"` (or use the legacy `tls=true` + `cert_file`/`key_file` config) and the daemon loads TLS credentials from the specified files (backward compatible with pre-Phase-8 configs)
+- [ ] **TLS-04**: Existing config.toml files with `tls=true` + `cert_file`/`key_file` are automatically migrated to `tls_mode="manual"` behavior without requiring operator changes
+- [ ] **TLS-05**: config.toml.example documents all four TLS modes (`off`, `manual`, `acme`, `self-signed`) with explanatory comments including the CEPA HTTP-only protocol constraint
+
 ## Future Requirements
 
 Features acknowledged but deferred beyond v2.0.
@@ -46,6 +58,11 @@ Features acknowledged but deferred beyond v2.0.
 - **OUT-F01**: BinaryEvtxWriter uses cross-event template sharing for reduced file size
 - **OUT-F02**: BeatsWriter uses AsyncClient with batching for higher throughput
 - **OUT-F03**: Syslog TLS transport (RFC 5425)
+
+### TLS
+
+- **TLS-F01**: DNS-01 ACME challenge via go-acme/lego for air-gapped / private-network ACME (no public port 80/443 needed)
+- **TLS-F02**: Let's Encrypt staging URL support via `acme_staging = true` config flag for development environments
 
 ## Out of Scope
 
@@ -62,6 +79,8 @@ Explicitly excluded from v2.0. Documented to prevent scope creep.
 | MSI / WiX installer | Scope explosion for v2 |
 | macOS platform support | Not a target platform |
 | HA / load-balancer setup | Operational concern, not code |
+| DNS-01 ACME via go-acme/lego (Phase 8) | Adds 160+ DNS provider deps; deferred to TLS-F01 |
+| Let's Encrypt staging URL (Phase 8) | Operator concern; use acme_cache_dir for separation; deferred to TLS-F02 |
 
 ## Traceability
 
@@ -85,13 +104,19 @@ Which phases cover which requirements. Populated during roadmap creation.
 | OUT-04 | Phase 6 | Complete |
 | OUT-05 | Phase 7 | Complete |
 | OUT-06 | Phase 7 | Complete |
+| TLS-01 | Phase 8 | Planned |
+| TLS-02 | Phase 8 | Planned |
+| TLS-03 | Phase 8 | Planned |
+| TLS-04 | Phase 8 | Planned |
+| TLS-05 | Phase 8 | Planned |
 
 **Coverage:**
 
-- v2 requirements: 16 total
-- Mapped to phases: 16 (roadmap complete)
+- v2 requirements: 16 total — all complete
+- v3 requirements (Phase 8): 5 total — 0 complete, 5 planned
+- Mapped to phases: 21 (roadmap complete)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after v2.0 roadmap creation*
+*Last updated: 2026-03-03 — Phase 8 TLS requirements added (TLS-01 through TLS-05)*

@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-3 (shipped 2026-03-03) — see [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
-- 🚧 **v2.0 Operations & Output Expansion** — Phases 4-7 (in progress)
+- ✅ **v2.0 Operations & Output Expansion** — Phases 4-7 (completed 2026-03-03)
+- 🚧 **v3.0 TLS Certificate Automation** — Phase 8 (in progress)
 
 ## Phases
 
@@ -16,14 +17,15 @@
 
 </details>
 
-### v2.0 Operations & Output Expansion (In Progress)
-
-**Milestone Goal:** Make cee-exporter production-deployable as a managed service on Linux and Windows, add Prometheus observability, and expand SIEM output targets to cover Beats, syslog, and native .evtx on Linux.
+<details>
+<summary>✅ v2.0 Operations & Output Expansion (Phases 4-7) — COMPLETED 2026-03-03</summary>
 
 - [x] **Phase 4: Observability & Linux Service** - Prometheus /metrics endpoint on port 9228 plus hardened systemd unit file (completed 2026-03-03)
 - [x] **Phase 5: Windows Service** - SCM-managed service registration via install/uninstall subcommands (completed 2026-03-03)
 - [x] **Phase 6: SIEM Writers** - SyslogWriter (RFC 5424 UDP/TCP) and BeatsWriter (Lumberjack v2) output targets (completed 2026-03-03)
 - [x] **Phase 7: BinaryEvtxWriter** - Pure-Go BinXML .evtx file writer for Linux hosts (completed 2026-03-03)
+
+</details>
 
 ## Phase Details
 
@@ -102,6 +104,28 @@ Plans:
 - [ ] 07-01-PLAN.md — EVTX binary format helpers: toFILETIME, encodeUTF16LE, buildFileHeader, patchChunkCRC, wrapEventRecord + unit tests
 - [ ] 07-02-PLAN.md — BinaryEvtxWriter full implementation replacing stub, static BinXML template, round-trip tests
 
+### Phase 8: TLS Certificate Automation with Let's Encrypt
+
+**Goal**: Operators never manually rotate certificates — cee-exporter acquires and renews TLS certs automatically via ACME (Let's Encrypt), or generates self-signed certs for air-gapped environments, selectable via a single `tls_mode` config field
+**Depends on**: Phase 7
+**Requirements**: TLS-01, TLS-02, TLS-03, TLS-04, TLS-05
+**Plans**: 4 plans
+
+**Success Criteria** (what must be TRUE):
+
+  1. Operator sets `tls_mode="acme"` with `acme_domains=["cepa.example.com"]` and the daemon obtains a Let's Encrypt cert, starts an ACME challenge listener on port 443, and serves the CEPA port over TLS with auto-renewal
+  2. Operator sets `tls_mode="self-signed"` and the daemon starts HTTPS using a runtime-generated ECDSA cert with zero files and zero network access
+  3. Operator sets `tls_mode="manual"` with cert_file and key_file and the daemon loads those files (identical behavior to the existing tls=true path)
+  4. Operator upgrades from a pre-Phase-8 config with `tls=true` and cert_file/key_file — the daemon applies the manual mode automatically via config migration with no operator changes
+  5. All four modes compile and run with CGO_ENABLED=0 on Linux and Windows
+
+Plans:
+
+- [ ] 08-01-PLAN.md — Create cmd/cee-exporter/tls.go: buildManualTLS, buildSelfSignedTLS, buildAutocertTLS, startACMEChallengeListener; promote golang.org/x/crypto to direct dep
+- [ ] 08-02-PLAN.md — Extend ListenConfig with TLSMode/ACME fields, add migrateListenConfig(), update config.toml.example for all four modes
+- [ ] 08-03-PLAN.md — Wire tls_mode switch into run(), add ACME challenge goroutine, update systemd unit with AmbientCapabilities
+- [ ] 08-04-PLAN.md — TDD: unit tests for migrateListenConfig (6 cases) and buildSelfSignedTLS (3 cases)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -110,6 +134,7 @@ Plans:
 | 2. Build | v1.0 | 1/1 | Complete | 2026-03-02 |
 | 3. Documentation | v1.0 | 2/2 | Complete | 2026-03-03 |
 | 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
-| 5. Windows Service | 3/3 | Complete   | 2026-03-03 | - |
-| 6. SIEM Writers | 3/3 | Complete   | 2026-03-03 | - |
-| 7. BinaryEvtxWriter | 2/2 | Complete   | 2026-03-03 | - |
+| 5. Windows Service | v2.0 | 3/3 | Complete | 2026-03-03 |
+| 6. SIEM Writers | v2.0 | 3/3 | Complete | 2026-03-03 |
+| 7. BinaryEvtxWriter | v2.0 | 2/2 | Complete | 2026-03-03 |
+| 8. TLS Certificate Automation | v3.0 | 0/4 | Planned | - |
