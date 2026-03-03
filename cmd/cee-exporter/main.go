@@ -15,6 +15,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"golang.org/x/crypto/acme/autocert"
 
 	ceeprometheus "github.com/fjacquet/cee-exporter/pkg/prometheus"
 	applog "github.com/fjacquet/cee-exporter/pkg/log"
@@ -207,6 +209,46 @@ func run(ctx context.Context) {
 		TLSCertFile: cfg.Listen.CertFile,
 	}))
 
+	// TLS initialization — mode selected by tls_mode config field.
+	var tlsCfg *tls.Config
+	switch cfg.Listen.TLSMode {
+	case "off", "":
+		// Plain HTTP — no TLS config needed.
+
+	case "manual":
+		tlsCfg, err = buildManualTLS(cfg.Listen.CertFile, cfg.Listen.KeyFile)
+		if err != nil {
+			slog.Error("tls_init_failed", "mode", "manual", "error", err)
+			os.Exit(1)
+		}
+		logCertInfo(cfg.Listen.CertFile)
+
+	case "self-signed":
+		tlsCfg, err = buildSelfSignedTLS(cfg.Listen.ACMEDomains)
+		if err != nil {
+			slog.Error("tls_init_failed", "mode", "self-signed", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("tls_self_signed_generated", "hosts", cfg.Listen.ACMEDomains)
+
+	case "acme":
+		var acmeMgr *autocert.Manager
+		acmeMgr, tlsCfg, err = buildAutocertTLS(cfg.Listen.ACMEDomains, cfg.Listen.ACMEEmail, cfg.Listen.ACMECacheDir)
+		if err != nil {
+			slog.Error("tls_init_failed", "mode", "acme", "error", err)
+			os.Exit(1)
+		}
+		if err := startACMEChallengeListener(acmeMgr, cfg.Listen.ACMEChallengeAddr); err != nil {
+			slog.Error("acme_challenge_listener_failed", "error", err)
+			os.Exit(1)
+		}
+
+	default:
+		slog.Error("tls_unknown_mode", "mode", cfg.Listen.TLSMode,
+			"valid_modes", "off|manual|acme|self-signed")
+		os.Exit(1)
+	}
+
 	// Build HTTP server.
 	httpServer := &http.Server{
 		Addr:         cfg.Listen.Addr,
@@ -214,9 +256,8 @@ func run(ctx context.Context) {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
+		TLSConfig:    tlsCfg, // nil = no TLS
 	}
-
-	// TODO(phase08-plan03): wire tls_mode switch here
 
 	// Start listener.
 	ln, err := net.Listen("tcp", cfg.Listen.Addr)
@@ -226,7 +267,18 @@ func run(ctx context.Context) {
 	}
 
 	go func() {
-		if serveErr := httpServer.Serve(ln); serveErr != nil && serveErr != http.ErrServerClosed {
+		var serveErr error
+		if tlsCfg != nil {
+			// For manual mode: cert/key from files; for acme/self-signed: certs in TLSConfig
+			if cfg.Listen.TLSMode == "manual" {
+				serveErr = httpServer.ServeTLS(ln, cfg.Listen.CertFile, cfg.Listen.KeyFile)
+			} else {
+				serveErr = httpServer.ServeTLS(ln, "", "")
+			}
+		} else {
+			serveErr = httpServer.Serve(ln)
+		}
+		if serveErr != nil && serveErr != http.ErrServerClosed {
 			slog.Error("http_server_error", "error", serveErr)
 			os.Exit(1)
 		}
