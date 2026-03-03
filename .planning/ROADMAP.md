@@ -136,5 +136,5 @@ Plans:
 | 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 5. Windows Service | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 6. SIEM Writers | v2.0 | 3/3 | Complete | 2026-03-03 |
-| 7. BinaryEvtxWriter | v2.0 | 2/2 | Complete | 2026-03-03 |
+| 7. BinaryEvtxWriter | 3/3 | Complete   | 2026-03-03 | 2026-03-03 |
 | 8. TLS Certificate Automation | 3/4 | Complete    | 2026-03-03 | - |

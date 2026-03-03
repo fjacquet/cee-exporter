@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v3.0
+milestone_name: TLS Certificate Automation
+status: executing
+stopped_at: "Completed 07-GAP-01-PLAN.md — BinXML NameNode offset fix: static name table at chunk offset 512, event records at 754; all 7 tests pass; GAP-1 closed"
+last_updated: "2026-03-03T21:13:42.647Z"
+last_activity: "2026-03-03 — 08-03 complete: tls_mode switch wired into run() in main.go with four modes (off/manual/self-signed/acme); ACME challenge listener goroutine started in acme case; systemd unit updated with AmbientCapabilities=CAP_NET_BIND_SERVICE and StateDirectory=cee-exporter; TLS-01/TLS-02/TLS-03 satisfied"
+progress:
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 16
+  completed_plans: 16
+  percent: 100
+---
+
 # Project State
 
 ## Project Reference
@@ -15,7 +31,7 @@ Plan: 3 of 4 completed
 Status: Phase in progress
 Last activity: 2026-03-03 — 08-03 complete: tls_mode switch wired into run() in main.go with four modes (off/manual/self-signed/acme); ACME challenge listener goroutine started in acme case; systemd unit updated with AmbientCapabilities=CAP_NET_BIND_SERVICE and StateDirectory=cee-exporter; TLS-01/TLS-02/TLS-03 satisfied
 
-Progress: [█████████░] ~90% (Phase 8 plan 3 of 4 complete)
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +68,7 @@ Progress: [█████████░] ~90% (Phase 8 plan 3 of 4 complete)
 | Phase 08-tls P01 | 2 | 2 tasks | 3 files |
 | Phase 08 P02 | 8 | 2 tasks | 4 files |
 | Phase 08-tls P03 | 5 | 2 tasks | 2 files |
+| Phase 07-binaryevtxwriter PGAP-01 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -105,6 +122,7 @@ Recent decisions affecting v2.0:
 - [Phase 08-03]: nil *tls.Config sentinel pattern — plain Serve() for off mode, ServeTLS() for all TLS modes
 - [Phase 08-03]: Manual mode passes cert/key file paths to ServeTLS(); self-signed/acme pass empty strings (certs in TLSConfig)
 - [Phase 08-03]: StateDirectory=cee-exporter lets systemd auto-create /var/lib/cee-exporter owned by cee-exporter user
+- [Phase 07-binaryevtxwriter]: Static 242-byte NameNode table at chunk offset 512; event records at 754 (512+242); nameOffsets map for pre-computed chunk-relative offsets
 
 ### Pending Todos
 
@@ -119,6 +137,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-03
-Stopped at: Completed 08-03-PLAN.md — TLS integration: tls_mode switch in run(), ACME challenge listener goroutine, systemd AmbientCapabilities; TLS-01/TLS-02/TLS-03 satisfied; Phase 8 Plan 3 of 4 complete; ready for Plan 04
+Last session: 2026-03-03T21:13:42.645Z
+Stopped at: Completed 07-GAP-01-PLAN.md — BinXML NameNode offset fix: static name table at chunk offset 512, event records at 754; all 7 tests pass; GAP-1 closed
 Resume file: None
