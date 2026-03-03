@@ -95,7 +95,12 @@ Plans:
   1. Operator sets `type = "evtx"` with an output file path on a Linux host and the daemon writes a .evtx file without crashing or emitting errors
   2. The .evtx file produced on Linux is copied to a Windows machine and opens in Event Viewer showing correct EventIDs (4663, 4660, 4670) with readable audit fields
   3. A forensics tool (Splunk, Elastic Agent, or the `0xrawsec/golang-evtx` parser) reads the file and extracts event records with correct timestamps and subject/object fields
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 07-01-PLAN.md — EVTX binary format helpers: toFILETIME, encodeUTF16LE, buildFileHeader, patchChunkCRC, wrapEventRecord + unit tests
+- [ ] 07-02-PLAN.md — BinaryEvtxWriter full implementation replacing stub, static BinXML template, round-trip tests
 
 ## Progress
 
@@ -107,4 +112,4 @@ Plans:
 | 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 5. Windows Service | 3/3 | Complete   | 2026-03-03 | - |
 | 6. SIEM Writers | 3/3 | Complete   | 2026-03-03 | - |
-| 7. BinaryEvtxWriter | v2.0 | 0/? | Not started | - |
+| 7. BinaryEvtxWriter | v2.0 | 0/2 | Not started | - |
