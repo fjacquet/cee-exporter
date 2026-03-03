@@ -76,8 +76,8 @@ func TestBuildSyslog5424(t *testing.T) {
 func TestSyslogTCPFraming(t *testing.T) {
 	// Create an in-memory pipe to simulate TCP connection.
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() { _ = server.Close() }()
+	defer func() { _ = client.Close() }()
 
 	w := &SyslogWriter{
 		cfg: SyslogConfig{
