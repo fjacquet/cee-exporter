@@ -1,0 +1,42 @@
+site_name: cee-exporter
+site_description: Dell PowerStore CEPA audit events → Windows EventLog / GELF
+site_url: https://fjacquet.github.io/cee-exporter/
+repo_url: https://github.com/fjacquet/cee-exporter
+repo_name: fjacquet/cee-exporter
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+nav:
+  - Home: index.md
+  - Product Requirements: PRD.md
+  - Architecture Decisions:
+      - ADR-001 Language (Go): adr/ADR-001-language-go.md
+      - ADR-002 GELF Primary Output: adr/ADR-002-gelf-primary-linux.md
+      - ADR-003 Async Queue: adr/ADR-003-async-queue.md
+      - ADR-004 Binary EVTX Deferred: adr/ADR-004-binary-evtx-deferred.md
+      - ADR-005 CGO Disabled: adr/ADR-005-cgo-disabled.md
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: indigo
+    accent: blue
+  features:
+    - content.code.copy
+    - navigation.instant
+    - navigation.sections
+    - toc.integrate
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - admonition
+  - tables
+  - toc:
+      permalink: true

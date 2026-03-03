@@ -3,7 +3,11 @@ BINARY_WINDOWS := cee-exporter.exe
 CMD_PATH       := ./cmd/cee-exporter
 LDFLAGS        := -s -w
 
-.PHONY: build build-windows test lint clean
+REGISTRY       := ghcr.io/fjacquet
+IMAGE          := $(REGISTRY)/cee-exporter
+VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+
+.PHONY: build build-windows test lint clean docker-build docker-push docker-run
 
 build:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -21,3 +25,18 @@ lint:
 
 clean:
 	rm -f $(BINARY_NAME) $(BINARY_WINDOWS)
+
+docker-build:
+	docker build --build-arg VERSION=$(VERSION) \
+	  -t $(IMAGE):$(VERSION) \
+	  -t $(IMAGE):latest .
+
+docker-push: docker-build
+	docker push $(IMAGE):$(VERSION)
+	docker push $(IMAGE):latest
+
+docker-run:
+	docker run --rm \
+	  -p 12228:12228 \
+	  -v $(PWD)/config.toml:/etc/cee-exporter/config.toml:ro \
+	  $(IMAGE):latest

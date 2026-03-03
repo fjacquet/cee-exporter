@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Lint
+        run: make lint
+
+      - name: Test
+        run: make test
+
+      - name: Build Linux binary
+        run: make build
+
+      - name: Build Windows binary
+        run: make build-windows
+
+      - name: Verify Linux binary
+        run: file cee-exporter | grep -q "ELF 64-bit"
+
+      - name: Verify Windows binary
+        run: file cee-exporter.exe | grep -q "PE32+"
