@@ -7,7 +7,10 @@ REGISTRY       := ghcr.io/fjacquet
 IMAGE          := $(REGISTRY)/cee-exporter
 VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
-.PHONY: build build-windows test lint clean docker-build docker-push docker-run
+SYSTEMD_UNIT_SRC := deploy/systemd/cee-exporter.service
+SYSTEMD_UNIT_DST := /etc/systemd/system/cee-exporter.service
+
+.PHONY: build build-windows test lint clean docker-build docker-push docker-run install-systemd
 
 build:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -25,6 +28,14 @@ lint:
 
 clean:
 	rm -f $(BINARY_NAME) $(BINARY_WINDOWS)
+
+# Requires root. Run as: sudo make install-systemd
+install-systemd: $(SYSTEMD_UNIT_SRC)
+	@echo "NOTE: Create the cee-exporter system user first if it does not exist:"
+	@echo "  useradd --system --no-create-home --shell /usr/sbin/nologin cee-exporter"
+	install -m 644 $(SYSTEMD_UNIT_SRC) $(SYSTEMD_UNIT_DST)
+	systemctl daemon-reload
+	@echo "Unit installed. Run: systemctl enable --now cee-exporter"
 
 docker-build:
 	docker build --build-arg VERSION=$(VERSION) \
