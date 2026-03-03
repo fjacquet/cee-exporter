@@ -11,19 +11,19 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Milestone: v2.0 Operations & Output Expansion
 Phase: 5 of 7 (Windows Service)
-Plan: 1 of 3 completed
+Plan: 2 of 3 completed
 Status: In progress
-Last activity: 2026-03-03 — 05-01 complete: kardianos/service v1.2.4 added, run() refactored to accept context.Context for SCM Stop() compatibility
+Last activity: 2026-03-03 — 05-02 complete: TestParseCfgPath 7-case table-driven tests, all 44 tests green
 
-Progress: [████░░░░░░] ~20% (Phase 4 complete, Phase 5 plan 05-01 complete)
+Progress: [████░░░░░░] ~22% (Phase 4 complete, Phase 5 plans 05-01 and 05-02 complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: 5 min
-- Total execution time: 42 min
+- Total execution time: 46 min
 
 **By Phase:**
 
@@ -33,14 +33,16 @@ Progress: [████░░░░░░] ~20% (Phase 4 complete, Phase 5 plan 
 | 02-build | 1 | 2 min | 2 min |
 | 03-documentation | 2 | 4 min | 2 min |
 | 04-observability-linux-service | 3 | 30 min | 10 min |
-| 05-windows-service | 1 (in progress) | 2 min | 2 min |
+| 05-windows-service | 2 (in progress) | 6 min | 3 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 03-01 (2 min), 03-02 (2 min), 04-02 (1 min), 04-03 (28 min), 05-01 (2 min)
+- Last 5 plans: 03-02 (2 min), 04-02 (1 min), 04-03 (28 min), 05-01 (2 min), 05-02 (4 min)
 - Trend: Stable
 
 *Updated after each plan completion*
+
+| Phase 05-windows-service P02 | 4 min | 1 task | 1 file |
 
 ## Accumulated Context
 
@@ -63,6 +65,8 @@ Recent decisions affecting v2.0:
 - [Phase 04-observability-linux-service]: Port 9228 for Prometheus metrics — separate from CEPA port 12228; default Enabled=true in MetricsConfig
 - [Phase 05-windows-service]: run() accepts ctx parameter for SCM Stop() compatibility — context cancellation bridges into shutdown select alongside SIGTERM/SIGINT
 - [Phase 05-windows-service]: kardianos/service v1.2.4 as direct dependency — Windows SCM wrapper uses kardianos/service API in Plan 03
+- [Phase 05-windows-service]: parseCfgPath has no build tag — compiles on Linux CI without Win32 surface, enabling full TDD coverage cross-platform
+- [Phase 05-windows-service]: Test file uses package main (white-box) per CLAUDE.md convention; stdlib only, no testify
 
 ### Pending Todos
 
@@ -78,5 +82,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 05-01-PLAN.md — kardianos/service v1.2.4 added, run() refactored to accept context.Context for SCM Stop() compatibility
+Stopped at: Completed 05-02-PLAN.md — TestParseCfgPath table-driven tests, all 44 tests green; ready for 05-03 SCM wrapper
 Resume file: None

@@ -89,6 +89,6 @@ Plans:
 | 2. Build | v1.0 | 1/1 | Complete | 2026-03-02 |
 | 3. Documentation | v1.0 | 2/2 | Complete | 2026-03-03 |
 | 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
-| 5. Windows Service | v2.0 | 0/3 | Not started | - |
+| 5. Windows Service | 2/3 | In Progress|  | - |
 | 6. SIEM Writers | v2.0 | 0/? | Not started | - |
 | 7. BinaryEvtxWriter | v2.0 | 0/? | Not started | - |
