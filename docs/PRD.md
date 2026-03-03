@@ -42,11 +42,13 @@ Event Log.
 ## User Personas
 
 **Linux sysadmin (primary)**
+
 - Runs Graylog on Linux
 - Needs PowerStore NAS file-system audit events in Graylog without deploying Windows
 - Configures cee-exporter with `type = "gelf"` and directs it at their Graylog GELF input
 
 **Windows sysadmin (secondary)**
+
 - Uses native Windows Event Viewer or Winlogbeat
 - Deploys cee-exporter.exe on a Windows host
 - Win32 EventLog writer activates automatically on Windows
@@ -58,6 +60,7 @@ Event Log.
 Full requirement list: see [REQUIREMENTS.md](.planning/REQUIREMENTS.md)
 
 Summary of v1.0 scope:
+
 - CEPA protocol: CEPA-01 through CEPA-05
 - Semantic mapping: MAP-01 through MAP-06
 - GELF output: GELF-01 through GELF-04

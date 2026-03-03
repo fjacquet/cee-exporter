@@ -61,6 +61,7 @@ completed: 2026-03-03
 - **Files modified:** 6
 
 ## Accomplishments
+
 - Added `github.com/kardianos/service v1.2.4` as direct dependency in go.mod (not indirect)
 - Changed `run()` signature to `func run(ctx context.Context)` enabling SCM Stop() to cancel the daemon cleanly
 - Shutdown select handles both `<-sig` (SIGTERM/SIGINT) and `<-ctx.Done()` (SCM cancel)
@@ -76,6 +77,7 @@ Each task was committed atomically:
 **Plan metadata:** (docs commit follows)
 
 ## Files Created/Modified
+
 - `go.mod` - Added github.com/kardianos/service v1.2.4 as direct dependency
 - `go.sum` - Updated checksums for kardianos/service
 - `cmd/cee-exporter/main.go` - run() now accepts context.Context; shutdown select handles ctx.Done()
@@ -84,6 +86,7 @@ Each task was committed atomically:
 - `cmd/cee-exporter/service_helpers.go` - parseCfgPath() stub implemented (was returning "" — now correctly parses -config/--config from args)
 
 ## Decisions Made
+
 - run() receives the context from the service manager, not creating its own — this enables the Windows SCM Stop() method to cancel the context and trigger clean shutdown without relying on POSIX signals
 - Queue context derived from the run() ctx parameter so SCM cancellation propagates to all queue workers
 - service_windows.go updated minimally to match new signature while remaining a stub — Plan 03 will replace it entirely with a real SCM wrapper
@@ -93,6 +96,7 @@ Each task was committed atomically:
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] Fixed parseCfgPath() stub returning empty string**
+
 - **Found during:** Task 1 (running `go test ./...`)
 - **Issue:** `parseCfgPath()` in `service_helpers.go` was a stub returning `""` — 8 tests in `TestParseCfgPath` were failing
 - **Fix:** Implemented the function to scan args for `-config`/`--config` flag and return the next arg, defaulting to `"config.toml"` (a linter had already applied the fix when the file was re-read)
@@ -101,6 +105,7 @@ Each task was committed atomically:
 - **Committed in:** `94ccded` (part of Task 1 commit)
 
 **2. [Rule 3 - Blocking] Simplified main() to call runWithServiceManager(run) directly**
+
 - **Found during:** Task 1 (Windows/amd64 build)
 - **Issue:** The previous plan (04-03) had changed `main()` to `runWithServiceManager(func() { run(ctx) })` passing a `func()` wrapper. After updating `runWithServiceManager` to expect `func(ctx context.Context)`, the Windows build failed with type mismatch
 - **Fix:** Removed the closure wrapper in `main()`; called `runWithServiceManager(run)` directly as the plan specified
@@ -114,12 +119,15 @@ Each task was committed atomically:
 **Impact on plan:** Both fixes required for correctness and build compatibility. No scope creep.
 
 ## Issues Encountered
+
 - kardianos/service was initially added as `// indirect` by `go get` since the package isn't imported in code yet. Moved it to the direct require block manually in go.mod to satisfy the plan requirement.
 
 ## User Setup Required
+
 None - no external service configuration required.
 
 ## Next Phase Readiness
+
 - kardianos/service v1.2.4 dependency is in place for Plan 02 (install/uninstall subcommands) and Plan 03 (Windows SCM wrapper)
 - run(ctx context.Context) signature established — Plan 03's SCM wrapper can cancel the context via Stop() method
 - All tests pass; both platform builds are green

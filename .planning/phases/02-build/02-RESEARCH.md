@@ -5,6 +5,7 @@
 **Confidence:** HIGH
 
 <phase_requirements>
+
 ## Phase Requirements
 
 | ID | Description | Research Support |
@@ -30,12 +31,14 @@ The `make lint` requirement is `go vet ./...` with zero warnings (stated in BUIL
 ## Standard Stack
 
 ### Core
+
 | Tool | Version | Purpose | Why Standard |
 |------|---------|---------|--------------|
 | GNU Make | system (3.81+) | Task runner / build orchestration | Universal on Linux/macOS, available in all CI environments |
 | Go toolchain | 1.24.0 (from go.mod) | Compiler, cross-compiler, tester, vet | Self-contained: no external tools needed for pure-Go projects |
 
 ### Supporting
+
 | Tool | Version | Purpose | When to Use |
 |------|---------|---------|-------------|
 | `go vet ./...` | built-in | Static analysis (lint target) | Satisfies `make lint` requirement; zero external dependencies |
@@ -44,6 +47,7 @@ The `make lint` requirement is `go vet ./...` with zero warnings (stated in BUIL
 | `-trimpath` | built-in (Go 1.13+) | Remove absolute paths from binary | Production builds; good for reproducible builds |
 
 ### Alternatives Considered
+
 | Standard | Alternative | Tradeoff |
 |----------|-------------|----------|
 | `go vet ./...` (lint target) | `golangci-lint run` | golangci-lint catches more issues but requires external installation; BUILD-01 requirement says "go vet ./..." explicitly |
@@ -69,19 +73,19 @@ BUILD_FLAGS    := -trimpath -ldflags="-s -w"
 .PHONY: build build-windows test lint clean
 
 build:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(BUILD_FLAGS) -o $(BINARY_NAME) $(CMD_PATH)
+ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(BUILD_FLAGS) -o $(BINARY_NAME) $(CMD_PATH)
 
 build-windows:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(BUILD_FLAGS) -o $(BINARY_WINDOWS) $(CMD_PATH)
+ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(BUILD_FLAGS) -o $(BINARY_WINDOWS) $(CMD_PATH)
 
 test:
-	go test ./...
+ go test ./...
 
 lint:
-	go vet ./...
+ go vet ./...
 
 clean:
-	rm -f $(BINARY_NAME) $(BINARY_WINDOWS)
+ rm -f $(BINARY_NAME) $(BINARY_WINDOWS)
 ```
 
 ### Pattern 1: CGO_ENABLED=0 for Both Targets
@@ -93,7 +97,7 @@ clean:
 ```makefile
 # Source: Go official docs https://go.dev/wiki/WindowsCrossCompiling
 build-windows:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o cee-exporter.exe ./cmd/cee-exporter
+ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o cee-exporter.exe ./cmd/cee-exporter
 ```
 
 ### Pattern 2: Explicit cmd Package Path with -o Flag
@@ -105,7 +109,7 @@ build-windows:
 ```makefile
 # Source: Go standard project layout, verified with cmd/go docs
 build:
-	go build -o cee-exporter ./cmd/cee-exporter
+ go build -o cee-exporter ./cmd/cee-exporter
 ```
 
 ### Pattern 3: .PHONY for All Targets
@@ -125,6 +129,7 @@ build:
 **Why:** Go's build system already gates `pkg/evtx/writer_windows.go` (Win32 API) behind `//go:build windows`. When `GOOS=linux` it is excluded; when `GOOS=windows` it is included. The Makefile just sets the env var.
 
 ### Anti-Patterns to Avoid
+
 - **`go build ./...` without `-o`:** Compiles everything but produces no named binary; silent non-failure makes this confusing.
 - **Omitting `CGO_ENABLED=0` on the Windows target:** Cross-compilation silently disables CGO anyway, but being explicit documents intent and prevents future breakage if a CGO dependency is accidentally added.
 - **Using spaces instead of tabs in Makefile recipes:** Make requires tabs. This is the single most common Makefile beginner error — it produces the cryptic `Makefile:N: *** missing separator. Stop.` error.
@@ -148,35 +153,41 @@ build:
 ## Common Pitfalls
 
 ### Pitfall 1: Tab vs. Space in Makefile Recipe
+
 **What goes wrong:** `Makefile:N: *** missing separator. Stop.` — build fails with a cryptic error.
 **Why it happens:** Editors that auto-convert tabs to spaces, or copy-pasting Makefile content from web sources.
 **How to avoid:** Verify with `cat -A Makefile | grep "^I"` (tab shows as `^I`). Configure editor to use literal tabs in `.mk` files.
 **Warning signs:** Build works in one environment but fails in another (different editor settings).
 
 ### Pitfall 2: Forgetting `CGO_ENABLED=0` Still Needed on Linux Target
+
 **What goes wrong:** On some Linux systems the C toolchain is absent (Alpine, minimal Docker images). `go build` with CGO implicitly enabled will fail with `gcc not found`.
 **Why it happens:** CGO is enabled by default on native builds. The project has no CGO code, but the Go toolchain checks for a C compiler anyway unless disabled.
 **How to avoid:** Set `CGO_ENABLED=0` on the Linux build target too — this project is pure Go.
 **Warning signs:** Build passes on developer workstation but fails in CI Docker container.
 
 ### Pitfall 3: `go vet ./...` Runs Windows-Tagged Files on Linux
+
 **What goes wrong:** Confusion about whether `pkg/evtx/writer_windows.go` is vetted. It is NOT — build tags exclude it.
 **Why it happens:** `//go:build windows` means the file is only compiled when `GOOS=windows`. On a Linux host, `go vet ./...` skips it.
 **How to avoid:** This is correct behavior. Accept that the Windows-specific code path is not vetted on Linux. Cross-vet (`GOOS=windows go vet ./...`) is optional but not required by BUILD-01.
 **Warning signs:** None — this is intentional. Only matters if Windows-only code contains vet-detectable bugs.
 
 ### Pitfall 4: Make Target Named `build` Conflicts with File Named `build`
+
 **What goes wrong:** `make build` succeeds silently but does nothing if a file/directory named `build` exists in the project root.
 **Why it happens:** Make interprets target names as file names by default. If the file is newer than its dependencies, the recipe is skipped.
 **How to avoid:** Always declare `build` in `.PHONY`.
 **Warning signs:** `make build` produces no output, no errors, and no binary.
 
 ### Pitfall 5: `go build ./cmd/cee-exporter` Works but `go build ./cmd/cee-exporter/` (trailing slash) May Not
+
 **What goes wrong:** Some Make invocations or shell variables append a trailing slash. Go's toolchain behavior with trailing slashes is implementation-defined.
 **Why it happens:** Variable interpolation in Makefiles.
 **How to avoid:** Use `./cmd/cee-exporter` (no trailing slash) as the canonical path.
 
 ### Pitfall 6: `GOOS=windows go vet ./...` Requires Windows SDK Headers for CGO
+
 **What goes wrong:** If someone tries to run `GOOS=windows go vet ./...` from Linux with CGO-using code, it fails.
 **Why it happens:** Vet triggers compilation. For CGO code, it needs the cross-toolchain.
 **How to avoid:** This project has no CGO. If CGO is ever introduced, this will break cross-vet.
@@ -202,24 +213,25 @@ LDFLAGS        := -s -w
 .PHONY: build build-windows test lint clean
 
 build:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-	  go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_NAME) $(CMD_PATH)
+ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+   go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_NAME) $(CMD_PATH)
 
 build-windows:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-	  go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_WINDOWS) $(CMD_PATH)
+ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+   go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_WINDOWS) $(CMD_PATH)
 
 test:
-	go test ./...
+ go test ./...
 
 lint:
-	go vet ./...
+ go vet ./...
 
 clean:
-	rm -f $(BINARY_NAME) $(BINARY_WINDOWS)
+ rm -f $(BINARY_NAME) $(BINARY_WINDOWS)
 ```
 
 ### Verify Linux Binary Runs and Exits
+
 ```bash
 # After make build
 ./cee-exporter --help 2>&1; echo "Exit: $?"
@@ -228,6 +240,7 @@ clean:
 ```
 
 ### Verify Windows Binary Was Produced
+
 ```bash
 # After make build-windows
 file cee-exporter.exe
@@ -235,6 +248,7 @@ file cee-exporter.exe
 ```
 
 ### go vet Clean Verification
+
 ```bash
 # After make lint (should produce no output on success)
 go vet ./...
@@ -253,6 +267,7 @@ echo "Exit: $?"  # Must be 0
 | `CGO_ENABLED` was implicit | Explicit `CGO_ENABLED=0` in Makefile | Always recommended | Prevents accidental C-dependency introduction |
 
 **Deprecated/outdated:**
+
 - `golint`: Archived in 2022; replaced by `staticcheck` or `golangci-lint`. Not relevant here since BUILD-01 specifies `go vet`.
 - `// +build` constraint syntax: Replaced by `//go:build` in Go 1.17. The project already uses the new form.
 
@@ -280,24 +295,28 @@ echo "Exit: $?"  # Must be 0
 ## Sources
 
 ### Primary (HIGH confidence)
-- Go official wiki: https://go.dev/wiki/WindowsCrossCompiling — CGO disabled during cross-compilation, `GOOS=windows GOARCH=amd64 go build` is sufficient for pure Go
-- golang/sys GitHub repo: https://github.com/golang/sys/blob/master/windows/svc/eventlog/log.go — confirmed `//go:build windows`, no `import "C"`
-- golang/sys GitHub repo: https://github.com/golang/sys/blob/master/windows/svc/eventlog/install.go — confirmed `//go:build windows`, no `import "C"`
+
+- Go official wiki: <https://go.dev/wiki/WindowsCrossCompiling> — CGO disabled during cross-compilation, `GOOS=windows GOARCH=amd64 go build` is sufficient for pure Go
+- golang/sys GitHub repo: <https://github.com/golang/sys/blob/master/windows/svc/eventlog/log.go> — confirmed `//go:build windows`, no `import "C"`
+- golang/sys GitHub repo: <https://github.com/golang/sys/blob/master/windows/svc/eventlog/install.go> — confirmed `//go:build windows`, no `import "C"`
 - Project go.mod (read directly): `go 1.24.0`, dependencies are `BurntSushi/toml` and `golang.org/x/sys` — both pure Go
 
 ### Secondary (MEDIUM confidence)
-- https://earthly.dev/blog/golang-makefile/ — Makefile structure for Go, verified against Go toolchain docs
-- https://sohlich.github.io/post/go_makefile/ — Go Makefile patterns including cross-compilation variables
-- https://www.alexedwards.net/blog/a-time-saving-makefile-for-your-go-projects — `main_package_path` pattern, `go vet` + `staticcheck` audit target
+
+- <https://earthly.dev/blog/golang-makefile/> — Makefile structure for Go, verified against Go toolchain docs
+- <https://sohlich.github.io/post/go_makefile/> — Go Makefile patterns including cross-compilation variables
+- <https://www.alexedwards.net/blog/a-time-saving-makefile-for-your-go-projects> — `main_package_path` pattern, `go vet` + `staticcheck` audit target
 
 ### Tertiary (LOW confidence)
-- https://dasroot.net/posts/2026/03/go-cross-platform-builds-docker-github-actions/ — general 2026 cross-platform build patterns (single-source, not deeply verified)
+
+- <https://dasroot.net/posts/2026/03/go-cross-platform-builds-docker-github-actions/> — general 2026 cross-platform build patterns (single-source, not deeply verified)
 
 ---
 
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH — Go toolchain is the only dependency; verified against go.mod and official docs
 - Architecture: HIGH — Makefile pattern is well-established; CGO status verified against upstream source
 - Pitfalls: HIGH for tab/CGO/PHONY (classic, well-documented); MEDIUM for Windows-vet gap (project-specific)

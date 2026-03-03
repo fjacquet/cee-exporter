@@ -180,6 +180,7 @@ CEPA (Common Event Publishing Agent) is the PowerStore mechanism that sends file
 8. Click **Save**.
 9. PowerStore sends a `RegisterRequest` to cee-exporter to confirm connectivity. The daemon logs `cepa_register_request` at INFO level.
 10. Verify events are flowing:
+
     ```bash
     curl http://localhost:12228/health | jq .events_received_total
     ```

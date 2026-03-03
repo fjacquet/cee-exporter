@@ -5,6 +5,7 @@
 **Confidence:** HIGH
 
 <phase_requirements>
+
 ## Phase Requirements
 
 | ID | Description | Research Support |
@@ -33,6 +34,7 @@ The GELF payload test (QUAL-04) requires special handling: `buildGELF` is an une
 ## Standard Stack
 
 ### Core
+
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
 | `testing` | stdlib (Go 1.24) | Test runner, subtests, assertions | Built into Go; `go test ./...` runs it |
@@ -44,12 +46,14 @@ The GELF payload test (QUAL-04) requires special handling: `buildGELF` is an une
 | `context` | stdlib | `context.Background()` for queue.Start | Required by queue.Start signature |
 
 ### Supporting
+
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
 | `sync` | stdlib | WaitGroup in fake writer | Synchronize async queue drain in tests |
 | `time` | stdlib | Fixed timestamps for deterministic tests | Avoid time.Now() in test fixtures |
 
 ### Alternatives Considered
+
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
 | stdlib `testing` | `github.com/stretchr/testify` | testify adds `require`/`assert` convenience but adds a dependency; project is zero-dep by design |
@@ -57,6 +61,7 @@ The GELF payload test (QUAL-04) requires special handling: `buildGELF` is an une
 | `httptest.ResponseRecorder` | custom fake `ResponseWriter` | `httptest.ResponseRecorder` is stdlib and captures status/body automatically; use it |
 
 **Installation:**
+
 ```bash
 # No installation required — all stdlib
 go test ./...
@@ -67,6 +72,7 @@ go test ./...
 ## Architecture Patterns
 
 ### Recommended Test File Structure
+
 ```
 pkg/
 ├── parser/
@@ -85,9 +91,11 @@ pkg/
 ```
 
 ### Pattern 1: Table-Driven Tests with t.Run (QUAL-01, QUAL-02)
+
 **What:** Define a slice-of-structs test table; iterate with `t.Run` for named subtests.
 **When to use:** Any function with multiple input/output combinations — all four packages here.
 **Example:**
+
 ```go
 // Source: https://go.dev/wiki/TableDrivenTests
 func TestParse(t *testing.T) {
@@ -136,9 +144,11 @@ func TestParse(t *testing.T) {
 ```
 
 ### Pattern 2: Fake Writer for Queue Tests (QUAL-03)
+
 **What:** Implement `evtx.Writer` interface in the test file to capture events without I/O.
 **When to use:** Any test involving `queue.Queue` — it requires a `Writer` at construction time.
 **Example:**
+
 ```go
 // Source: Go stdlib interface testing conventions
 type fakeWriter struct {
@@ -181,9 +191,11 @@ func TestEnqueue(t *testing.T) {
 ```
 
 ### Pattern 3: GELF Payload Validation (QUAL-04)
+
 **What:** Call `buildGELF` (white-box, package `evtx`), unmarshal output with `encoding/json`, check required fields.
 **When to use:** Testing JSON serialization without network I/O.
 **Example:**
+
 ```go
 // Source: encoding/json stdlib docs
 func TestBuildGELF(t *testing.T) {
@@ -224,9 +236,11 @@ func TestBuildGELF(t *testing.T) {
 ```
 
 ### Pattern 4: Fix readBody Nil ResponseWriter (QUAL-05)
+
 **What:** Pass `w http.ResponseWriter` (the actual handler's ResponseWriter) to `http.MaxBytesReader` instead of `nil`.
 **When to use:** The `readBody` function signature must accept `w http.ResponseWriter`.
 **Example:**
+
 ```go
 // Fix: change function signature and call site
 // BEFORE (panics if body > 64 MiB):
@@ -245,6 +259,7 @@ body, err := readBody(w, r)
 ```
 
 Test with `httptest.ResponseRecorder`:
+
 ```go
 // Source: https://pkg.go.dev/net/http/httptest#ResponseRecorder
 func TestReadBodyOversized(t *testing.T) {
@@ -262,6 +277,7 @@ func TestReadBodyOversized(t *testing.T) {
 ```
 
 ### Anti-Patterns to Avoid
+
 - **Global state in tests:** The `metrics.M` global singleton is mutated by `queue.Enqueue`. Tests that run in parallel will see races. Either reset `metrics.M` between tests or avoid parallel subtests for queue tests.
 - **Testing unexported functions from external package:** `buildGELF` is unexported. Tests MUST be in `package evtx` (same package), not `package evtx_test`.
 - **Network connections in GELF tests:** Do NOT call `NewGELFWriter` in unit tests — it dials a real UDP/TCP socket. Test only `buildGELF` directly.
@@ -287,30 +303,35 @@ func TestReadBodyOversized(t *testing.T) {
 ## Common Pitfalls
 
 ### Pitfall 1: Testing `buildGELF` from External Package
+
 **What goes wrong:** Test file declares `package evtx_test` and cannot access `buildGELF` (unexported).
 **Why it happens:** Default IDE/generator creates `_test` package suffix.
 **How to avoid:** Declare `package evtx` (no `_test` suffix) in `writer_gelf_test.go`.
 **Warning signs:** `undefined: buildGELF` compile error.
 
 ### Pitfall 2: Queue Tests Racing on `metrics.M`
+
 **What goes wrong:** `go test -race ./...` reports a data race on `metrics.M.EventsDroppedTotal`.
 **Why it happens:** `metrics.M` is a package-level singleton; all tests in the process share it.
 **How to avoid:** Reset `metrics.M.EventsDroppedTotal.Store(0)` before each queue test, or run queue tests sequentially (no `t.Parallel()`).
 **Warning signs:** `-race` flag reports race on `sync/atomic` operations.
 
 ### Pitfall 3: Nil Panic in `readBody` Under Test
+
 **What goes wrong:** Test passes `nil` as ResponseWriter to verify the fix is correct, but the test itself panics before reaching the assertion.
 **Why it happens:** The bug is triggered at runtime inside `http.MaxBytesReader` internals, not at call time.
 **How to avoid:** Always use `httptest.NewRecorder()` in tests. Verify the fix by sending an oversized body and confirming no panic occurs (the test completing is the proof).
 **Warning signs:** `runtime error: invalid memory address or nil pointer dereference` inside `net/http` internals.
 
 ### Pitfall 4: VCAPS Batch Test Using Wrong Root Element
+
 **What goes wrong:** Batch XML test uses `<BatchEvent>` instead of `<EventBatch>` and the batch parser silently falls through to single-event parsing, returning 0 events instead of an error.
 **Why it happens:** `rawBatch` struct uses `xml:"EventBatch"` — the root tag must be exact.
 **How to avoid:** Use correct Dell CEPA XML structure in test fixtures: `<EventBatch><CEEEvent>...</CEEEvent></EventBatch>`.
 **Warning signs:** Test expects `wantLen: 2` but gets `wantErr: true` unexpectedly.
 
 ### Pitfall 5: `queue.Stop()` Deadlock in Tests
+
 **What goes wrong:** `q.Stop()` blocks forever because the fake writer's signaling channel is full or the channel is never drained.
 **Why it happens:** The fake writer sends to a buffered `done` channel; if the test does not drain it, the worker goroutine blocks.
 **How to avoid:** Either use an unbuffered channel with a goroutine receiver, or use a buffered channel sized to the number of expected events.
@@ -323,6 +344,7 @@ func TestReadBodyOversized(t *testing.T) {
 Verified patterns from official sources:
 
 ### IsRegisterRequest Test (QUAL-01)
+
 ```go
 // Source: parser package, white-box test
 func TestIsRegisterRequest(t *testing.T) {
@@ -348,6 +370,7 @@ func TestIsRegisterRequest(t *testing.T) {
 ```
 
 ### Mapper Test for All 6 Event Types (QUAL-02)
+
 ```go
 // Source: mapper package, white-box test
 func TestMapEventID(t *testing.T) {
@@ -379,6 +402,7 @@ func TestMapEventID(t *testing.T) {
 ```
 
 ### Queue Drop-on-Full Test (QUAL-03)
+
 ```go
 // Source: queue package, white-box test
 func TestDropOnFull(t *testing.T) {
@@ -402,6 +426,7 @@ func TestDropOnFull(t *testing.T) {
 ```
 
 ### GELF 1.1 Compliance Check (QUAL-04)
+
 ```go
 // Source: GELF 1.1 spec https://go2docs.graylog.org/current/getting_in_log_data/gelf.html
 // Required fields: version, host, short_message
@@ -433,6 +458,7 @@ func TestGELFVersion(t *testing.T) {
 | External test library (testify) | stdlib `testing` + `t.Errorf` | Always valid | Project is zero-dep; stdlib is sufficient |
 
 **Deprecated/outdated:**
+
 - `ioutil.NopCloser`: replaced by `io.NopCloser` since Go 1.16; do not use `ioutil`
 - `t.Logf` with `t.Fail()` combination: prefer `t.Errorf` which combines both
 - `http.MaxBytesReader(nil, ...)`: was never valid; passing `nil` has always been a latent panic risk (panics only when limit is exceeded at runtime)
@@ -461,18 +487,21 @@ func TestGELFVersion(t *testing.T) {
 ## Sources
 
 ### Primary (HIGH confidence)
-- Go official docs https://pkg.go.dev/net/http#MaxBytesReader — `ResponseWriter` parameter requirement confirmed; nil causes nil pointer dereference
-- Go official docs https://pkg.go.dev/net/http/httptest — `ResponseRecorder` and `NewRequest` usage
-- Go wiki https://go.dev/wiki/TableDrivenTests — table-driven test patterns, `t.Run` usage
-- Go blog https://go.dev/blog/subtests — subtests and parallel execution
+
+- Go official docs <https://pkg.go.dev/net/http#MaxBytesReader> — `ResponseWriter` parameter requirement confirmed; nil causes nil pointer dereference
+- Go official docs <https://pkg.go.dev/net/http/httptest> — `ResponseRecorder` and `NewRequest` usage
+- Go wiki <https://go.dev/wiki/TableDrivenTests> — table-driven test patterns, `t.Run` usage
+- Go blog <https://go.dev/blog/subtests> — subtests and parallel execution
 - Source code inspection: `pkg/server/server.go` line 121 — `http.MaxBytesReader(nil, r.Body, maxBody)` confirmed bug
 
 ### Secondary (MEDIUM confidence)
-- Go blog https://go.dev/blog/synctest — `testing/synctest` for concurrent tests (Go 1.24 experimental, Go 1.25 GA); not needed here since fake-writer pattern is simpler
-- Go GitHub Issue #14981 https://github.com/golang/go/issues/14981 — historical MaxBytesReader bug context
-- https://www.glukhov.org/post/2025/11/unit-tests-in-go/ — 2025 Go unit testing structure best practices
+
+- Go blog <https://go.dev/blog/synctest> — `testing/synctest` for concurrent tests (Go 1.24 experimental, Go 1.25 GA); not needed here since fake-writer pattern is simpler
+- Go GitHub Issue #14981 <https://github.com/golang/go/issues/14981> — historical MaxBytesReader bug context
+- <https://www.glukhov.org/post/2025/11/unit-tests-in-go/> — 2025 Go unit testing structure best practices
 
 ### Tertiary (LOW confidence)
+
 - None — all critical claims are verified against official Go documentation
 
 ---
@@ -480,6 +509,7 @@ func TestGELFVersion(t *testing.T) {
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH — all stdlib, verified against Go 1.24 docs
 - Architecture: HIGH — directly derived from existing source code structure
 - Pitfalls: HIGH — derived from direct code inspection (nil ResponseWriter confirmed) and Go 1.22+ loop semantics

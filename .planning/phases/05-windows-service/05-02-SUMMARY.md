@@ -54,6 +54,7 @@ completed: 2026-03-03
 - **Files modified:** 1 created (service_helpers_test.go)
 
 ## Accomplishments
+
 - Created service_helpers_test.go with TestParseCfgPath covering all 7 specified test cases
 - Confirmed RED state (compile error: parseCfgPath undefined, then FAIL with stub returning "")
 - Confirmed GREEN state (all 7 subtests pass with existing implementation from 05-01)
@@ -70,9 +71,11 @@ Each task was committed atomically:
 _Note: The GREEN implementation was committed in 05-01 (parseCfgPath in service_helpers.go). The 05-02 plan's contribution is the formal TDD test suite that validates all edge cases._
 
 ## Files Created/Modified
+
 - `cmd/cee-exporter/service_helpers_test.go` — TestParseCfgPath with 7 table-driven cases: no args, -config, --config, install subcommand, dangling flag, other flags, uninstall
 
 ## Decisions Made
+
 - parseCfgPath has no build tag — pure Go, no OS constraints, compiles on Linux CI
 - Test file declares `package main` (white-box) matching project convention in CLAUDE.md
 - Stdlib only: no testify or external test dependencies per CLAUDE.md constraint
@@ -82,12 +85,15 @@ _Note: The GREEN implementation was committed in 05-01 (parseCfgPath in service_
 None - plan executed exactly as written. The implementation was already present from 05-01 (which noted "Implement parseCfgPath() stub"), enabling the GREEN phase immediately after writing tests.
 
 ## Issues Encountered
+
 - `runWithServiceManager(run)` appeared to have a type mismatch in main.go at plan start, but investigation revealed 05-01 had already refactored `runWithServiceManager` to accept `func(ctx context.Context)` matching `run`'s signature — the build passed cleanly after understanding the 05-01 state.
 
 ## User Setup Required
+
 None - no external service configuration required.
 
 ## Next Phase Readiness
+
 - parseCfgPath is fully tested and verified — ready for Phase 5 Plan 03 (real SCM wrapper on Windows)
 - service_windows.go placeholder stub awaits replacement with kardianos/service SCM integration
 - All 44 tests green, CGO_ENABLED=0 builds pass on linux/amd64 and windows/amd64
@@ -102,5 +108,5 @@ None - no external service configuration required.
 - All 44 tests pass
 
 ---
-*Phase: 05-windows-service*
-*Completed: 2026-03-03*
+_Phase: 05-windows-service_
+_Completed: 2026-03-03_

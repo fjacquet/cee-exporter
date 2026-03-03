@@ -5,6 +5,7 @@
 **Confidence:** HIGH
 
 <phase_requirements>
+
 ## Phase Requirements
 
 | ID | Description | Research Support |
@@ -32,12 +33,14 @@ Neither library uses CGO — both are pure Go, satisfying the project's `CGO_ENA
 ## Standard Stack
 
 ### Core
+
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
 | `github.com/crewjam/rfc5424` | v0.1.0 (May 2020) | Build RFC 5424 syslog messages with structured data | Only maintained pure-Go RFC 5424 serializer; zero CGO; `WriteTo(io.Writer)` works with any `net.Conn` |
 | `github.com/elastic/go-lumber/client/v2` | v0.1.1 (Jan 2021) | Lumberjack v2 SyncClient — sends ACK-ed batches to Logstash/Graylog Beats Input | Official Elastic implementation; no CGO; used by Filebeat/Winlogbeat itself |
 
 ### Supporting
+
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
 | `crypto/tls` (stdlib) | Go 1.24 | TLS dialer for BeatsWriter | Always — injected into `SyncDialWith` via custom dial function |
@@ -46,6 +49,7 @@ Neither library uses CGO — both are pure Go, satisfying the project's `CGO_ENA
 | `sync` (stdlib) | Go 1.24 | Mutex protecting conn in both writers | Always — matches GELFWriter pattern |
 
 ### Alternatives Considered
+
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
 | `github.com/crewjam/rfc5424` | `log/syslog` (stdlib) | stdlib excluded from Windows builds (`//go:build !windows && !plan9`); not RFC 5424 compliant (missing VERSION field); REJECTED |
@@ -53,6 +57,7 @@ Neither library uses CGO — both are pure Go, satisfying the project's `CGO_ENA
 | `github.com/elastic/go-lumber/client/v2` | Custom TCP framing | Lumberjack v2 protocol is non-trivial (window ACK, compression, framing); go-lumber is the reference implementation; DO NOT hand-roll |
 
 **Installation:**
+
 ```bash
 go get github.com/crewjam/rfc5424@v0.1.0
 go get github.com/elastic/go-lumber@v0.1.1
@@ -63,6 +68,7 @@ go get github.com/elastic/go-lumber@v0.1.1
 ## Architecture Patterns
 
 ### Recommended Project Structure
+
 ```
 pkg/evtx/
 ├── writer_syslog.go          # SyslogWriter struct + NewSyslogWriter + WriteEvent + Close
@@ -287,42 +293,49 @@ case "beats":
 ## Common Pitfalls
 
 ### Pitfall 1: SyncClient is Not Thread-Safe
+
 **What goes wrong:** Multiple goroutines call `BeatsWriter.WriteEvent` concurrently; `SyncClient.Send` corrupts state.
 **Why it happens:** go-lumber documents `SyncClient` as not thread-safe; the queue sends events from multiple worker goroutines.
 **How to avoid:** Wrap every `SyncClient.Send` call with `sync.Mutex` (same as GELFWriter wraps `conn.Write`).
 **Warning signs:** Intermittent `ErrProtocolError` or panics on concurrent writes.
 
 ### Pitfall 2: SyncClient Cannot Be Reused After Error
+
 **What goes wrong:** After a `SyncClient.Send` error, subsequent calls also fail even after the remote recovers.
 **Why it happens:** go-lumber's `SyncClient` does not internally reconnect. Once the underlying `net.Conn` is broken, the client is dead.
 **How to avoid:** On `Send` error: call `w.client.Close()`, call `w.dialBeats()` to get a new `*SyncClient`, then retry send once.
 **Warning signs:** Permanent failure after any transient network blip.
 
 ### Pitfall 3: RFC 6587 Framing Only for TCP Syslog
+
 **What goes wrong:** Applying octet-counting prefix to UDP datagrams; or omitting it for TCP.
 **Why it happens:** The framing requirement is protocol-specific and easy to conflate.
 **How to avoid:** Check `cfg.Protocol` in `send()` — use framing only for `"tcp"`.
 **Warning signs:** rsyslog/syslog-ng rejects TCP frames or UDP receiver sees malformed messages.
 
 ### Pitfall 4: SD-PARAM Value Characters Must Be Escaped
+
 **What goes wrong:** File paths with `]`, `"`, or `\` characters break structured-data parsing in receivers.
 **Why it happens:** RFC 5424 §6.3.3 requires escaping `]`, `"`, and `\` in SD-PARAM values.
 **How to avoid:** `crewjam/rfc5424` handles this automatically in `AddDatum`. Do not format SD-params manually.
 **Warning signs:** Syslog receiver truncates or rejects messages with Windows-style file paths (backslashes).
 
 ### Pitfall 5: log/syslog Windows Build Failure
+
 **What goes wrong:** `import "log/syslog"` causes build failure for `GOOS=windows`.
 **Why it happens:** stdlib syslog has `//go:build !windows && !plan9`.
 **How to avoid:** Do not use `log/syslog` — use `crewjam/rfc5424` + `net.Conn` directly (no build tags needed).
 **Warning signs:** `go build -o cee-exporter.exe` fails with "undefined: syslog".
 
 ### Pitfall 6: go-lumber Compression vs. Receiver Compatibility
+
 **What goes wrong:** `lumberv2.CompressionLevel(6)` enabled but receiver rejects compressed frames.
 **Why it happens:** Not all Beats receivers support gzip compression; Graylog Beats Input typically does but older versions may not.
 **How to avoid:** Default to `CompressionLevel(0)` (disabled). Document as optional config. Graylog 5+ supports it; verify with receiver.
 **Warning signs:** Receiver logs protocol errors immediately after TLS handshake succeeds.
 
 ### Pitfall 7: Syslog Port Default
+
 **What goes wrong:** Default port 514 requires root on Linux for binding; clients sending to 514 work fine.
 **Why it happens:** Ports below 1024 need CAP_NET_BIND_SERVICE or root for the *server*. Client connecting to port 514 is always fine.
 **How to avoid:** Default `syslog_port = 514` for client config is correct. Receivers run as root or on 514. No issue for cee-exporter (it is the client).
@@ -334,6 +347,7 @@ case "beats":
 Verified patterns from official sources:
 
 ### SyslogWriter Constructor
+
 ```go
 // Source: established GELFWriter pattern (pkg/evtx/writer_gelf.go) + crewjam/rfc5424 API
 type SyslogConfig struct {
@@ -383,6 +397,7 @@ func (w *SyslogWriter) connect() error {
 ```
 
 ### RFC 5424 Message Build
+
 ```go
 // Source: pkg.go.dev/github.com/crewjam/rfc5424 (verified API)
 import "github.com/crewjam/rfc5424"
@@ -410,6 +425,7 @@ func buildSyslog5424(e WindowsEvent, appName string) ([]byte, error) {
 ```
 
 ### BeatsWriter Constructor with TLS
+
 ```go
 // Source: pkg.go.dev/github.com/elastic/go-lumber/client/v2 (verified API)
 import lumberv2 "github.com/elastic/go-lumber/client/v2"
@@ -500,6 +516,7 @@ func (w *BeatsWriter) Close() error {
 ```
 
 ### Test Pattern for SyslogWriter (Stdlib Only)
+
 ```go
 // Source: CLAUDE.md testing conventions + established project tests
 package evtx
@@ -552,6 +569,7 @@ func TestBuildSyslog5424(t *testing.T) {
 | Custom Lumberjack client | `github.com/elastic/go-lumber` | 2016 (Elastic official) | Reference implementation; battle-tested in production |
 
 **Deprecated/outdated:**
+
 - `log/syslog`: Frozen, not RFC 5424 compliant, Windows-excluded — do not use.
 - Lumberjack v1: Superseded by v2 (different wire format); `go-lumber/client/v2` implements v2.
 - RFC 3164 BSD syslog: Explicitly out of scope per REQUIREMENTS.md.
@@ -580,6 +598,7 @@ func TestBuildSyslog5424(t *testing.T) {
 ## Sources
 
 ### Primary (HIGH confidence)
+
 - `pkg.go.dev/github.com/crewjam/rfc5424` — Full API: Message, Priority, StructuredData, SDParam, AddDatum, MarshalBinary, WriteTo verified
 - `pkg.go.dev/github.com/elastic/go-lumber/client/v2` — Full API: SyncClient, SyncDial, SyncDialWith, SyncClient.Send, Client.Close verified
 - `github.com/elastic/go-lumber/blob/main/client/v2/sync.go` — SyncDialWith signature verified from source
@@ -590,6 +609,7 @@ func TestBuildSyslog5424(t *testing.T) {
 - `pkg/evtx/writer_gelf.go` — Project writer pattern (mutex, reconnect, connect/send split) read directly
 
 ### Secondary (MEDIUM confidence)
+
 - `go.dev/src/log/syslog/syslog.go` (via WebSearch) — `//go:build !windows && !plan9` confirmed; stdlib syslog Windows exclusion verified
 - `github.com/golang/go/issues/66666` — log/syslog non-RFC-5424-compliance confirmed (frozen package)
 - `go2docs.graylog.org/current/setting_up_graylog/secured_graylog_and_beats_input.html` — Graylog Beats Input TLS configuration; port 5044 confirmed
@@ -597,6 +617,7 @@ func TestBuildSyslog5424(t *testing.T) {
 - `www.rfc-editor.org/rfc/rfc5424` — SD-ID private enterprise number format `name@PEN` confirmed
 
 ### Tertiary (LOW confidence)
+
 - PEN 32473 as documentation/example PEN: referenced from RFC 5612 conventions; functionally safe but technically reserved for examples. Flag for validation if strict RFC compliance required.
 
 ---
@@ -604,6 +625,7 @@ func TestBuildSyslog5424(t *testing.T) {
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH — both libraries verified via pkg.go.dev and source inspection; no CGO confirmed
 - Architecture: HIGH — writer pattern copied from existing GELFWriter; library APIs verified
 - Pitfalls: HIGH (thread-safety, reconnect, TCP framing) / MEDIUM (SD-ID PEN, compression compatibility)

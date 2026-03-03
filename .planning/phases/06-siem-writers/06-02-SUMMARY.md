@@ -39,6 +39,7 @@ metrics:
 A `BeatsWriter` struct in `pkg/evtx/writer_beats.go` that implements the `evtx.Writer` interface and forwards CEPA audit events to Logstash or Graylog Beats Input using the Lumberjack v2 protocol.
 
 Key design decisions driven by go-lumber's API constraints:
+
 - **TLS injection:** go-lumber has no TLS option — TLS is implemented by passing a `tls.Dialer`-backed function to `SyncDialWith`
 - **Thread safety:** `SyncClient` is documented as not thread-safe — a `sync.Mutex` serializes every `Send` call
 - **Reconnect:** `SyncClient` cannot recover from errors — on send failure, `Close()` + `dial()` + retry once mirrors the `GELFWriter` pattern

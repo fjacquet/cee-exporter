@@ -87,6 +87,7 @@ Any SIEM can ingest Dell PowerStore file-system audit events as native Windows E
 **Goal:** Make cee-exporter production-deployable as a managed service on Linux and Windows, add Prometheus observability, and expand SIEM output targets to cover Beats, syslog, and native .evtx on Linux.
 
 **Target features:**
+
 - Prometheus `/metrics` endpoint (`cee_events_received_total`, `cee_events_dropped_total`, `cee_queue_depth`)
 - Systemd unit file for Linux service deployment
 - Windows native Service registration

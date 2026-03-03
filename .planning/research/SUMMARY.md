@@ -106,6 +106,7 @@ Top 5 by consequence severity:
 5. **BeatsWriter SyncClient not thread-safe (HIGH)** — `go-lumber` `SyncClient` has no internal locking; the existing queue runs N concurrent workers. Concurrent `Send()` calls corrupt the Lumberjack framing state. Prevention: wrap `SyncClient.Send()` in a `sync.Mutex` inside `BeatsWriter.WriteEvent()` — the same pattern `GELFWriter` already uses.
 
 Additional high-impact pitfalls to address per phase:
+
 - Prometheus: cardinality explosion if `ObjectName`/`SubjectUsername` used as metric labels (use only `event_id`, `writer`, `status`)
 - Prometheus: parallel counter drift if `pkg/metrics.Store` atomics and `prometheus.Counter` are incremented independently (wrap, don't duplicate)
 - BinaryEvtxWriter: record trailing size copy missing causes entire chunk to be unreadable
@@ -125,6 +126,7 @@ Based on research, the 4-phase structure below reflects actual dependency orderi
 **Rationale:** Prometheus metrics and the systemd unit file are the two lowest-risk, highest-ops-value items. Prometheus can be built and tested entirely on Linux without a Windows environment. The systemd unit file is a zero-code text artifact. Together they constitute the operational readiness baseline that makes the daemon deployable in managed Linux environments. This phase also includes the `run()` extraction refactor in `main.go` (splitting `main()` into `main()` + `run()`), which is a prerequisite for Phase 2 Windows Service integration.
 
 **Delivers:**
+
 - `/metrics` endpoint on port 9228 with 4 Prometheus metrics (`cee_events_received_total`, `cee_events_dropped_total`, `cee_queue_depth`, `cee_writer_errors_total`)
 - `deploy/systemd/cee-exporter.service` — production-ready hardened unit file
 - `main()` → `run()` refactor (prerequisite for Phase 2)
@@ -145,6 +147,7 @@ Based on research, the 4-phase structure below reflects actual dependency orderi
 **Rationale:** Depends on the `run()` extraction from Phase 1. Uses `golang.org/x/sys/windows/svc` already in `go.mod` — no new module unless `kardianos/service` is chosen for the cross-platform abstraction. Medium complexity (~150–200 LOC). Must be developed and tested in a Windows environment (or Windows CI). Isolated in `service_windows.go` / `service_notwindows.go` so it cannot affect Linux builds.
 
 **Delivers:**
+
 - `cee-exporter.exe install` / `uninstall` / `start` / `stop` / `status` CLI subcommands
 - SCM-managed service with Automatic Delayed Start and restart recovery actions
 - Windows Event Log start/stop entries
@@ -165,6 +168,7 @@ Based on research, the 4-phase structure below reflects actual dependency orderi
 **Rationale:** SyslogWriter and BeatsWriter are independent of each other and of Phase 2. Both implement the existing `Writer` interface at well-defined extension points. Both can be developed and tested on Linux. SyslogWriter should be built first because it has slightly lower risk (no ACK windowing protocol) and broader SIEM compatibility. BeatsWriter second because it requires a running Logstash or Graylog Beats Input for integration testing. Parallel development is possible if two engineers are available.
 
 **Delivers:**
+
 - `SyslogWriter`: RFC 5424 structured syslog over UDP/TCP to any syslog server; all audit fields in SD-ELEMENT; no Windows build constraints
 - `BeatsWriter`: Lumberjack v2 client sending to Logstash/Graylog Beats Input; TLS support; ECS-aligned field names
 - `go.mod` additions: `crewjam/rfc5424@v0.1.0` (SyslogWriter), `elastic/go-lumber@v0.1.1` (BeatsWriter)
@@ -176,6 +180,7 @@ Based on research, the 4-phase structure below reflects actual dependency orderi
 **Implements:** `pkg/evtx/writer_syslog.go` (new), `pkg/evtx/writer_beats.go` (new), `main.go` `buildWriter()` (modified), `config.toml.example` (modified)
 
 **Avoids:**
+
 - Pitfall 11 (AsyncClient callback deadlock — use SyncClient)
 - Pitfall 12 (SyncClient not thread-safe — sync.Mutex, mirror GELFWriter)
 - Pitfall 13 (TLS dropped on reconnect — use custom dialFunc for both initial and reconnect paths)
@@ -195,6 +200,7 @@ Based on research, the 4-phase structure below reflects actual dependency orderi
 **Rationale:** Isolated last because it is the highest-complexity feature in v2.0, has no external library, requires the deepest format knowledge, and is entirely independent of all other phases. Blocking other deliverables on this would be wrong — the other 5 features provide immediate production value. The BinXML implementation should be built incrementally: file header first, then chunk header with checksums, then a minimal BinXML token stream for a single EventID, validated at each step against the `0xrawsec/golang-evtx` parser before proceeding.
 
 **Delivers:**
+
 - Real `BinaryEvtxWriter` replacing the stub in `writer_evtx_stub.go`
 - Valid `.evtx` files readable by Windows Event Viewer, Splunk, Elastic Agent, Autopsy
 - `pkg/evtx/binxml/` subpackage: `chunk.go`, `header.go`, `token.go`, `sid.go`, `filetime.go`
@@ -206,6 +212,7 @@ Based on research, the 4-phase structure below reflects actual dependency orderi
 **Implements:** `pkg/evtx/writer_binary_evtx.go` `//go:build !windows` (new, replaces stub), `pkg/evtx/binxml/*.go` (new subpackage), `pkg/evtx/writer_evtx_stub.go` (removed or tagged `//go:build ignore`)
 
 **Avoids:**
+
 - Pitfall 7 (dual chunk checksum — compute event records CRC first at offset 52, then header CRC at offset 124)
 - Pitfall 8 (record trailing size copy — buffer record in bytes.Buffer, append size copy before write)
 - Pitfall 9 (string table offsets are chunk-relative — maintain chunk-local intern map, reset per chunk)

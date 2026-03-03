@@ -159,6 +159,7 @@ flowchart LR
 ```
 
 Key constraints:
+
 - Chunks are exactly 65 536 bytes; new chunk on overflow.
 - Each record carries a globally-monotonic `EventRecordID`.
 - Timestamps are Windows FILETIME (100 ns intervals since 1601-01-01).

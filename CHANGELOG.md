@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-03-03
 
 ### Added
+
 - CEPA HTTP listener with RegisterRequest handshake and heartbeat ACK (3-second window)
 - CEE XML parser for single-event and VCAPS bulk batch payloads
 - Semantic mapping of 6 CEPA event types to Windows Event IDs (4660, 4663, 4670)
@@ -27,4 +28,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GET /health endpoint with JSON status (uptime, queue_depth, events_received, events_written, events_dropped)
 
 ### Fixed
+
 - http.MaxBytesReader nil ResponseWriter panic: payloads > 64 MiB now close the connection gracefully instead of panicking

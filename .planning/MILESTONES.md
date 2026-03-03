@@ -6,6 +6,7 @@
 **Timeline:** 2026-03-02 → 2026-03-03 (1 day)
 
 **Key accomplishments:**
+
 1. Fixed `readBody` nil ResponseWriter panic; 35 unit tests across 5 packages pass with 0 data races
 2. Table-driven unit tests for parser, mapper, queue, and GELF writer — stdlib only, no testify
 3. Makefile with build/build-windows/test/lint/clean; static Linux ELF and cross-compiled Windows PE32+ binaries verified
@@ -14,8 +15,8 @@
 6. Multi-stage Dockerfile (scratch), GitHub Actions CI/release/docs workflows, mkdocs-material site
 
 **Known tech debt:**
+
 - `make test` omits `-race` (incompatible with CGO_ENABLED=0 build posture)
 - Win32 EventID 4663/4660/4670 may need message DLL for correct Event Viewer display
 
 ---
-

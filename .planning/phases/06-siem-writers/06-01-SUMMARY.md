@@ -106,6 +106,7 @@ _Note: TDD tasks have three commits (test → feat → refactor)_
 ### Auto-fixed Issues
 
 **1. [Rule 3 - Blocking] go mod tidy after go get added spurious go-lumber indirect entry**
+
 - **Found during:** Task 3 (REFACTOR)
 - **Issue:** Running `go get github.com/crewjam/rfc5424@v0.1.0` initially added crewjam as `// indirect` instead of direct. Also left `elastic/go-lumber` as an indirect entry from cache.
 - **Fix:** Ran `go mod tidy` which promoted crewjam to direct dependency and removed the spurious go-lumber entry. Note: go-lumber was subsequently re-added by the 06-02 beats commit that occurred concurrently.
@@ -133,8 +134,8 @@ None — no external service configuration required. SyslogWriter requires syslo
 - Config wiring (adding SyslogConfig to the TOML config struct and factory in main.go) is the remaining integration step
 
 ---
-*Phase: 06-siem-writers*
-*Completed: 2026-03-03*
+_Phase: 06-siem-writers_
+_Completed: 2026-03-03_
 
 ## Self-Check: PASSED
 

@@ -5,6 +5,7 @@
 **Confidence:** HIGH
 
 <phase_requirements>
+
 ## Phase Requirements
 
 | ID | Description | Research Support |
@@ -223,6 +224,7 @@ This corresponds to the Windows "Recovery" tab in services.msc: "First failure: 
 **Options:**
 
 Option A — channel bridge (recommended for this codebase):
+
 ```go
 // In svcProgram, hold a reference to the signal channel
 type svcProgram struct {
@@ -244,6 +246,7 @@ func (p *svcProgram) Stop(s service.Service) error {
 ```
 
 Option B — refactor `run()` to accept a context (cleanest long-term):
+
 ```go
 func run(ctx context.Context) { ... }
 // svcProgram.Start creates a cancel context and stores cancel
@@ -504,6 +507,7 @@ sc.exe qc cee-exporter              # shows config including delayed auto start
 | `kardianos/service` v1.1.x | v1.2.4 (July 2025) | 2021-2025 | Added `OnFailureDelayDuration`, OpenRC, proper Windows options |
 
 **Deprecated/outdated:**
+
 - NSSM: External dependency, explicitly out of scope per REQUIREMENTS.md
 - `sc.exe` for install/uninstall: Works but requires admin shell and no rollback; library approach is superior
 
@@ -552,6 +556,7 @@ sc.exe qc cee-exporter              # shows config including delayed auto start
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH — kardianos/service v1.2.4 confirmed on pkg.go.dev; x/sys already in go.mod
 - Architecture: HIGH — build tag pattern from CLAUDE.md; service_windows.go stub already in place; kardianos API verified
 - Pitfalls: HIGH — SCM timeout confirmed in golang/go #23479; recovery action gotcha confirmed in x/sys mgr docs; argument capture pitfall derived from library API semantics

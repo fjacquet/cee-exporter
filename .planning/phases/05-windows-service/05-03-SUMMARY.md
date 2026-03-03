@@ -64,6 +64,7 @@ completed: 2026-03-03
 - **Files modified:** 1
 
 ## Accomplishments
+
 - Replaced service_windows.go stub with full service.Interface implementation using kardianos/service v1.2.4
 - svcProgram.Start() launches run() in goroutine (non-blocking, complies with SCM 30s timeout)
 - svcProgram.Stop() calls cancel() to bridge SCM stop control into run()'s context cancellation select
@@ -79,9 +80,11 @@ Each task was committed atomically:
 **Plan metadata:** (docs commit follows)
 
 ## Files Created/Modified
+
 - `cmd/cee-exporter/service_windows.go` - Full SCM wrapper: svcProgram (service.Interface), svcConfig (Automatic Delayed Start + recovery), runWithServiceManager (install/uninstall dispatch + s.Run())
 
 ## Decisions Made
+
 - Start() must not block — SCM expects Start() to return quickly; runFn launched in goroutine
 - Stop() calls cancel() only, never os.Exit() — SCM handles cleanup after Stop() returns; calling os.Exit() from Stop() bypasses SCM state machine
 - Arguments stores only [-config, cfgPath] — parseCfgPath() strips the subcommand token to prevent SCM re-running "install" on every boot (infinite install loop)
@@ -93,20 +96,25 @@ Each task was committed atomically:
 None - plan executed exactly as written.
 
 ## Issues Encountered
+
 None.
 
 ## User Setup Required
+
 Manual verification on Windows requires Administrator privileges:
+
 1. DEPLOY-03: `cee-exporter.exe install` — service appears in services.msc as "CEE Exporter" with "Automatic (Delayed Start)"
 2. DEPLOY-04: `cee-exporter.exe uninstall` — service disappears from services.msc and registry
 3. DEPLOY-05: Recovery tab in services.msc shows "Restart the Service (5 seconds delay)" on first failure; "Enable actions for stops with errors" is ticked
 
 Linux CI verification (automated) passed:
+
 - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./... — OK
 - CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./... — OK
 - go test ./... — 44 tests pass
 
 ## Next Phase Readiness
+
 - Phase 5 (Windows Service) is fully complete — all three plans executed
 - DEPLOY-03, DEPLOY-04, DEPLOY-05 requirements addressed
 - service_windows.go is production-ready; no further changes needed in Phase 6 or 7

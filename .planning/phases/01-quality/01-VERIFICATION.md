@@ -66,6 +66,7 @@ Note: QUAL-06 (`go build ./...` and `go vet ./...` pass with zero warnings) is m
 ### Anti-Patterns Found
 
 No anti-patterns detected in any test file:
+
 - No TODO/FIXME/PLACEHOLDER comments in test files
 - No time.Sleep used for synchronization in queue_test.go (uses channel sync as required)
 - No testify or external test libraries in go.mod (only `github.com/BurntSushi/toml` and `golang.org/x/sys`)
@@ -75,6 +76,7 @@ No anti-patterns detected in any test file:
 ### Human Verification Required
 
 None. All success criteria are fully verifiable programmatically:
+
 - Test execution results are deterministic
 - Code patterns (signatures, package declarations, call sites) are statically verifiable
 - No UI, network I/O, or external service dependencies in the test suite
@@ -82,6 +84,7 @@ None. All success criteria are fully verifiable programmatically:
 ### Verification Details
 
 **go test ./... -race output summary:**
+
 - `pkg/server`: 2 tests passed (TestReadBodyOversized, TestReadBodyNormal)
 - `pkg/parser`: 13 tests passed (6 TestParse subtests + 5 TestIsRegisterRequest subtests + TestParse + TestIsRegisterRequest top-level)
 - `pkg/mapper`: 13 tests passed (TestMapEventID 10 subtests + TestMapFieldPropagation + TestMapHostnameFallback + parent tests)

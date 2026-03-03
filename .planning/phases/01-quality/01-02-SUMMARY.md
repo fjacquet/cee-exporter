@@ -53,6 +53,7 @@ completed: 2026-03-02
 - **Files modified:** 2
 
 ## Accomplishments
+
 - TestParse with 6 subtests: single CEEEvent, VCAPS EventBatch (2 events), malformed XML, empty payload, wrong root element, and timestamp parsing
 - TestIsRegisterRequest with 5 subtests covering RegisterRequest tag detection edge cases
 - TestMapEventID with 10 subtests covering all 6 CEPA categories, directory variants, and unknown-type fallback to EventID 4663 with mask 0x0
@@ -68,10 +69,12 @@ Each task was committed atomically:
 2. **Task 2: Write mapper unit tests** - `e15c322` (test)
 
 ## Files Created/Modified
+
 - `pkg/parser/parser_test.go` - White-box table-driven tests for Parse() and IsRegisterRequest()
 - `pkg/mapper/mapper_test.go` - White-box table-driven tests for Map() covering EventID, AccessMask, field propagation, hostname fallback
 
 ## Decisions Made
+
 - Used white-box (same-package) test declarations to access internal rawEvent types directly without exporting them
 - stdlib only — `testing` and `time` imports only; no testify dependency added to go.mod
 - Table-driven tests with t.Run for clear per-subtest failure messages
@@ -89,6 +92,7 @@ None.
 None - no external service configuration required.
 
 ## Next Phase Readiness
+
 - QUAL-01 and QUAL-02 are fully satisfied
 - Parser and mapper packages have verified correctness guarantees
 - Ready to proceed with QUAL-03 through QUAL-05 (handler tests, build pipeline, linting)

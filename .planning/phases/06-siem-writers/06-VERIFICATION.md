@@ -104,6 +104,7 @@ No TODO/FIXME/placeholder comments, no empty implementations, no console.log stu
 No gaps found. All four Success Criteria are verified against actual codebase artifacts with substantive implementations and confirmed wiring.
 
 The implementation is complete:
+
 - `writer_syslog.go` (152 lines): Full RFC 5424 production implementation using `crewjam/rfc5424`, with RFC 6587 TCP framing, reconnect-once resilience, and `audit@32473` structured-data element.
 - `writer_beats.go` (143 lines): Full Lumberjack v2 production implementation using `go-lumber v0.1.1`, with TLS injection via `SyncDialWith`, mutex-serialized `SyncClient`, and reconnect-retry pattern.
 - `main.go`: Both writers wired into `buildWriter` factory with all config fields mapped from `OutputConfig`.

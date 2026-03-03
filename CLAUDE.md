@@ -68,6 +68,7 @@ CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg
 ## CGO and static linking
 
 All targets set `CGO_ENABLED=0`. Consequences:
+
 - `-race` detector cannot be used in `make test` (requires CGO); run `go test -race ./...` separately when needed.
 - Cross-compilation from Linux to Windows requires no C toolchain.
 - `golang.org/x/sys/windows` uses syscall (not CGO) — Win32 API calls work without a C compiler.

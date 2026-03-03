@@ -1,5 +1,6 @@
 BINARY_NAME    := cee-exporter
 BINARY_WINDOWS := cee-exporter.exe
+BINARY_DARWIN  := cee-exporter-darwin
 CMD_PATH       := ./cmd/cee-exporter
 LDFLAGS        := -s -w
 
@@ -10,7 +11,9 @@ VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || ec
 SYSTEMD_UNIT_SRC := deploy/systemd/cee-exporter.service
 SYSTEMD_UNIT_DST := /etc/systemd/system/cee-exporter.service
 
-.PHONY: build build-windows test lint clean docker-build docker-push docker-run install-systemd
+.PHONY: all build build-windows build-darwin test lint clean docker-build docker-push docker-run install-systemd
+
+all: build build-windows build-darwin
 
 build:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -20,6 +23,10 @@ build-windows:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
 	  go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_WINDOWS) $(CMD_PATH)
 
+build-darwin:
+	CGO_ENABLED=0 GOOS=darwin GOARCH=$(shell go env GOARCH) \
+	  go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_DARWIN) $(CMD_PATH)
+
 test:
 	go test ./...
 
@@ -27,7 +34,7 @@ lint:
 	go vet ./...
 
 clean:
-	rm -f $(BINARY_NAME) $(BINARY_WINDOWS)
+	rm -f $(BINARY_NAME) $(BINARY_WINDOWS) $(BINARY_DARWIN)
 
 # Requires root. Run as: sudo make install-systemd
 install-systemd: $(SYSTEMD_UNIT_SRC)
