@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-3 (shipped 2026-03-03) — see [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
+- 🚧 **v2.0 Operations & Output Expansion** — Phases 4-7 (in progress)
 
 ## Phases
 
@@ -15,10 +16,69 @@
 
 </details>
 
+### v2.0 Operations & Output Expansion (In Progress)
+
+**Milestone Goal:** Make cee-exporter production-deployable as a managed service on Linux and Windows, add Prometheus observability, and expand SIEM output targets to cover Beats, syslog, and native .evtx on Linux.
+
+- [ ] **Phase 4: Observability & Linux Service** - Prometheus /metrics endpoint on port 9228 plus hardened systemd unit file
+- [ ] **Phase 5: Windows Service** - SCM-managed service registration via install/uninstall subcommands
+- [ ] **Phase 6: SIEM Writers** - SyslogWriter (RFC 5424 UDP/TCP) and BeatsWriter (Lumberjack v2) output targets
+- [ ] **Phase 7: BinaryEvtxWriter** - Pure-Go BinXML .evtx file writer for Linux hosts
+
+## Phase Details
+
+### Phase 4: Observability & Linux Service
+**Goal**: Operators can scrape live telemetry from the daemon and deploy it as a managed Linux service
+**Depends on**: Phase 3 (v1.0 complete)
+**Requirements**: OBS-01, OBS-02, OBS-03, OBS-04, OBS-05, DEPLOY-01, DEPLOY-02
+**Success Criteria** (what must be TRUE):
+  1. Operator runs `curl http://host:9228/metrics` and receives Prometheus text with `cee_events_received_total`, `cee_events_dropped_total`, `cee_queue_depth`, and `cee_writer_errors_total` counters
+  2. Operator changes the metrics listen address in config.toml and the /metrics endpoint binds to the new port without touching the CEPA port 12228
+  3. Operator copies `deploy/systemd/cee-exporter.service` to `/etc/systemd/system/` and runs `systemctl enable --now cee-exporter` and the daemon starts and stays running
+  4. Operator stops the daemon process unexpectedly (kill -9) and systemd restarts it automatically within 5 seconds
+  5. Prometheus scrape of /metrics returns only low-cardinality labels (event_id, writer, status) — no per-file or per-user label explosion
+**Plans**: TBD
+
+### Phase 5: Windows Service
+**Goal**: Windows operators can register, start, and recover cee-exporter as a native SCM-managed service without external tools
+**Depends on**: Phase 4
+**Requirements**: DEPLOY-03, DEPLOY-04, DEPLOY-05
+**Success Criteria** (what must be TRUE):
+  1. Operator runs `cee-exporter.exe install` on Windows and the service appears in the Services snap-in (services.msc) with Automatic Delayed Start
+  2. Operator runs `cee-exporter.exe uninstall` and the service is removed from SCM with no leftover registry entries
+  3. The Windows Service starts within the SCM 30-second window (StartPending sent before Go runtime init completes) and reports Running status in services.msc
+  4. If cee-exporter.exe crashes, Windows SCM restarts it automatically according to the recovery actions configured at install time
+**Plans**: TBD
+
+### Phase 6: SIEM Writers
+**Goal**: Operators can forward audit events to any syslog-compatible receiver and to Logstash or Graylog Beats Input via Lumberjack v2
+**Depends on**: Phase 4
+**Requirements**: OUT-01, OUT-02, OUT-03, OUT-04
+**Success Criteria** (what must be TRUE):
+  1. Operator sets `type = "syslog"` with `syslog_protocol = "udp"` in config.toml and audit events arrive at the syslog receiver as valid RFC 5424 messages with structured-data containing audit fields
+  2. Operator sets `syslog_protocol = "tcp"` and audit events flow over a persistent TCP connection to the syslog server
+  3. Operator sets `type = "beats"` with Logstash or Graylog Beats Input address and audit events arrive as Lumberjack v2 frames readable by the receiver
+  4. Operator enables `beats_tls = true` and the Beats connection is established over TLS — plaintext is refused
+**Plans**: TBD
+
+### Phase 7: BinaryEvtxWriter
+**Goal**: Linux operators can configure cee-exporter to write native .evtx files that open correctly in Windows Event Viewer and forensics tools
+**Depends on**: Phase 4
+**Requirements**: OUT-05, OUT-06
+**Success Criteria** (what must be TRUE):
+  1. Operator sets `type = "evtx"` with an output file path on a Linux host and the daemon writes a .evtx file without crashing or emitting errors
+  2. The .evtx file produced on Linux is copied to a Windows machine and opens in Event Viewer showing correct EventIDs (4663, 4660, 4670) with readable audit fields
+  3. A forensics tool (Splunk, Elastic Agent, or the `0xrawsec/golang-evtx` parser) reads the file and extracts event records with correct timestamps and subject/object fields
+**Plans**: TBD
+
 ## Progress
 
-| Phase | Milestone | Plans Complete | Status   | Completed  |
-|-------|-----------|----------------|----------|------------|
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
 | 1. Quality | v1.0 | 3/3 | Complete | 2026-03-02 |
 | 2. Build | v1.0 | 1/1 | Complete | 2026-03-02 |
 | 3. Documentation | v1.0 | 2/2 | Complete | 2026-03-03 |
+| 4. Observability & Linux Service | v2.0 | 0/? | Not started | - |
+| 5. Windows Service | v2.0 | 0/? | Not started | - |
+| 6. SIEM Writers | v2.0 | 0/? | Not started | - |
+| 7. BinaryEvtxWriter | v2.0 | 0/? | Not started | - |

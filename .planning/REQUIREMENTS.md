@@ -69,28 +69,28 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OBS-01 | — | Pending |
-| OBS-02 | — | Pending |
-| OBS-03 | — | Pending |
-| OBS-04 | — | Pending |
-| OBS-05 | — | Pending |
-| DEPLOY-01 | — | Pending |
-| DEPLOY-02 | — | Pending |
-| DEPLOY-03 | — | Pending |
-| DEPLOY-04 | — | Pending |
-| DEPLOY-05 | — | Pending |
-| OUT-01 | — | Pending |
-| OUT-02 | — | Pending |
-| OUT-03 | — | Pending |
-| OUT-04 | — | Pending |
-| OUT-05 | — | Pending |
-| OUT-06 | — | Pending |
+| OBS-01 | Phase 4 | Pending |
+| OBS-02 | Phase 4 | Pending |
+| OBS-03 | Phase 4 | Pending |
+| OBS-04 | Phase 4 | Pending |
+| OBS-05 | Phase 4 | Pending |
+| DEPLOY-01 | Phase 4 | Pending |
+| DEPLOY-02 | Phase 4 | Pending |
+| DEPLOY-03 | Phase 5 | Pending |
+| DEPLOY-04 | Phase 5 | Pending |
+| DEPLOY-05 | Phase 5 | Pending |
+| OUT-01 | Phase 6 | Pending |
+| OUT-02 | Phase 6 | Pending |
+| OUT-03 | Phase 6 | Pending |
+| OUT-04 | Phase 6 | Pending |
+| OUT-05 | Phase 7 | Pending |
+| OUT-06 | Phase 7 | Pending |
 
 **Coverage:**
 - v2 requirements: 16 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 16 ⚠️
+- Mapped to phases: 16 (roadmap complete)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after initial v2.0 definition*
+*Last updated: 2026-03-03 after v2.0 roadmap creation*
