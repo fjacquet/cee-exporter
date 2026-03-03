@@ -11,19 +11,19 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Milestone: v2.0 Operations & Output Expansion
 Phase: 4 of 7 (Observability & Linux Service)
-Plan: 2 of N completed
+Plan: 3 of N completed
 Status: In progress
-Last activity: 2026-03-03 — 04-02 complete: hardened systemd unit file and Makefile install-systemd target
+Last activity: 2026-03-03 — 04-03 complete: main.go refactored with run() extraction, MetricsConfig, Prometheus goroutine on port 9228, service_notwindows.go shim
 
-Progress: [██░░░░░░░░] ~10% (Phase 4 plans 04-01, 04-02 complete)
+Progress: [███░░░░░░░] ~15% (Phase 4 plans 04-01, 04-02, 04-03 complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 6
-- Average duration: 2 min
-- Total execution time: 12 min
+- Total plans completed: 7
+- Average duration: 6 min
+- Total execution time: 40 min
 
 **By Phase:**
 
@@ -32,11 +32,11 @@ Progress: [██░░░░░░░░] ~10% (Phase 4 plans 04-01, 04-02 comp
 | 01-quality | 3 | 6 min | 2 min |
 | 02-build | 1 | 2 min | 2 min |
 | 03-documentation | 2 | 4 min | 2 min |
-| 04-observability-linux-service | 2 (in progress) | 2 min | 1 min |
+| 04-observability-linux-service | 3 (in progress) | 30 min | 10 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-03 (2 min), 02-01 (2 min), 03-01 (2 min), 03-02 (2 min), 04-02 (1 min)
+- Last 5 plans: 02-01 (2 min), 03-01 (2 min), 03-02 (2 min), 04-02 (1 min), 04-03 (28 min)
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -58,6 +58,8 @@ Recent decisions affecting v2.0:
 - 04-02: Wants=network-online.target (not Requires=) to avoid hard boot failure if networkd absent
 - [Phase 04-observability-linux-service]: Used prometheus.NewRegistry() (private) not DefaultRegisterer — keeps scrape output clean (cee_* only)
 - [Phase 04-observability-linux-service]: Package named ceeprometheus to avoid import collision with prometheus client library
+- [Phase 04-observability-linux-service]: service_windows.go placeholder stub created so CGO_ENABLED=0 GOOS=windows build succeeds; Phase 5 replaces with real SCM wrapper
+- [Phase 04-observability-linux-service]: Port 9228 for Prometheus metrics — separate from CEPA port 12228; default Enabled=true in MetricsConfig
 
 ### Pending Todos
 
@@ -73,5 +75,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 04-02-PLAN.md — hardened systemd unit file and Makefile install-systemd target
+Stopped at: Completed 04-03-PLAN.md — main.go refactored with run() extraction, MetricsConfig, Prometheus goroutine on port 9228, service_notwindows.go shim
 Resume file: None
