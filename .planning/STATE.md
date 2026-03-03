@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Milestone: v2.0 Operations & Output Expansion
 Phase: 8 of 8 (TLS Certificate Automation) — In Progress
-Plan: 2 of 4 completed
+Plan: 3 of 4 completed
 Status: Phase in progress
-Last activity: 2026-03-03 — 08-02 complete: ListenConfig extended with TLSMode/ACMEDomains/ACMEEmail/ACMECacheDir/ACMEChallengeAddr; migrateListenConfig() added for backward compat; buildTLS/logCertInfo removed from main.go; config.toml.example and config.toml updated with all four TLS modes; TLS-04/TLS-05 satisfied
+Last activity: 2026-03-03 — 08-03 complete: tls_mode switch wired into run() in main.go with four modes (off/manual/self-signed/acme); ACME challenge listener goroutine started in acme case; systemd unit updated with AmbientCapabilities=CAP_NET_BIND_SERVICE and StateDirectory=cee-exporter; TLS-01/TLS-02/TLS-03 satisfied
 
-Progress: [█████████░] ~85% (Phase 8 plan 2 of 4 complete)
+Progress: [█████████░] ~90% (Phase 8 plan 3 of 4 complete)
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [█████████░] ~85% (Phase 8 plan 2 of 4 complete)
 | Phase 07-binaryevtxwriter P02 | 3 | 2 tasks | 3 files |
 | Phase 08-tls P01 | 2 | 2 tasks | 3 files |
 | Phase 08 P02 | 8 | 2 tasks | 4 files |
+| Phase 08-tls P03 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,9 @@ Recent decisions affecting v2.0:
 - [Phase 08-tls P01]: autocert.Manager uses production Let's Encrypt by default — staging is operator responsibility via DNS/config
 - [Phase 08]: TLSMode defaults to 'off' via migrateListenConfig; legacy tls=true+cert_file auto-migrated to TLSMode='manual' for backward compat
 - [Phase 08]: go.sum updated for golang.org/x/net/idna (autocert transitive dep missing from Plan 01 execution)
+- [Phase 08-03]: nil *tls.Config sentinel pattern — plain Serve() for off mode, ServeTLS() for all TLS modes
+- [Phase 08-03]: Manual mode passes cert/key file paths to ServeTLS(); self-signed/acme pass empty strings (certs in TLSConfig)
+- [Phase 08-03]: StateDirectory=cee-exporter lets systemd auto-create /var/lib/cee-exporter owned by cee-exporter user
 
 ### Pending Todos
 
@@ -116,5 +120,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 08-02-PLAN.md — ListenConfig TLS config layer: TLSMode enum, migrateListenConfig(), config doc updates; TLS-04/TLS-05 satisfied; Phase 8 Plan 2 of 4 complete; ready for Plan 03
+Stopped at: Completed 08-03-PLAN.md — TLS integration: tls_mode switch in run(), ACME challenge listener goroutine, systemd AmbientCapabilities; TLS-01/TLS-02/TLS-03 satisfied; Phase 8 Plan 3 of 4 complete; ready for Plan 04
 Resume file: None

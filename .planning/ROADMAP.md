@@ -137,4 +137,4 @@ Plans:
 | 5. Windows Service | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 6. SIEM Writers | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 7. BinaryEvtxWriter | v2.0 | 2/2 | Complete | 2026-03-03 |
-| 8. TLS Certificate Automation | 2/4 | In Progress|  | - |
+| 8. TLS Certificate Automation | 3/4 | In Progress|  | - |
