@@ -58,13 +58,22 @@ type ListenConfig struct {
 }
 
 type OutputConfig struct {
-	Type         string `toml:"type"`          // "gelf" | "evtx" | "win32" | "multi"
-	Targets      []string `toml:"targets"`     // for type="multi"
-	EVTXPath     string `toml:"evtx_path"`
-	GELFHost     string `toml:"gelf_host"`
-	GELFPort     int    `toml:"gelf_port"`
-	GELFProtocol string `toml:"gelf_protocol"` // "tcp" | "udp"
-	GELFTLS      bool   `toml:"gelf_tls"`
+	Type         string   `toml:"type"`          // "gelf" | "evtx" | "win32" | "multi" | "syslog" | "beats"
+	Targets      []string `toml:"targets"`       // for type="multi"
+	EVTXPath     string   `toml:"evtx_path"`
+	GELFHost     string   `toml:"gelf_host"`
+	GELFPort     int      `toml:"gelf_port"`
+	GELFProtocol string   `toml:"gelf_protocol"` // "tcp" | "udp"
+	GELFTLS      bool     `toml:"gelf_tls"`
+	// Syslog output (type = "syslog")
+	SyslogHost     string `toml:"syslog_host"`
+	SyslogPort     int    `toml:"syslog_port"`     // default 514 (set in NewSyslogWriter)
+	SyslogProtocol string `toml:"syslog_protocol"` // "udp" | "tcp"
+	SyslogAppName  string `toml:"syslog_app_name"` // default "cee-exporter" (set in NewSyslogWriter)
+	// Beats output (type = "beats")
+	BeatsHost string `toml:"beats_host"`
+	BeatsPort int    `toml:"beats_port"` // default 5044 (set in NewBeatsWriter)
+	BeatsTLS  bool   `toml:"beats_tls"`
 }
 
 type QueueConfig struct {
@@ -284,6 +293,25 @@ func buildWriter(cfg OutputConfig) (evtx.Writer, string, error) {
 			addrs = append(addrs, addr)
 		}
 		return evtx.NewMultiWriter(writers...), fmt.Sprintf("%v", addrs), nil
+
+	case "syslog":
+		w, err := evtx.NewSyslogWriter(evtx.SyslogConfig{
+			Host:     cfg.SyslogHost,
+			Port:     cfg.SyslogPort,
+			Protocol: cfg.SyslogProtocol,
+			AppName:  cfg.SyslogAppName,
+		})
+		addr := net.JoinHostPort(cfg.SyslogHost, fmt.Sprintf("%d", cfg.SyslogPort))
+		return w, addr, err
+
+	case "beats":
+		w, err := evtx.NewBeatsWriter(evtx.BeatsConfig{
+			Host: cfg.BeatsHost,
+			Port: cfg.BeatsPort,
+			TLS:  cfg.BeatsTLS,
+		})
+		addr := net.JoinHostPort(cfg.BeatsHost, fmt.Sprintf("%d", cfg.BeatsPort))
+		return w, addr, err
 
 	default:
 		return nil, "", fmt.Errorf("unknown output type %q", cfg.Type)
