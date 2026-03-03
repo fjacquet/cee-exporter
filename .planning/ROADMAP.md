@@ -37,7 +37,12 @@
   3. Operator copies `deploy/systemd/cee-exporter.service` to `/etc/systemd/system/` and runs `systemctl enable --now cee-exporter` and the daemon starts and stays running
   4. Operator stops the daemon process unexpectedly (kill -9) and systemd restarts it automatically within 5 seconds
   5. Prometheus scrape of /metrics returns only low-cardinality labels (event_id, writer, status) — no per-file or per-user label explosion
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Add prometheus/client_golang dependency, implement pkg/prometheus/handler.go, write unit test
+- [ ] 04-02-PLAN.md — Create hardened systemd unit file and Makefile install-systemd target
+- [ ] 04-03-PLAN.md — Refactor main() to run(), wire metrics goroutine, create service_notwindows.go shim
 
 ### Phase 5: Windows Service
 **Goal**: Windows operators can register, start, and recover cee-exporter as a native SCM-managed service without external tools
@@ -78,7 +83,7 @@
 | 1. Quality | v1.0 | 3/3 | Complete | 2026-03-02 |
 | 2. Build | v1.0 | 1/1 | Complete | 2026-03-02 |
 | 3. Documentation | v1.0 | 2/2 | Complete | 2026-03-03 |
-| 4. Observability & Linux Service | v2.0 | 0/? | Not started | - |
+| 4. Observability & Linux Service | v2.0 | 0/3 | Planning complete | - |
 | 5. Windows Service | v2.0 | 0/? | Not started | - |
 | 6. SIEM Writers | v2.0 | 0/? | Not started | - |
 | 7. BinaryEvtxWriter | v2.0 | 0/? | Not started | - |
