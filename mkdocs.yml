@@ -17,6 +17,11 @@ nav:
       - ADR-003 Async Queue: adr/ADR-003-async-queue.md
       - ADR-004 Binary EVTX Deferred: adr/ADR-004-binary-evtx-deferred.md
       - ADR-005 CGO Disabled: adr/ADR-005-cgo-disabled.md
+      - ADR-006 Prometheus Port: adr/ADR-006-prometheus-separate-port.md
+      - ADR-007 Windows Service: adr/ADR-007-windows-svc-x-sys.md
+      - ADR-008 RFC5424 Syslog: adr/ADR-008-rfc5424-crewjam.md
+      - ADR-009 BinaryEvtx Scratch: adr/ADR-009-binary-evtx-scratch.md
+  - v2 Research: v2-research.md
 
 theme:
   name: material
@@ -36,7 +41,11 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - admonition
   - tables
   - toc:

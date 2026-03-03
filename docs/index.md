@@ -14,25 +14,35 @@
 
 ## Architecture overview
 
-```
-Dell PowerStore (CEPA PUT)
-        │
-        ▼
- pkg/server  ──► RegisterRequest handshake (HTTP 200 OK, empty body)
-        │        Heartbeat ACK (< 3 s)
-        ▼
- pkg/parser  ──► CEE XML → []CEPAEvent
-        │
-        ▼
- pkg/mapper  ──► CEPAEvent → WindowsEvent (EventID, access mask)
-        │
-        ▼
- pkg/queue   ──► Async worker pool (configurable capacity + workers)
-        │
-        ▼
- pkg/evtx    ──► GELFWriter  (Linux / Windows — UDP or TCP)
-              ── Win32Writer  (Windows — Application Event Log)
-              ── MultiWriter  (fan-out to multiple backends)
+```mermaid
+flowchart TD
+    PS["Dell PowerStore\n(CEPA HTTP PUT)"]
+
+    subgraph server["pkg/server — :12228"]
+        H["Handler\nRegisterRequest handshake\nHeartbeat ACK < 3 s"]
+        HH["HealthHandler\nGET /health"]
+    end
+
+    subgraph proc["Processing"]
+        P["pkg/parser\nCEE XML → []CEPAEvent"]
+        M["pkg/mapper\nCEPAEvent → WindowsEvent\n(EventID, access mask)"]
+    end
+
+    Q["pkg/queue\nAsync worker pool\n(capacity + workers)"]
+
+    subgraph writers["pkg/evtx — Writers"]
+        GW["GELFWriter\nUDP / TCP\nLinux + Windows"]
+        WW["Win32Writer\nApplication EventLog\nWindows only"]
+        MW["MultiWriter\nfan-out to ≥1 backend"]
+    end
+
+    PS --> H
+    H --> P
+    P --> M
+    M --> Q
+    Q --> GW
+    Q --> WW
+    Q --> MW
 ```
 
 ## Key properties
