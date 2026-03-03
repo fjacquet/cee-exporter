@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Milestone: v2.0 Operations & Output Expansion
 Phase: 8 of 8 (TLS Certificate Automation) — In Progress
-Plan: 1 of 4 completed
+Plan: 2 of 4 completed
 Status: Phase in progress
-Last activity: 2026-03-03 — 08-01 complete: cmd/cee-exporter/tls.go created (5 TLS builder functions: buildManualTLS, buildSelfSignedTLS, buildAutocertTLS, startACMEChallengeListener, logCertInfo); golang.org/x/crypto v0.48.0 promoted to direct dep; TLS-01/TLS-02/TLS-03 requirements satisfied
+Last activity: 2026-03-03 — 08-02 complete: ListenConfig extended with TLSMode/ACMEDomains/ACMEEmail/ACMECacheDir/ACMEChallengeAddr; migrateListenConfig() added for backward compat; buildTLS/logCertInfo removed from main.go; config.toml.example and config.toml updated with all four TLS modes; TLS-04/TLS-05 satisfied
 
-Progress: [█████████░] ~80% (Phase 8 plan 1 of 4 complete)
+Progress: [█████████░] ~85% (Phase 8 plan 2 of 4 complete)
 
 ## Performance Metrics
 
@@ -116,5 +116,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 08-01-PLAN.md — cmd/cee-exporter/tls.go created with 5 TLS builder functions; golang.org/x/crypto v0.48.0 direct dep; both Linux/Windows builds pass; TLS-01/TLS-02/TLS-03 satisfied; Phase 8 Plan 1 of 4 complete; ready for Plan 02
+Stopped at: Completed 08-02-PLAN.md — ListenConfig TLS config layer: TLSMode enum, migrateListenConfig(), config doc updates; TLS-04/TLS-05 satisfied; Phase 8 Plan 2 of 4 complete; ready for Plan 03
 Resume file: None
