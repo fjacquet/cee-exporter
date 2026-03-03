@@ -21,7 +21,7 @@
 **Milestone Goal:** Make cee-exporter production-deployable as a managed service on Linux and Windows, add Prometheus observability, and expand SIEM output targets to cover Beats, syslog, and native .evtx on Linux.
 
 - [x] **Phase 4: Observability & Linux Service** - Prometheus /metrics endpoint on port 9228 plus hardened systemd unit file (completed 2026-03-03)
-- [ ] **Phase 5: Windows Service** - SCM-managed service registration via install/uninstall subcommands
+- [x] **Phase 5: Windows Service** - SCM-managed service registration via install/uninstall subcommands (completed 2026-03-03)
 - [ ] **Phase 6: SIEM Writers** - SyslogWriter (RFC 5424 UDP/TCP) and BeatsWriter (Lumberjack v2) output targets
 - [ ] **Phase 7: BinaryEvtxWriter** - Pure-Go BinXML .evtx file writer for Linux hosts
 
@@ -89,6 +89,6 @@ Plans:
 | 2. Build | v1.0 | 1/1 | Complete | 2026-03-02 |
 | 3. Documentation | v1.0 | 2/2 | Complete | 2026-03-03 |
 | 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
-| 5. Windows Service | 2/3 | In Progress|  | - |
+| 5. Windows Service | 3/3 | Complete   | 2026-03-03 | - |
 | 6. SIEM Writers | v2.0 | 0/? | Not started | - |
 | 7. BinaryEvtxWriter | v2.0 | 0/? | Not started | - |

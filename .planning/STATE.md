@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Any SIEM can ingest Dell PowerStore file-system audit events as native Windows EventLog or GELF, from any Linux or Windows host, with no external dependencies beyond the Go binary.
-**Current focus:** Phase 5 — Windows Service
+**Current focus:** Phase 6 — Syslog & Beats Writers
 
 ## Current Position
 
 Milestone: v2.0 Operations & Output Expansion
-Phase: 5 of 7 (Windows Service)
-Plan: 2 of 3 completed
+Phase: 5 of 7 (Windows Service) — COMPLETE
+Plan: 3 of 3 completed
 Status: In progress
-Last activity: 2026-03-03 — 05-02 complete: TestParseCfgPath 7-case table-driven tests, all 44 tests green
+Last activity: 2026-03-03 — 05-03 complete: full Windows SCM wrapper, DEPLOY-03/04/05 done
 
-Progress: [████░░░░░░] ~22% (Phase 4 complete, Phase 5 plans 05-01 and 05-02 complete)
+Progress: [█████░░░░░] ~29% (Phase 4 complete, Phase 5 complete — all 3 plans done)
 
 ## Performance Metrics
 
@@ -33,7 +33,7 @@ Progress: [████░░░░░░] ~22% (Phase 4 complete, Phase 5 plans
 | 02-build | 1 | 2 min | 2 min |
 | 03-documentation | 2 | 4 min | 2 min |
 | 04-observability-linux-service | 3 | 30 min | 10 min |
-| 05-windows-service | 2 (in progress) | 6 min | 3 min |
+| 05-windows-service | 3 (complete) | 7 min | 2 min |
 
 **Recent Trend:**
 
@@ -43,6 +43,7 @@ Progress: [████░░░░░░] ~22% (Phase 4 complete, Phase 5 plans
 *Updated after each plan completion*
 
 | Phase 05-windows-service P02 | 4 min | 1 task | 1 file |
+| Phase 05-windows-service P03 | 1 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,7 @@ Recent decisions affecting v2.0:
 - [Phase 05-windows-service]: kardianos/service v1.2.4 as direct dependency — Windows SCM wrapper uses kardianos/service API in Plan 03
 - [Phase 05-windows-service]: parseCfgPath has no build tag — compiles on Linux CI without Win32 surface, enabling full TDD coverage cross-platform
 - [Phase 05-windows-service]: Test file uses package main (white-box) per CLAUDE.md convention; stdlib only, no testify
+- [Phase 05-windows-service]: service_windows.go full SCM wrapper: Start() goroutine, Stop() cancel(), Arguments stripped of subcommand, DelayedAutoStart + OnFailure recovery via kardianos/service KeyValue
 
 ### Pending Todos
 
@@ -76,11 +78,11 @@ None.
 
 - Win32 EventID registration: IDs 4663/4660/4670 may need message DLL for correct Event Viewer display — deferred to v2 follow-up
 - Phase 7 scope estimate (600-1200 LOC) unvalidated — spike implementation required as first Phase 7 task
-- Phase 5: kardianos/service chosen (resolved); Plan 02 (install/uninstall) and Plan 03 (SCM wrapper) remain
+- Phase 5: COMPLETE — kardianos/service SCM wrapper deployed, DEPLOY-03/04/05 satisfied
 - Phase 6: verify go-lumber `SyncDialWith` TLS reconnect API from source before BeatsWriter implementation
 
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 05-02-PLAN.md — TestParseCfgPath table-driven tests, all 44 tests green; ready for 05-03 SCM wrapper
+Stopped at: Completed 05-03-PLAN.md — full Windows SCM wrapper in service_windows.go; DEPLOY-03/04/05 complete; Phase 5 done; ready for Phase 6
 Resume file: None
