@@ -829,6 +829,11 @@
 
 
 <h1 id="cee-exporter">cee-exporter<a class="headerlink" href="#cee-exporter" title="Permanent link">&para;</a></h1>
+<p><a href="https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml/badge.svg" /></a>
+<a href="https://github.com/fjacquet/cee-exporter/actions/workflows/release.yml"><img alt="Release" src="https://github.com/fjacquet/cee-exporter/actions/workflows/release.yml/badge.svg" /></a>
+<a href="https://github.com/fjacquet/cee-exporter/actions/workflows/docs.yml"><img alt="Docs" src="https://github.com/fjacquet/cee-exporter/actions/workflows/docs.yml/badge.svg" /></a>
+<a href="https://goreportcard.com/report/github.com/fjacquet/cee-exporter"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/fjacquet/cee-exporter" /></a>
+<a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a></p>
 <p>Receives Dell PowerStore CEPA audit events over HTTP and forwards them as GELF (Graylog) or Windows EventLog entries.</p>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>cee-exporter is a lightweight Go daemon that implements the Dell Common Event Publishing Agent (CEPA) protocol. It receives file-system audit events from Dell PowerStore NAS servers via HTTP PUT and forwards them to GELF-compatible SIEMs (e.g., Graylog) or to the native Windows Event Log. Linux sysadmins can ship PowerStore audit data directly into Graylog without any Windows infrastructure; Windows sysadmins can view the same events in Event Viewer. The binary has no runtime dependencies — drop it on a host, configure a TOML file, and run.</p>
