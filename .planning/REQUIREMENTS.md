@@ -29,8 +29,8 @@ Requirements for the v2.0 Operations & Output Expansion milestone.
 - [x] **OUT-02**: BeatsWriter supports TLS for encrypted Beats transport
 - [x] **OUT-03**: Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over UDP
 - [x] **OUT-04**: Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over TCP
-- [ ] **OUT-05**: Operator can configure BinaryEvtxWriter to write native `.evtx` files on Linux
-- [ ] **OUT-06**: `.evtx` files generated on Linux open correctly in Windows Event Viewer and can be parsed by forensics tools
+- [x] **OUT-05**: Operator can configure BinaryEvtxWriter to write native `.evtx` files on Linux
+- [x] **OUT-06**: `.evtx` files generated on Linux open correctly in Windows Event Viewer and can be parsed by forensics tools
 
 ## Future Requirements
 
@@ -83,8 +83,8 @@ Which phases cover which requirements. Populated during roadmap creation.
 | OUT-02 | Phase 6 | Complete |
 | OUT-03 | Phase 6 | Complete |
 | OUT-04 | Phase 6 | Complete |
-| OUT-05 | Phase 7 | Pending |
-| OUT-06 | Phase 7 | Pending |
+| OUT-05 | Phase 7 | Complete |
+| OUT-06 | Phase 7 | Complete |
 
 **Coverage:**
 

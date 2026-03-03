@@ -112,4 +112,4 @@ Plans:
 | 4. Observability & Linux Service | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 5. Windows Service | 3/3 | Complete   | 2026-03-03 | - |
 | 6. SIEM Writers | 3/3 | Complete   | 2026-03-03 | - |
-| 7. BinaryEvtxWriter | v2.0 | 0/2 | Not started | - |
+| 7. BinaryEvtxWriter | 1/2 | In Progress|  | - |

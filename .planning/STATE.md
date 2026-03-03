@@ -5,25 +5,25 @@
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Any SIEM can ingest Dell PowerStore file-system audit events as native Windows EventLog or GELF, from any Linux or Windows host, with no external dependencies beyond the Go binary.
-**Current focus:** Phase 6 — Syslog & Beats Writers
+**Current focus:** Phase 7 — BinaryEvtxWriter
 
 ## Current Position
 
 Milestone: v2.0 Operations & Output Expansion
-Phase: 6 of 7 (Syslog & Beats Writers) — In Progress
-Plan: 3 of 3 completed
-Status: Phase complete
-Last activity: 2026-03-03 — 06-03 complete: SyslogWriter + BeatsWriter wired into buildWriter; config.toml updated; OUT-01/02/03/04 satisfied
+Phase: 7 of 7 (BinaryEvtxWriter) — In Progress
+Plan: 1 of 3 completed
+Status: Phase in progress
+Last activity: 2026-03-03 — 07-01 complete: EVTX binary format helpers (toFILETIME, encodeUTF16LE, buildFileHeader, buildChunkHeader, patchChunkCRC, patchEventRecordsCRC, wrapEventRecord) + unit tests; OUT-05/OUT-06 satisfied
 
-Progress: [███████░░░] ~57% (Phase 4-6 complete, Phase 7 pending)
+Progress: [████████░░] ~67% (Phase 4-7 in progress, Phase 7 plan 1 complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: 5 min
-- Total execution time: 46 min
+- Total execution time: 48 min
 
 **By Phase:**
 
@@ -47,6 +47,7 @@ Progress: [███████░░░] ~57% (Phase 4-6 complete, Phase 7 pen
 | Phase 06-siem-writers P03 | 7 | 3 tasks | 3 files |
 | Phase 06-siem-writers P02 | 3 | 3 tasks | 4 files |
 | Phase 06-siem-writers P01 | 5 | 3 tasks | 4 files |
+| Phase 07-binaryevtxwriter P01 | 8 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting v2.0:
 - [Phase 06-siem-writers]: ProcessID uses NILVALUE '-' when WindowsEvent.ProcessID==0 to comply with RFC 5424 PROCID grammar
 - [Phase 06-siem-writers P03]: OutputConfig zero-value fields are safe — SyslogWriter/BeatsWriter constructors apply defaults (Port 514/5044, Protocol udp)
 - [Phase 06-siem-writers P03]: config.toml created from config.toml.example baseline — both files retained; new stanzas added as commented examples
+- [Phase 07-binaryevtxwriter P01]: No build tag on evtx_binformat.go — platform-agnostic math helpers enable Linux CI test coverage of the most failure-prone layer
+- [Phase 07-binaryevtxwriter P01]: CRC32 deferred-patch pattern: build headers with zero CRC fields, patch after all data assembled (per EVTX spec)
+- [Phase 07-binaryevtxwriter P01]: recordCount accepted in buildChunkHeader for API clarity but unused in header (stored in records per spec)
 
 ### Pending Todos
 
@@ -96,5 +100,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 06-03-PLAN.md — SyslogWriter+BeatsWriter wired into buildWriter factory; config.toml created with syslog/beats stanzas; OUT-01/OUT-02/OUT-03/OUT-04 all satisfied; Phase 6 complete; ready for Phase 7
+Stopped at: Completed 07-01-PLAN.md — EVTX binary format helpers (toFILETIME, encodeUTF16LE, buildFileHeader, buildChunkHeader, patchChunkCRC, patchEventRecordsCRC, wrapEventRecord) + 10 unit tests; OUT-05/OUT-06 satisfied; Phase 7 Plan 1 complete; ready for Plan 02 (BinaryEvtxWriter)
 Resume file: None
