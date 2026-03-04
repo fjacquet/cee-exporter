@@ -37,9 +37,27 @@ Any SIEM can ingest Dell PowerStore file-system audit events as native Windows E
 - ✓ tls_mode="manual" with backward-compatible config migration — v3.0
 - ✓ config.toml.example documents all four TLS modes — v3.0
 
+## Current Milestone: v4.0 Industrialisation
+
+**Goal:** Add durability guarantees and file lifecycle management to BinaryEvtxWriter — periodic fsync (≤15s), size/count/time-based rotation, configurable via global [output] section in config.toml.
+
+**Target features:**
+- Periodic fsync on BinaryEvtxWriter (flush_interval_s, default 15)
+- In-memory queue drains to persistent storage within flush_interval_s
+- File rotation by size (max_file_size_mb, 0 = unlimited)
+- File rotation by count (max_file_count files kept, 0 = unlimited)
+- File rotation by time (rotation_interval_h, 0 = disabled)
+- ADRs for new architectural decisions
+
 ### Active
 
-(None — planning next milestone)
+- [ ] Periodic fsync on BinaryEvtxWriter file handle (≤15s guarantee)
+- [ ] Queue-side flush trigger ensuring events reach disk within flush_interval_s
+- [ ] File rotation: size-based (max_file_size_mb)
+- [ ] File rotation: count-based (max_file_count)
+- [ ] File rotation: time-based (rotation_interval_h)
+- [ ] New [output] section in config.toml with all rotation/flush fields
+- [ ] ADRs for flush interval and rotation strategy decisions
 
 ### Out of Scope
 
@@ -101,4 +119,4 @@ Tech stack: Go 1.24+, `net/http`, `encoding/xml`, `log/slog`, `golang.org/x/sys/
 | Multi-stage Docker (scratch final) | Minimal attack surface; <10 MB image | ✓ Good |
 
 ---
-*Last updated: 2026-03-04 after v3.0 milestone*
+*Last updated: 2026-03-04 after v4.0 milestone start*
