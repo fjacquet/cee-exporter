@@ -4,7 +4,7 @@ milestone: v4.0
 milestone_name: Industrialisation
 status: executing
 stopped_at: Completed 08.5-02-PLAN.md — go-evtx adapter complete, BinaryEvtxWriter thin adapter deployed
-last_updated: "2026-03-04T06:24:40.678Z"
+last_updated: "2026-03-04T06:30:09.543Z"
 last_activity: 2026-03-04 — Phase 8.5 Plan 01 complete; github.com/fjacquet/go-evtx v0.1.0 published
 progress:
   total_phases: 5
