@@ -5,6 +5,7 @@
 - ✅ **v1.0 MVP** — Phases 1-3 (shipped 2026-03-03) — see [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - ✅ **v2.0 Operations & Output Expansion** — Phases 4-7 (shipped 2026-03-03) — see [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
 - ✅ **v3.0 TLS Certificate Automation** — Phase 8 (shipped 2026-03-04) — see [milestones/v3.0-ROADMAP.md](milestones/v3.0-ROADMAP.md)
+- 🚧 **v4.0 Industrialisation** — Phases 9-12 (in progress)
 
 ## Phases
 
@@ -34,6 +35,62 @@
 
 </details>
 
+### 🚧 v4.0 Industrialisation (In Progress)
+
+**Milestone Goal:** Add durability guarantees and file lifecycle management to BinaryEvtxWriter — periodic fsync (≤15s), size/count/time-based rotation, configurable via [output] section in config.toml.
+
+- [ ] **Phase 9: Goroutine Scaffolding and fsync** — Establish the concurrency contract: background goroutine with correct shutdown, periodic f.Sync(), and ADRs documenting architectural decisions
+- [ ] **Phase 10: Open-Handle Incremental Flush** — Replace os.WriteFile with a persistent *os.File held for the writer's lifetime; fix flushChunkLocked stub so no events are silently dropped
+- [ ] **Phase 11: File Rotation** — Implement size-based, time-based, count-based, and SIGHUP-triggered rotation on top of the Phase 10 open-handle model
+- [ ] **Phase 12: Config, Validation, Prometheus and Docs** — Wire all rotation/flush parameters into [output] TOML section, add startup validation, expose fsync gauge, update config.toml.example
+
+## Phase Details
+
+### Phase 9: Goroutine Scaffolding and fsync
+**Goal**: BinaryEvtxWriter writes events to disk within a bounded window and shuts down cleanly without losing buffered data
+**Depends on**: Phase 8 (existing codebase; Phase 9 is the first v4.0 phase)
+**Requirements**: FLUSH-01, FLUSH-02, ADR-01, ADR-02
+**Success Criteria** (what must be TRUE):
+  1. Operator can set flush_interval_s (default 15) and BinaryEvtxWriter calls f.Sync() on that interval without data races
+  2. On graceful shutdown (SIGINT/SIGTERM), all buffered events reach disk before the process exits
+  3. The background goroutine exits cleanly when Close() is called (no goroutine leak detectable by go test -race)
+  4. ADR-01 (flush ticker ownership in writer layer) and ADR-02 (open-handle vs write-on-close) are committed to docs/adr/
+**Plans**: TBD
+
+### Phase 10: Open-Handle Incremental Flush
+**Goal**: BinaryEvtxWriter writes every event to disk regardless of session length, producing .evtx files that python-evtx parses correctly
+**Depends on**: Phase 9
+**Requirements**: EVTX-01
+**Success Criteria** (what must be TRUE):
+  1. A session producing more than 2,400 events generates a .evtx file where python-evtx reports the correct total record count (no silent drops)
+  2. A two-flush session (two ticker intervals with events in each) produces a file that python-evtx parses without errors
+  3. The EVTX file header fields NextRecordIdentifier and ChunkCount are correct after each flush (verified by hex dump at offsets 24-32)
+  4. go test -race ./pkg/evtx/ reports zero data races on WriteEvent and Close concurrent calls
+**Plans**: TBD
+
+### Phase 11: File Rotation
+**Goal**: BinaryEvtxWriter automatically manages .evtx file size and age, and responds to SIGHUP for on-demand rotation, so operators never face unbounded file growth or manual intervention
+**Depends on**: Phase 10
+**Requirements**: ROT-01, ROT-02, ROT-03, ROT-04
+**Success Criteria** (what must be TRUE):
+  1. When max_file_size_mb is set, the active .evtx file is renamed to a timestamped archive and a fresh file opened as soon as the size threshold is crossed
+  2. When max_file_count is set, only the N most recent archive files remain after rotation (older files are deleted automatically)
+  3. When rotation_interval_h is set, the active file is rotated on schedule regardless of its current size
+  4. Sending SIGHUP to the running daemon triggers an immediate rotation without dropping events or restarting the process
+  5. Rotated archive files are parseable by python-evtx (headers and CRCs are finalized before rename)
+**Plans**: TBD
+
+### Phase 12: Config, Validation, Prometheus and Docs
+**Goal**: All durability and rotation parameters are operator-configurable in config.toml, invalid values are rejected at startup with clear messages, and SREs can alert on fsync health via Prometheus
+**Depends on**: Phase 11
+**Requirements**: FLUSH-03, CFG-01, CFG-02, CFG-03
+**Success Criteria** (what must be TRUE):
+  1. All four parameters (flush_interval_s, max_file_size_mb, max_file_count, rotation_interval_h) appear in [output] in config.toml.example with inline comments explaining defaults and zero-value semantics
+  2. Starting the daemon with flush_interval_s = 0 produces a clear error message at startup and exits non-zero (no runtime panic)
+  3. The Prometheus /metrics endpoint exposes cee_last_fsync_unix_seconds gauge that updates on each successful fsync
+  4. All four [output] fields are read from config.toml and correctly mapped to BinaryEvtxWriter at construction time
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -46,3 +103,7 @@
 | 6. SIEM Writers | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 7. BinaryEvtxWriter | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 8. TLS Certificate Automation | v3.0 | 4/4 | Complete | 2026-03-03 |
+| 9. Goroutine Scaffolding and fsync | v4.0 | 0/? | Not started | - |
+| 10. Open-Handle Incremental Flush | v4.0 | 0/? | Not started | - |
+| 11. File Rotation | v4.0 | 0/? | Not started | - |
+| 12. Config, Validation, Prometheus and Docs | v4.0 | 0/? | Not started | - |

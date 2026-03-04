@@ -68,25 +68,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FLUSH-01 | — | Pending |
-| FLUSH-02 | — | Pending |
-| FLUSH-03 | — | Pending |
-| EVTX-01 | — | Pending |
-| ROT-01 | — | Pending |
-| ROT-02 | — | Pending |
-| ROT-03 | — | Pending |
-| ROT-04 | — | Pending |
-| CFG-01 | — | Pending |
-| CFG-02 | — | Pending |
-| CFG-03 | — | Pending |
-| ADR-01 | — | Pending |
-| ADR-02 | — | Pending |
+| FLUSH-01 | Phase 9 | Pending |
+| FLUSH-02 | Phase 9 | Pending |
+| ADR-01 | Phase 9 | Pending |
+| ADR-02 | Phase 9 | Pending |
+| EVTX-01 | Phase 10 | Pending |
+| ROT-01 | Phase 11 | Pending |
+| ROT-02 | Phase 11 | Pending |
+| ROT-03 | Phase 11 | Pending |
+| ROT-04 | Phase 11 | Pending |
+| FLUSH-03 | Phase 12 | Pending |
+| CFG-01 | Phase 12 | Pending |
+| CFG-02 | Phase 12 | Pending |
+| CFG-03 | Phase 12 | Pending |
 
 **Coverage:**
 - v4.0 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-04 after initial v4.0 definition*
+*Last updated: 2026-03-04 — traceability filled after roadmap creation*
