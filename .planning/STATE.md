@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Industrialisation
-status: in_progress
-stopped_at: "Completed 08.5-01-PLAN.md — go-evtx v0.1.0 published"
-last_updated: "2026-03-04"
-last_activity: "2026-03-04 — Phase 8.5 Plan 01 complete; go-evtx v0.1.0 published to GitHub and indexed by proxy.golang.org"
+status: executing
+stopped_at: Completed 08.5-02-PLAN.md — go-evtx adapter complete, BinaryEvtxWriter thin adapter deployed
+last_updated: "2026-03-04T06:24:40.678Z"
+last_activity: 2026-03-04 — Phase 8.5 Plan 01 complete; github.com/fjacquet/go-evtx v0.1.0 published
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
   percent: 5
 ---
 
@@ -46,6 +46,7 @@ Recent decisions affecting current work:
 - go-evtx buildBinXML adapted from WindowsEvent struct to map[string]string for standalone use (08.5-01)
 - MIT license chosen for go-evtx OSS module (08.5-01)
 - stdlib-only constraint maintained in go-evtx; zero external dependencies (08.5-01)
+- [Phase 08.5-go-evtx-oss-module-extraction]: BinaryEvtxWriter replaced with thin adapter delegating to go-evtx; evtx_binformat.go removed from cee-exporter
 
 ### Pending Todos
 
@@ -60,6 +61,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: Completed 08.5-01-PLAN.md — go-evtx v0.1.0 published to GitHub
+Last session: 2026-03-04T06:24:40.676Z
+Stopped at: Completed 08.5-02-PLAN.md — go-evtx adapter complete, BinaryEvtxWriter thin adapter deployed
 Resume file: None
