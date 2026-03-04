@@ -65,14 +65,18 @@ Plans:
 
 ### Phase 9: Goroutine Scaffolding and fsync
 **Goal**: BinaryEvtxWriter writes events to disk within a bounded window and shuts down cleanly without losing buffered data
-**Depends on**: Phase 8 (existing codebase; Phase 9 is the first v4.0 phase)
+**Depends on**: Phase 8.5 (go-evtx v0.1.0 published; cee-exporter adapter complete)
 **Requirements**: FLUSH-01, FLUSH-02, ADR-01, ADR-02
 **Success Criteria** (what must be TRUE):
-  1. Operator can set flush_interval_s (default 15) and BinaryEvtxWriter calls f.Sync() on that interval without data races
+  1. Operator can set flush_interval_s (default 15) and BinaryEvtxWriter calls flushToFile() on that interval without data races
   2. On graceful shutdown (SIGINT/SIGTERM), all buffered events reach disk before the process exits
   3. The background goroutine exits cleanly when Close() is called (no goroutine leak detectable by go test -race)
   4. ADR-01 (flush ticker ownership in writer layer) and ADR-02 (open-handle vs write-on-close) are committed to docs/adr/
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Add RotationConfig + backgroundLoop to go-evtx, write goroutine tests, publish v0.2.0 (FLUSH-01, FLUSH-02)
+- [ ] 09-02-PLAN.md — Wire go-evtx v0.2.0 into cee-exporter, add FlushIntervalSec to OutputConfig, write ADR-012 and ADR-013 (FLUSH-01, ADR-01, ADR-02)
 
 ### Phase 10: Open-Handle Incremental Flush
 **Goal**: BinaryEvtxWriter writes every event to disk regardless of session length, producing .evtx files that python-evtx parses correctly
@@ -120,8 +124,8 @@ Plans:
 | 6. SIEM Writers | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 7. BinaryEvtxWriter | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 8. TLS Certificate Automation | v3.0 | 4/4 | Complete | 2026-03-03 |
-| 8.5. go-evtx OSS Module Extraction | 1/2 | Complete    | 2026-03-04 | - |
-| 9. Goroutine Scaffolding and fsync | v4.0 | 0/? | Not started | - |
+| 8.5. go-evtx OSS Module Extraction | v4.0 | 2/2 | Complete | 2026-03-04 |
+| 9. Goroutine Scaffolding and fsync | v4.0 | 0/2 | Not started | - |
 | 10. Open-Handle Incremental Flush | v4.0 | 0/? | Not started | - |
 | 11. File Rotation | v4.0 | 0/? | Not started | - |
 | 12. Config, Validation, Prometheus and Docs | v4.0 | 0/? | Not started | - |
