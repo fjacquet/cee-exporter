@@ -41,8 +41,8 @@ Requirements for the Industrialisation milestone. Scope: extract EVTX code as OS
 
 ### Architecture & Documentation (ADR)
 
-- [ ] **ADR-01**: Architecture Decision Record documents the decision to own the flush ticker inside `BinaryEvtxWriter` (not in the queue layer), explaining why `Flush()` was not added to the `Writer` interface
-- [ ] **ADR-02**: Architecture Decision Record documents the decision to switch from write-on-close (`os.WriteFile`) to open-handle incremental flush, covering EVTX crash tolerance and fsync semantics
+- [x] **ADR-01**: Architecture Decision Record documents the decision to own the flush ticker inside `BinaryEvtxWriter` (not in the queue layer), explaining why `Flush()` was not added to the `Writer` interface
+- [x] **ADR-02**: Architecture Decision Record documents the decision to switch from write-on-close (`os.WriteFile`) to open-handle incremental flush, covering EVTX crash tolerance and fsync semantics
 
 ## v5 Requirements
 
@@ -83,8 +83,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXT-05 | Phase 8.5 | Complete |
 | FLUSH-01 | Phase 9 | Complete |
 | FLUSH-02 | Phase 9 | Complete |
-| ADR-01 | Phase 9 | Pending |
-| ADR-02 | Phase 9 | Pending |
+| ADR-01 | Phase 9 | Complete |
+| ADR-02 | Phase 9 | Complete |
 | EVTX-01 | Phase 10 | Pending |
 | ROT-01 | Phase 11 | Pending |
 | ROT-02 | Phase 11 | Pending |

@@ -4,7 +4,7 @@ milestone: v4.0
 milestone_name: Industrialisation
 status: executing
 stopped_at: Completed 09-02-PLAN.md — RotationConfig wired, ADR-012/ADR-013 committed
-last_updated: "2026-03-04T23:42:26.306Z"
+last_updated: "2026-03-04T23:45:19.650Z"
 last_activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
 progress:
   total_phases: 5
