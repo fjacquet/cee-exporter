@@ -42,7 +42,7 @@ tls_mode = "off"
 # type = "multi"  → Fan-out to multiple backends simultaneously
 # ─────────────────────────────────────────────────────────────────────────────
 [output]
-type = "gelf"
+type = "evtx"
 
 # GELF output (Graylog)
 gelf_host     = "graylog.corp.local"
@@ -52,6 +52,7 @@ gelf_tls      = false   # only applies when gelf_protocol = "tcp"
 
 # EVTX output: path to the .evtx file (Linux BinaryEvtxWriter writes on Close)
 # evtx_path = "/var/log/cee-exporter/audit.evtx"
+evtx_path = "/tmp/audit.evtx"
 
 # Multi-target example (fan-out to both GELF and EVTX)
 # type    = "multi"

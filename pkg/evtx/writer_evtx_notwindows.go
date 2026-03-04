@@ -2,22 +2,17 @@
 
 // BinaryEvtxWriter — full implementation for non-Windows platforms.
 //
-// Writes valid binary .evtx files using a minimal BinXML encoding approach.
-// The priority is correct file/chunk header CRC32 values (required by all parsers),
-// with BinXML content encoded for the three EventIDs used by cee-exporter:
-// 4663 (file access/write/read), 4660 (delete), 4670 (ACL change).
+// Writes valid binary .evtx files with template-based BinXML encoding.
+// The BinXML uses TemplateInstanceNode (0x0C) with NormalSubstitution
+// tokens (0x0D), matching the format required by python-evtx's xml()
+// rendering and other forensics parsers.
 //
-// BinXML encoding approach: static NameNode string table at chunk offset 512.
-// Each OpenStartElement and Attribute token references names by their chunk-relative
-// byte offset into the pre-built NameNode table (per libevtx/python-evtx spec).
-// This resolves OverrunBufferException caused by inline SDBM hashes being
-// misinterpreted as file offsets by forensic parsers.
+// Template structure per MS-EVEN6 / libevtx:
 //
-// Implementation priority (per plan):
-//  1. File header CRC correct (always required)
-//  2. Chunk header CRC correct (always required)
-//  3. Event record size fields match (always required)
-//  4. BinXML content (best effort — parsers tolerant of minimal content)
+//	FragmentHeader → TemplateInstanceNode → TemplateNode (header + body) → SubstitutionArray
+//
+// The template body contains the XML structure with substitution placeholders.
+// The substitution array carries the actual event values (strings, integers, timestamps).
 package evtx
 
 import (
@@ -33,102 +28,37 @@ import (
 	"unicode/utf16"
 )
 
-// BinXML token type constants (per libevtx specification).
+// BinXML token type constants (per libevtx / MS-EVEN6 specification).
 const (
-	binXMLFragmentHeader = 0x0F // Fragment header token (opens fragment)
-	binXMLOpenElement    = 0x01 // Open start element tag
-	binXMLCloseElement   = 0x02 // Close start element tag (no attrs follow)
-	binXMLEndElement     = 0x04 // End element tag
-	binXMLValue          = 0x05 // Value token
-	binXMLAttribute      = 0x06 // Attribute token
-	binXMLTypeString     = 0x01 // Value type: UTF-16LE string
-	binXMLTypeUint16     = 0x04 // Value type: uint16
-	binXMLTypeFiletime   = 0x11 // Value type: FILETIME (uint64)
+	binXMLFragmentHeader     = 0x0F // Fragment header token
+	binXMLOpenElement        = 0x01 // Open start element (no attrs)
+	binXMLOpenElementAttrs   = 0x41 // Open start element with attribute list flag
+	binXMLCloseElement       = 0x02 // Close start element tag
+	binXMLEndElement         = 0x04 // End element tag
+	binXMLAttribute          = 0x06 // Attribute token
+	binXMLTemplateInstance   = 0x0C // Template instance token
+	binXMLNormalSubstitution = 0x0D // Normal substitution token
+
+	binXMLTypeString   = 0x01 // Value type: UTF-16LE string (WSTRING)
+	binXMLTypeUint16   = 0x06 // Value type: uint16 (UNSIGNED_WORD)
+	binXMLTypeFiletime = 0x11 // Value type: FILETIME (uint64)
 )
 
-// nameTableOffset: byte offset within the chunk where the NameNode table begins.
-// Immediately follows the 512-byte chunk header.
-const nameTableOffset = uint32(512)
-
-// nameTableSize: total bytes consumed by all 11 pre-built NameNodes (242 bytes).
-// Event records begin at chunk offset nameTableOffset + nameTableSize = 754.
-const nameTableSize = uint32(242)
-
 // evtxRecordsStart: chunk-relative offset where the first event record is placed.
-const evtxRecordsStart = nameTableOffset + nameTableSize // = 754
+// python-evtx hardcodes first_record() at chunk offset 0x200 (512).
+const evtxRecordsStart = uint32(evtxChunkHeaderSize) // = 512
+
+// evtxRecordHeaderSize is the fixed size of an event record header:
+// signature(4) + size(4) + recordID(8) + timestamp(8) = 24 bytes.
+const evtxRecordHeaderSize = 24
 
 // chunkFlushThreshold: flush and start a new chunk when buffered records exceed this.
-// Leaves headroom for one final record before evtxChunkSize is reached.
 const chunkFlushThreshold = 60000
 
-// nameOffsets maps each element/attribute name to its chunk-relative byte offset.
-// These offsets point to the corresponding NameNode in the static name table
-// placed at chunk offset 512.
-//
-// NameNode layout per libevtx spec / python-evtx Nodes.py:
-//
-//	[next_offset: 4B LE = 0] [hash: 2B LE, truncated uint16 SDBM] [string_length: 2B LE] [UTF-16LE chars]
-//
-// Size per node = 4 + 2 + 2 + len(name)*2 bytes.
-//
-// Pre-computed offsets (base = 512):
-//
-//	"Event"       →  512  (5 chars,  18 bytes → next at 530)
-//	"System"      →  530  (6 chars,  20 bytes → next at 550)
-//	"Provider"    →  550  (8 chars,  24 bytes → next at 574)
-//	"Name"        →  574  (4 chars,  16 bytes → next at 590)
-//	"EventID"     →  590  (7 chars,  22 bytes → next at 612)
-//	"Level"       →  612  (5 chars,  18 bytes → next at 630)
-//	"TimeCreated" →  630  (11 chars, 30 bytes → next at 660)
-//	"SystemTime"  →  660  (10 chars, 28 bytes → next at 688)
-//	"Computer"    →  688  (8 chars,  24 bytes → next at 712)
-//	"EventData"   →  712  (9 chars,  26 bytes → next at 738)
-//	"Data"        →  738  (4 chars,  16 bytes → next at 754)
-var nameOffsets = map[string]uint32{
-	"Event":       512,
-	"System":      530,
-	"Provider":    550,
-	"Name":        574,
-	"EventID":     590,
-	"Level":       612,
-	"TimeCreated": 630,
-	"SystemTime":  660,
-	"Computer":    688,
-	"EventData":   712,
-	"Data":        738,
-}
-
-// buildNameTable returns the 242-byte binary NameNode table.
-// The table is placed at chunk offset 512 (immediately after the chunk header).
-// Each NameNode: [next_offset(4B)=0][hash(2B)=sdbm16(name)][length(2B)=charCount][UTF-16LE chars]
-func buildNameTable() []byte {
-	names := []string{
-		"Event", "System", "Provider", "Name", "EventID",
-		"Level", "TimeCreated", "SystemTime", "Computer", "EventData", "Data",
-	}
-	buf := &bytes.Buffer{}
-	for _, name := range names {
-		u16 := utf16.Encode([]rune(name))
-		// next_offset: 4 bytes LE = 0 (no chaining)
-		buf.WriteByte(0)
-		buf.WriteByte(0)
-		buf.WriteByte(0)
-		buf.WriteByte(0)
-		// hash: truncated SDBM uint16 LE
-		h := uint16(sdbmHash(name))
-		buf.WriteByte(byte(h))
-		buf.WriteByte(byte(h >> 8))
-		// string_length: uint16 LE = number of UTF-16 code units
-		n := uint16(len(u16))
-		buf.WriteByte(byte(n))
-		buf.WriteByte(byte(n >> 8))
-		// UTF-16LE chars (no null terminator in NameNode)
-		for _, c := range u16 {
-			buf.WriteByte(byte(c))
-			buf.WriteByte(byte(c >> 8))
-		}
-	}
-	return buf.Bytes()
+// substitutionEntry holds one substitution value for the BinXML template.
+type substitutionEntry struct {
+	typ  byte   // BinXML value type (binXMLTypeString, etc.)
+	data []byte // raw value bytes
 }
 
 // BinaryEvtxWriter writes Windows .evtx binary format files on non-Windows platforms.
@@ -161,13 +91,14 @@ func NewBinaryEvtxWriter(evtxPath string) (*BinaryEvtxWriter, error) {
 }
 
 // WriteEvent encodes e as a BinXML event record and buffers it.
-// When the buffer approaches the chunk size limit, the current chunk is
-// flushed internally and a new chunk is started.
 func (w *BinaryEvtxWriter) WriteEvent(_ context.Context, e WindowsEvent) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	payload := buildBinXML(e)
+	// Compute chunk-relative offset where this record's BinXML payload starts.
+	binXMLChunkOffset := evtxRecordsStart + uint32(len(w.records)) + evtxRecordHeaderSize
+
+	payload := buildBinXML(e, binXMLChunkOffset)
 	ts := toFILETIME(e.TimeCreated)
 	rec := wrapEventRecord(w.recordID, ts, payload)
 	w.records = append(w.records, rec...)
@@ -179,7 +110,6 @@ func (w *BinaryEvtxWriter) WriteEvent(_ context.Context, e WindowsEvent) error {
 		"buffer_bytes", len(w.records),
 	)
 
-	// Flush chunk if approaching size limit; reset buffer for next chunk.
 	if len(w.records) > chunkFlushThreshold {
 		if err := w.flushChunkLocked(); err != nil {
 			return fmt.Errorf("binary_evtx_writer: mid-stream chunk flush: %w", err)
@@ -189,7 +119,6 @@ func (w *BinaryEvtxWriter) WriteEvent(_ context.Context, e WindowsEvent) error {
 }
 
 // Close flushes all buffered events to disk and finalises the .evtx file.
-// Returns nil if no events were buffered (no file is written in that case).
 func (w *BinaryEvtxWriter) Close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -202,8 +131,6 @@ func (w *BinaryEvtxWriter) Close() error {
 }
 
 // buildChunkHeader constructs the 512-byte EVTX chunk header.
-// buf[124:128] (HeaderCRC32) is left zero — caller MUST call patchChunkCRC.
-// buf[52:56] (EventRecordsCRC32) is left zero — caller MUST call patchEventRecordsCRC.
 func buildChunkHeader(firstRecordID, lastRecordID uint64, _ uint16, freeSpaceOffset uint32) []byte {
 	buf := make([]byte, evtxChunkHeaderSize)
 	copy(buf[0:8], evtxChunkMagic)
@@ -211,50 +138,30 @@ func buildChunkHeader(firstRecordID, lastRecordID uint64, _ uint16, freeSpaceOff
 	binary.LittleEndian.PutUint64(buf[16:], lastRecordID)    // LastEventRecordNumber
 	binary.LittleEndian.PutUint64(buf[24:], firstRecordID)   // FirstEventRecordIdentifier
 	binary.LittleEndian.PutUint64(buf[32:], lastRecordID)    // LastEventRecordIdentifier
-	binary.LittleEndian.PutUint32(buf[40:], evtxRecordsStart) // HeaderSize = offset where records start
+	binary.LittleEndian.PutUint32(buf[40:], 128)             // HeaderSize
 	binary.LittleEndian.PutUint32(buf[44:], freeSpaceOffset) // LastEventRecordDataOffset
 	binary.LittleEndian.PutUint32(buf[48:], freeSpaceOffset) // FreeSpaceOffset
 	return buf
 }
 
-// patchEventRecordsCRC computes CRC32 over the event records region and writes
-// it into the chunk header at offset 52.
+// patchEventRecordsCRC computes CRC32 over the event records region.
 func patchEventRecordsCRC(chunk []byte, recordsStart, recordsEnd int) {
 	crc := crc32.Checksum(chunk[recordsStart:recordsEnd], crc32.IEEETable)
 	binary.LittleEndian.PutUint32(chunk[52:], crc)
 }
 
-// flushChunkLocked appends the current chunk to the on-disk file and resets
-// the in-memory buffer. Must be called with w.mu held.
-//
-// NOTE: Multi-chunk support writes chunks incrementally; flushToFile handles
-// the single-chunk (common) case by writing file header + chunk atomically.
-// For simplicity this implementation accumulates all records across chunks
-// in-memory and writes a single-chunk file on Close(). Mid-stream flush simply
-// prevents buffer growth; the actual write still happens in Close().
-//
-// If the buffer genuinely exceeds one chunk, we truncate to keep things simple
-// and log a warning. Production deployments should call Close() regularly.
+// flushChunkLocked is a placeholder for multi-chunk support.
 func (w *BinaryEvtxWriter) flushChunkLocked() error {
-	// For now: soft-flush by resetting buffer, accepting event loss at boundary.
-	// A full multi-chunk implementation would write partial chunks to disk here.
-	// Document the behavior: if > 60000 bytes accumulated, we reset and warn.
 	slog.Warn("binary_evtx_chunk_boundary_reached",
 		"path", w.path,
 		"buffered_bytes", len(w.records),
-		"note", "chunk boundary reached; records since last flush will be included in final file",
 	)
-	// Do not actually discard — continue accumulating. The final flushToFile
-	// will write whatever fits in one chunk (first 65536-512 bytes of records).
 	return nil
 }
 
-// flushToFile assembles the complete single-chunk .evtx file and writes it
-// atomically. Must be called with w.mu held. len(w.records) > 0 required.
+// flushToFile assembles the complete single-chunk .evtx file and writes it.
 func (w *BinaryEvtxWriter) flushToFile() error {
-	// Clamp records to the available space inside one chunk.
-	// The name table occupies 242 bytes after the 512-byte chunk header.
-	maxRecords := evtxChunkSize - int(evtxChunkHeaderSize) - int(nameTableSize)
+	maxRecords := evtxChunkSize - int(evtxRecordsStart)
 	records := w.records
 	if len(records) > maxRecords {
 		slog.Warn("binary_evtx_records_truncated",
@@ -265,30 +172,18 @@ func (w *BinaryEvtxWriter) flushToFile() error {
 		records = records[:maxRecords]
 	}
 
-	// Name table is placed at chunk offset 512 (immediately after the 512-byte header).
-	// Event records follow at chunk offset 754 (512 + 242).
-	nameTable := buildNameTable()
-	recordsStart := int(evtxChunkHeaderSize) + len(nameTable) // = 754
+	recordsStart := int(evtxRecordsStart)
 	freeSpaceOffset := uint32(recordsStart + len(records))
 	chunkHeader := buildChunkHeader(w.firstID, w.recordID-1, 0, freeSpaceOffset)
 
 	chunkBytes := make([]byte, evtxChunkSize)
 	copy(chunkBytes[0:], chunkHeader)
-	copy(chunkBytes[evtxChunkHeaderSize:], nameTable)
 	copy(chunkBytes[recordsStart:], records)
-	// Remaining bytes already zero (from make).
 
-	// Patch event records CRC32 into chunk header at offset 52.
-	// Covers only the event record bytes (not the name table).
 	patchEventRecordsCRC(chunkBytes, recordsStart, recordsStart+len(records))
-
-	// Patch chunk header CRC32 (covers bytes 0:120 and 128:512).
 	patchChunkCRC(chunkBytes)
 
-	// Build file header (1 chunk, nextRecordID = w.recordID).
 	fileHeader := buildFileHeader(1, w.recordID)
-
-	// Write file atomically.
 	fileBytes := append(fileHeader, chunkBytes...)
 	if err := os.WriteFile(w.path, fileBytes, 0o644); err != nil {
 		return fmt.Errorf("binary_evtx_writer: write file: %w", err)
@@ -301,78 +196,165 @@ func (w *BinaryEvtxWriter) flushToFile() error {
 	return nil
 }
 
-// buildBinXML encodes a WindowsEvent as a minimal BinXML fragment.
+// ---------------------------------------------------------------------------
+// Template-based BinXML encoding
+// ---------------------------------------------------------------------------
 //
-// Encoding approach: static token stream with NameNode table references.
-// Each element uses:
-//   - 0x01 (open start element) + dependency ID (2B) + chunk-relative NameNode offset (4B)
-//   - 0x02 (close start element, no attributes) or 0x06 (attribute) for attrs
-//   - 0x05 (value) + type byte + value bytes
-//   - 0x04 (end element)
+// BinXML layout per MS-EVEN6 / python-evtx:
 //
-// Fragment opens with 0x0F (fragment header: magic=0x0F, major=1, minor=0, flags=0).
+//   [FragmentHeader: 4B]
+//   [TemplateInstanceNode: 10B]
+//   [TemplateNode header: 24B]
+//   [Template body: variable — XML structure with NormalSubstitution tokens]
+//   [Substitution array: count + value_specs + value_data]
 //
-// Name references use chunk-relative offsets into the static NameNode table at offset 512.
-func buildBinXML(e WindowsEvent) []byte {
+// python-evtx's xml() → render_root_node() reads:
+//   1. RootNode finds FragmentHeader, then TemplateInstanceNode
+//   2. TemplateInstanceNode loads resident TemplateNode (inline)
+//   3. RootNode.substitutions() reads the sub array after the template
+//   4. render_root_node_with_subs() walks template body, replaces subs → XML
+// ---------------------------------------------------------------------------
+
+const (
+	fragHeaderSize   = 4  // 0x0F + major + minor + flags
+	templInstSize    = 10 // token + unknown0 + template_id + template_offset
+	templNodeHdrSize = 24 // next_offset(4) + GUID(16, first 4B = template_id) + data_length(4)
+	preambleSize     = fragHeaderSize + templInstSize + templNodeHdrSize // 38
+)
+
+// buildBinXML encodes a WindowsEvent as template-based BinXML.
+//
+// binXMLChunkOffset is the chunk-relative byte offset where this BinXML
+// payload starts (used for inline NameNode offset calculations).
+func buildBinXML(e WindowsEvent, binXMLChunkOffset uint32) []byte {
+	// Template body starts after: fragment header + template instance + template node header.
+	templateBodyBase := binXMLChunkOffset + preambleSize
+
+	// Build template body with substitution placeholders.
+	tbody := buildTemplateBody(templateBodyBase)
+
+	// Collect actual substitution values from the event.
+	subs := collectSubstitutions(e)
+
+	out := &bytes.Buffer{}
+
+	// 1. Fragment header (4 bytes).
+	out.WriteByte(binXMLFragmentHeader)
+	out.WriteByte(0x01) // major version
+	out.WriteByte(0x00) // minor version
+	out.WriteByte(0x00) // flags
+
+	// 2. TemplateInstanceNode (10 bytes).
+	out.WriteByte(binXMLTemplateInstance) // token 0x0C
+	out.WriteByte(0x01)                  // unknown0
+	writeUint32LE(out, 1)                // template_id
+	// template_offset: chunk-relative offset of the TemplateNode (right after this node).
+	writeUint32LE(out, binXMLChunkOffset+fragHeaderSize+templInstSize)
+
+	// 3. TemplateNode header (24 bytes).
+	// python-evtx layout: next_offset(4) + GUID(16, first 4B also = template_id) + data_length(4).
+	// tag_length() in python-evtx returns 0x18 = 24.
+	writeUint32LE(out, 0) // next_offset (no chaining)
+	writeUint32LE(out, 1) // GUID bytes [0:4] (= template_id)
+	out.Write(make([]byte, 12)) // GUID bytes [4:16] (zeros)
+	writeUint32LE(out, uint32(len(tbody))) // data_length
+
+	// 4. Template body.
+	out.Write(tbody)
+
+	// 5. Substitution array.
+	writeSubstitutionArray(out, subs)
+
+	return out.Bytes()
+}
+
+// buildTemplateBody constructs the BinXML template body with NormalSubstitution
+// tokens (0x0D) as placeholders for event values.
+//
+// Substitution indices:
+//
+//	0:  ProviderName  (STRING)
+//	1:  EventID       (UINT16)
+//	2:  Level         (UINT16)
+//	3:  SystemTime    (FILETIME)
+//	4:  Computer      (STRING)
+//	5+2i:  Data[i] Name attr  (STRING)   — 12 data fields
+//	6+2i:  Data[i] value      (STRING)
+//
+// Total: 5 + 12*2 = 29 substitutions.
+func buildTemplateBody(baseOffset uint32) []byte {
 	b := &bytes.Buffer{}
 
-	// Fragment header: token 0x0F, major=1, minor=0, flags=0
-	b.WriteByte(binXMLFragmentHeader)
-	b.WriteByte(0x01) // major version
-	b.WriteByte(0x00) // minor version
-	b.WriteByte(0x00) // flags
-
 	// <Event>
-	writeOpenElement(b, 0, "Event")
-	b.WriteByte(binXMLCloseElement) // no attributes
-
-	// <System>
-	writeOpenElement(b, 0, "System")
+	writeOpenElement(b, "Event", false, baseOffset)
 	b.WriteByte(binXMLCloseElement)
 
-	// <Provider Name="..."/>
-	writeOpenElement(b, 0, "Provider")
-	writeAttribute(b, "Name", binXMLTypeString, encodeStringValue(e.ProviderName))
-	b.WriteByte(binXMLEndElement) // end Provider
-
-	// <EventID>4663</EventID>
-	writeOpenElement(b, 0, "EventID")
-	b.WriteByte(binXMLCloseElement)
-	b.WriteByte(binXMLValue)
-	b.WriteByte(binXMLTypeUint16)
-	writeUint16LE(b, uint16(e.EventID))
-	b.WriteByte(binXMLEndElement)
-
-	// <Level>0</Level>
-	writeOpenElement(b, 0, "Level")
-	b.WriteByte(binXMLCloseElement)
-	b.WriteByte(binXMLValue)
-	b.WriteByte(binXMLTypeUint16)
-	writeUint16LE(b, 0)
-	b.WriteByte(binXMLEndElement)
-
-	// <TimeCreated SystemTime="..."/>
-	writeOpenElement(b, 0, "TimeCreated")
-	ts := toFILETIME(e.TimeCreated)
-	writeAttribute(b, "SystemTime", binXMLTypeFiletime, uint64LEBytes(ts))
-	b.WriteByte(binXMLEndElement)
-
-	// <Computer>hostname</Computer>
-	writeOpenElement(b, 0, "Computer")
-	b.WriteByte(binXMLCloseElement)
-	b.WriteByte(binXMLValue)
-	b.WriteByte(binXMLTypeString)
-	b.Write(encodeStringValue(e.Computer))
-	b.WriteByte(binXMLEndElement)
-
-	// </System>
-	b.WriteByte(binXMLEndElement)
-
-	// <EventData>
-	writeOpenElement(b, 0, "EventData")
+	//   <System>
+	writeOpenElement(b, "System", false, baseOffset)
 	b.WriteByte(binXMLCloseElement)
 
-	// Data elements carrying audit fields.
+	//     <Provider Name="%0"/>
+	writeOpenElement(b, "Provider", true, baseOffset)
+	writeAttributeSub(b, "Name", 0, binXMLTypeString, baseOffset)
+	b.WriteByte(binXMLCloseElement)
+	b.WriteByte(binXMLEndElement)
+
+	//     <EventID>%1</EventID>
+	writeOpenElement(b, "EventID", false, baseOffset)
+	b.WriteByte(binXMLCloseElement)
+	writeSubstitution(b, 1, binXMLTypeUint16)
+	b.WriteByte(binXMLEndElement)
+
+	//     <Level>%2</Level>
+	writeOpenElement(b, "Level", false, baseOffset)
+	b.WriteByte(binXMLCloseElement)
+	writeSubstitution(b, 2, binXMLTypeUint16)
+	b.WriteByte(binXMLEndElement)
+
+	//     <TimeCreated SystemTime="%3"/>
+	writeOpenElement(b, "TimeCreated", true, baseOffset)
+	writeAttributeSub(b, "SystemTime", 3, binXMLTypeFiletime, baseOffset)
+	b.WriteByte(binXMLCloseElement)
+	b.WriteByte(binXMLEndElement)
+
+	//     <Computer>%4</Computer>
+	writeOpenElement(b, "Computer", false, baseOffset)
+	b.WriteByte(binXMLCloseElement)
+	writeSubstitution(b, 4, binXMLTypeString)
+	b.WriteByte(binXMLEndElement)
+
+	//   </System>
+	b.WriteByte(binXMLEndElement)
+
+	//   <EventData>
+	writeOpenElement(b, "EventData", false, baseOffset)
+	b.WriteByte(binXMLCloseElement)
+
+	//     12 Data elements: <Data Name="%N">%N+1</Data>
+	for i := 0; i < 12; i++ {
+		nameIdx := uint16(5 + i*2)
+		valueIdx := uint16(6 + i*2)
+		writeOpenElement(b, "Data", true, baseOffset)
+		writeAttributeSub(b, "Name", nameIdx, binXMLTypeString, baseOffset)
+		b.WriteByte(binXMLCloseElement)
+		writeSubstitution(b, valueIdx, binXMLTypeString)
+		b.WriteByte(binXMLEndElement)
+	}
+
+	//   </EventData>
+	b.WriteByte(binXMLEndElement)
+
+	// </Event>
+	b.WriteByte(binXMLEndElement)
+
+	// EndOfStream (terminates template body's _children loop).
+	b.WriteByte(0x00)
+
+	return b.Bytes()
+}
+
+// collectSubstitutions gathers all 29 substitution values from a WindowsEvent.
+func collectSubstitutions(e WindowsEvent) []substitutionEntry {
 	dataFields := []struct {
 		name  string
 		value string
@@ -390,61 +372,143 @@ func buildBinXML(e WindowsEvent) []byte {
 		{"ProcessId", ""},
 		{"ProcessName", ""},
 	}
+
+	subs := make([]substitutionEntry, 0, 29)
+
+	// Sub 0: ProviderName (STRING)
+	subs = append(subs, substitutionEntry{binXMLTypeString, encodeSubString(e.ProviderName)})
+	// Sub 1: EventID (UINT16)
+	subs = append(subs, substitutionEntry{binXMLTypeUint16, uint16LEBytes(uint16(e.EventID))})
+	// Sub 2: Level (UINT16)
+	subs = append(subs, substitutionEntry{binXMLTypeUint16, uint16LEBytes(0)})
+	// Sub 3: SystemTime (FILETIME)
+	subs = append(subs, substitutionEntry{binXMLTypeFiletime, uint64LEBytes(toFILETIME(e.TimeCreated))})
+	// Sub 4: Computer (STRING)
+	subs = append(subs, substitutionEntry{binXMLTypeString, encodeSubString(e.Computer)})
+
+	// Sub 5..28: Data field names and values (pairs).
 	for _, df := range dataFields {
-		writeOpenElement(b, 0, "Data")
-		writeAttribute(b, "Name", binXMLTypeString, encodeStringValue(df.name))
-		b.WriteByte(binXMLValue)
-		b.WriteByte(binXMLTypeString)
-		b.Write(encodeStringValue(df.value))
-		b.WriteByte(binXMLEndElement)
+		subs = append(subs, substitutionEntry{binXMLTypeString, encodeSubString(df.name)})
+		subs = append(subs, substitutionEntry{binXMLTypeString, encodeSubString(df.value)})
 	}
 
-	// </EventData>
-	b.WriteByte(binXMLEndElement)
-
-	// </Event>
-	b.WriteByte(binXMLEndElement)
-
-	return b.Bytes()
+	return subs
 }
 
-// writeOpenElement writes a BinXML OpenStartElement token.
-// The name is encoded as the 4-byte chunk-relative offset to its NameNode.
-// depID is the dependency identifier (always 0 for this writer).
-func writeOpenElement(b *bytes.Buffer, depID uint16, name string) {
-	b.WriteByte(binXMLOpenElement)
-	writeUint16LE(b, depID)
-	offset := nameOffsets[name]
-	writeUint32LE(b, offset)
+// writeSubstitutionArray writes the substitution array after the template body.
+//
+// Format:
+//
+//	[count: 4B LE]
+//	[value_spec × count: WORD size + BYTE type + BYTE pad = 4B each]
+//	[value_data: concatenated raw bytes]
+func writeSubstitutionArray(b *bytes.Buffer, subs []substitutionEntry) {
+	writeUint32LE(b, uint32(len(subs)))
+
+	// Value specs.
+	for _, s := range subs {
+		writeUint16LE(b, uint16(len(s.data)))
+		b.WriteByte(s.typ)
+		b.WriteByte(0x00) // padding
+	}
+
+	// Value data.
+	for _, s := range subs {
+		b.Write(s.data)
+	}
 }
 
-// writeAttribute writes a BinXML Attribute token followed by a Value token.
-// The attribute name is encoded as the 4-byte chunk-relative offset to its NameNode.
-// valueType is one of binXMLType* constants. valueBytes is the raw value data.
-func writeAttribute(b *bytes.Buffer, name string, valueType byte, valueBytes []byte) {
+// ---------------------------------------------------------------------------
+// BinXML token writers (used by buildTemplateBody)
+// ---------------------------------------------------------------------------
+
+// writeOpenElement writes an OpenStartElement token with inline NameNode.
+//
+// Layout without attrs (0x01):
+//
+//	[token: 1B] [dep_id: 2B] [data_size: 4B] [name_offset: 4B] [NameNode]
+//
+// Layout with attrs (0x41):
+//
+//	[token: 1B] [dep_id: 2B] [data_size: 4B] [name_offset: 4B] [attr_list_size: 4B] [NameNode]
+//
+// python-evtx checks flags() & 0x04 and adds 4 to tag_length for the attribute_list_size
+// field, which must appear BEFORE the inline NameNode.
+func writeOpenElement(b *bytes.Buffer, name string, hasAttrs bool, binXMLBase uint32) {
+	tokenPos := uint32(b.Len())
+	if hasAttrs {
+		b.WriteByte(binXMLOpenElementAttrs) // 0x41
+	} else {
+		b.WriteByte(binXMLOpenElement) // 0x01
+	}
+	writeUint16LE(b, 0) // dependency_id
+	writeUint32LE(b, 0) // data_size (unused by python-evtx)
+
+	headerSize := uint32(11) // token(1) + dep_id(2) + data_size(4) + name_offset(4)
+	if hasAttrs {
+		headerSize = 15 // + attr_list_size(4)
+	}
+	nameNodeOffset := binXMLBase + tokenPos + headerSize
+	writeUint32LE(b, nameNodeOffset)
+
+	if hasAttrs {
+		writeUint32LE(b, 0) // attribute_list_size (python-evtx ignores the value)
+	}
+
+	writeNameNode(b, name)
+}
+
+// writeAttributeSub writes an Attribute token with inline NameNode, followed by
+// a NormalSubstitution token as the attribute's value.
+//
+// Layout: [token: 1B] [name_offset: 4B] [NameNode] [0x0D subIdx subType]
+func writeAttributeSub(b *bytes.Buffer, name string, subIndex uint16, subType byte, binXMLBase uint32) {
+	tokenPos := uint32(b.Len())
 	b.WriteByte(binXMLAttribute)
-	offset := nameOffsets[name]
-	writeUint32LE(b, offset)
-	b.WriteByte(binXMLValue)
-	b.WriteByte(valueType)
-	b.Write(valueBytes)
+	nameNodeOffset := binXMLBase + tokenPos + 5 // 5 = token(1) + offset(4)
+	writeUint32LE(b, nameNodeOffset)
+	writeNameNode(b, name)
+	writeSubstitution(b, subIndex, subType)
 }
 
-// encodeStringValue encodes a Go string as a BinXML string value:
-// [uint16 char_count LE][UTF-16LE chars — no null terminator].
-// The length field equals the exact number of UTF-16 code units.
-func encodeStringValue(s string) []byte {
+// writeSubstitution writes a NormalSubstitution token (4 bytes).
+//
+// Layout: [token: 0x0D] [index: 2B LE] [type: 1B]
+func writeSubstitution(b *bytes.Buffer, index uint16, valueType byte) {
+	b.WriteByte(binXMLNormalSubstitution)
+	writeUint16LE(b, index)
+	b.WriteByte(valueType)
+}
+
+// writeNameNode writes a NameNode inline in the BinXML stream.
+//
+// Layout: [next_offset: 4B = 0] [hash: 2B] [char_count: 2B] [UTF-16LE chars] [null: 2B]
+func writeNameNode(b *bytes.Buffer, name string) {
+	u16 := utf16.Encode([]rune(name))
+	writeUint32LE(b, 0)                      // next_offset (no chaining)
+	writeUint16LE(b, uint16(sdbmHash(name))) // SDBM hash
+	writeUint16LE(b, uint16(len(u16)))       // string_length
+	for _, c := range u16 {
+		writeUint16LE(b, c)
+	}
+	writeUint16LE(b, 0) // null terminator
+}
+
+// encodeSubString encodes a string as raw UTF-16LE with null terminator
+// for use in the substitution value data.
+func encodeSubString(s string) []byte {
 	u16 := utf16.Encode([]rune(s))
-	buf := make([]byte, 2+len(u16)*2)
-	binary.LittleEndian.PutUint16(buf[0:], uint16(len(u16)))
+	buf := make([]byte, len(u16)*2+2) // +2 for null terminator
 	for i, v := range u16 {
-		binary.LittleEndian.PutUint16(buf[2+i*2:], v)
+		binary.LittleEndian.PutUint16(buf[i*2:], v)
 	}
 	return buf
 }
 
-// sdbmHash computes the SDBM hash of a string — the standard BinXML name hash.
-// Algorithm: hash = char + (hash << 6) + (hash << 16) - hash
+// ---------------------------------------------------------------------------
+// Little-endian helpers
+// ---------------------------------------------------------------------------
+
 func sdbmHash(s string) uint32 {
 	var h uint32
 	for _, c := range []byte(s) {
@@ -453,13 +517,11 @@ func sdbmHash(s string) uint32 {
 	return h
 }
 
-// writeUint16LE writes a uint16 in little-endian order.
 func writeUint16LE(b *bytes.Buffer, v uint16) {
 	_ = b.WriteByte(byte(v))
 	_ = b.WriteByte(byte(v >> 8))
 }
 
-// writeUint32LE writes a uint32 in little-endian order.
 func writeUint32LE(b *bytes.Buffer, v uint32) {
 	_ = b.WriteByte(byte(v))
 	_ = b.WriteByte(byte(v >> 8))
@@ -467,7 +529,12 @@ func writeUint32LE(b *bytes.Buffer, v uint32) {
 	_ = b.WriteByte(byte(v >> 24))
 }
 
-// uint64LEBytes returns a uint64 as 8 little-endian bytes.
+func uint16LEBytes(v uint16) []byte {
+	buf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(buf, v)
+	return buf
+}
+
 func uint64LEBytes(v uint64) []byte {
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, v)

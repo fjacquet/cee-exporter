@@ -279,16 +279,21 @@ patchEventRecordsCRC(chunkBytes, recordsStart, recordsStart+len(records))
 The available space for records is now smaller because the name table occupies 242 bytes:
 
 Replace:
+
 ```go
 maxRecords := evtxChunkSize - evtxChunkHeaderSize
 ```
+
 With:
+
 ```go
 maxRecords := evtxChunkSize - int(evtxChunkHeaderSize) - int(nameTableSize)
 ```
 
 ### Verification of changes
+
 After editing, confirm:
+
 - `writeName` function is gone (grep for it)
 - `writeOpenElement` uses `nameOffsets[name]` for the 4-byte field
 - `writeAttribute` uses `nameOffsets[name]` for the 4-byte field
@@ -513,6 +518,7 @@ Full verification sequence after both tasks complete:
 </verification>
 
 <success_criteria>
+
 - pkg/evtx/writer_evtx_notwindows.go: writeName deleted; writeOpenElement and
   writeAttribute emit 4-byte nameOffsets[name] chunk-relative offsets; buildNameTable()
   produces 242-byte table; flushToFile places name table at chunk offset 512 and

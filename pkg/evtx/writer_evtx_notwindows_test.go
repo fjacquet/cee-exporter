@@ -19,7 +19,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"unicode/utf16"
 )
 
 // TestBinaryEvtxWriter_WriteClose verifies that WriteEvent + Close produce a
@@ -254,57 +253,10 @@ func TestBinaryEvtxWriter_ParentDirCreated(t *testing.T) {
 	}
 }
 
-// TestBinaryEvtxWriter_NameNodeOffsets verifies the static name table layout:
-// - Total size == nameTableSize (242 bytes)
-// - Each entry in nameOffsets points to the correct NameNode in the table
-// - The NameNode at each offset decodes to the expected name
-func TestBinaryEvtxWriter_NameNodeOffsets(t *testing.T) {
-	table := buildNameTable()
-	if uint32(len(table)) != nameTableSize {
-		t.Fatalf("name table size mismatch: got %d bytes, want %d", len(table), nameTableSize)
-	}
-
-	names := []string{
-		"Event", "System", "Provider", "Name", "EventID",
-		"Level", "TimeCreated", "SystemTime", "Computer", "EventData", "Data",
-	}
-
-	for _, name := range names {
-		chunkOffset, ok := nameOffsets[name]
-		if !ok {
-			t.Errorf("name %q missing from nameOffsets", name)
-			continue
-		}
-		// Convert chunk offset to table-relative index (table starts at chunk offset 512)
-		tableIdx := int(chunkOffset) - int(nameTableOffset)
-		if tableIdx < 0 || tableIdx+8 > len(table) {
-			t.Errorf("name %q: chunk offset %d maps to table index %d (out of range)", name, chunkOffset, tableIdx)
-			continue
-		}
-		// NameNode layout: [next(4B)][hash(2B)][length(2B)][UTF-16LE chars]
-		// Read string_length at tableIdx+6
-		strLen := int(table[tableIdx+6]) | int(table[tableIdx+7])<<8
-		if strLen != len([]rune(name)) {
-			t.Errorf("name %q: NameNode string_length = %d, want %d", name, strLen, len([]rune(name)))
-			continue
-		}
-		// Decode UTF-16LE from tableIdx+8
-		u16Bytes := table[tableIdx+8 : tableIdx+8+strLen*2]
-		decoded := make([]uint16, strLen)
-		for i := 0; i < strLen; i++ {
-			decoded[i] = uint16(u16Bytes[i*2]) | uint16(u16Bytes[i*2+1])<<8
-		}
-		got := string(utf16.Decode(decoded))
-		if got != name {
-			t.Errorf("name %q: NameNode decoded as %q", name, got)
-		}
-	}
-}
-
 // TestBinaryEvtxWriter_ChunkLayout verifies the binary layout of the generated chunk:
-// - Name table starts at byte 512 of the chunk (byte 4608 of the file)
-// - The first event record starts at byte 754 of the chunk (byte 4850 of the file)
+// - The first event record starts at byte 512 of the chunk (byte 4608 of the file)
 // - The first event record begins with the EVTX record signature 0x00002A2A
+// - Inline NameNodes are present in the BinXML stream within the record
 func TestBinaryEvtxWriter_ChunkLayout(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "layout.evtx")
@@ -340,21 +292,8 @@ func TestBinaryEvtxWriter_ChunkLayout(t *testing.T) {
 
 	// Chunk starts at evtxFileHeaderSize (4096).
 	chunkStart := evtxFileHeaderSize
-	// Name table at chunk offset 512 → file offset 4608.
-	nameTableFileOffset := chunkStart + int(nameTableOffset)
-	if len(data) < nameTableFileOffset+int(nameTableSize) {
-		t.Fatalf("file too short to contain name table: got %d bytes", len(data))
-	}
 
-	// First NameNode at file offset 4608 should decode "Event" (5 chars, UTF-16LE).
-	// NameNode: [next(4)][hash(2)][length(2)][UTF-16LE chars]
-	nn := data[nameTableFileOffset:]
-	strLen := int(nn[6]) | int(nn[7])<<8
-	if strLen != 5 {
-		t.Errorf("first NameNode string_length = %d, want 5 ('Event')", strLen)
-	}
-
-	// Event record starts at chunk offset 754 → file offset 4096 + 754 = 4850.
+	// Event record starts at chunk offset 512 → file offset 4096 + 512 = 4608.
 	recordFileOffset := chunkStart + int(evtxRecordsStart)
 	if len(data) < recordFileOffset+4 {
 		t.Fatalf("file too short to reach first record signature: %d bytes", len(data))
