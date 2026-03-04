@@ -1,0 +1,1220 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Dell PowerStore CEPA audit events → Windows EventLog / GELF">
+      
+      
+      
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/research/phase-07-binary-evtx/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Phase 7: BinaryEvtxWriter - Research - cee-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#phase-7-binaryevtxwriter-research" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="cee-exporter" class="md-header__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cee-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Phase 7: BinaryEvtxWriter - Research
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="cee-exporter" class="md-nav__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cee-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operator-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operator Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Requirements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-language-go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Language (Go)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-gelf-primary-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 GELF Primary Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-async-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 Async Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-binary-evtx-deferred/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Binary EVTX Deferred
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-cgo-disabled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 CGO Disabled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-prometheus-separate-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Prometheus Port
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-windows-svc-x-sys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 Windows Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-rfc5424-crewjam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 RFC5424 Syslog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-binary-evtx-scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 BinaryEvtx Scratch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../v2-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2 Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="phase-7-binaryevtxwriter-research">Phase 7: BinaryEvtxWriter - Research<a class="headerlink" href="#phase-7-binaryevtxwriter-research" title="Permanent link">&para;</a></h1>
+<p><strong>Researched:</strong> 2026-03-03
+<strong>Domain:</strong> Windows EVTX binary file format — pure-Go serialization on Linux
+<strong>Confidence:</strong> MEDIUM (format well-documented; no Go writer library exists — must implement from spec)</p>
+<hr />
+<p><phase_requirements></p>
+<h2 id="phase-requirements">Phase Requirements<a class="headerlink" href="#phase-requirements" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Description</th>
+<th>Research Support</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OUT-05</td>
+<td>Operator can configure BinaryEvtxWriter to write native <code>.evtx</code> files on Linux</td>
+<td>BinXML encoding + chunk/file header construction with <code>encoding/binary</code> + <code>hash/crc32</code>; <code>writer_evtx_stub.go</code> is the replacement target</td>
+</tr>
+<tr>
+<td>OUT-06</td>
+<td><code>.evtx</code> files generated on Linux open correctly in Windows Event Viewer and can be parsed by forensics tools</td>
+<td>File must comply with ElfFile/ElfChnk binary layout with correct CRC32 checksums; <code>0xrawsec/golang-evtx</code> used as round-trip test oracle</td>
+</tr>
+<tr>
+<td></phase_requirements></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>No production-ready Go library for <strong>writing</strong> binary EVTX files exists in the ecosystem as of March 2026. All Go libraries found (<code>0xrawsec/golang-evtx</code>, <code>Velocidex/evtx</code>, <code>refractionPOINT/evtx</code>) are read-only parsers. The format must be hand-implemented using the well-documented libevtx specification, the xml2evtx Python reference implementation (JPCERTCC), and the official Microsoft MS-EVEN6/MS-BINXML specifications.</p>
+<p>The EVTX binary format is layered: a 4096-byte file header, followed by 65536-byte chunks, each containing a 512-byte chunk header and variable-length event records. Events encode their XML payload as BinXML — a token-based binary encoding with a SDBM element name hash table. The most tractable implementation path for this project is a "static template" approach: one hard-coded BinXML template covering the <code>Event/System</code> + <code>Event/EventData</code> schema for EventIDs 4663/4660/4670. Template sharing (OUT-F01 in REQUIREMENTS.md) is explicitly deferred.</p>
+<p>The existing stub in <code>pkg/evtx/writer_evtx_stub.go</code> (<code>//go:build !windows</code>) is the replacement target. The <code>writer_native_notwindows.go</code> factory already routes <code>type = "evtx"</code> on Linux to <code>NewBinaryEvtxWriter</code>, so <code>main.go</code> and <code>buildWriter</code> need no changes. The implementation is pure stdlib — <code>encoding/binary</code>, <code>hash/crc32</code>, <code>os</code>, <code>sync</code> — no new dependencies.</p>
+<p><strong>Primary recommendation:</strong> Implement BinaryEvtxWriter as a pure-Go stdlib-only EVTX writer in <code>pkg/evtx/writer_evtx_stub.go</code> (rename to <code>writer_evtx_notwindows.go</code>) using a statically-encoded BinXML template. Use <code>0xrawsec/golang-evtx</code> as a test-only round-trip oracle.</p>
+<hr />
+<h2 id="standard-stack">Standard Stack<a class="headerlink" href="#standard-stack" title="Permanent link">&para;</a></h2>
+<h3 id="core-all-stdlib-zero-new-dependencies">Core (all stdlib — zero new dependencies)<a class="headerlink" href="#core-all-stdlib-zero-new-dependencies" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>Why Standard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>encoding/binary</code></td>
+<td>stdlib (go1.24)</td>
+<td>Write fixed-size structs in little-endian order</td>
+<td>Native Go binary serialization; <code>binary.Write</code> with <code>binary.LittleEndian</code> handles all EVTX header structs</td>
+</tr>
+<tr>
+<td><code>hash/crc32</code></td>
+<td>stdlib (go1.24)</td>
+<td>CRC32 IEEE checksums for file header + chunk header</td>
+<td>EVTX checksums are CRC32 per RFC 1952 — <code>crc32.IEEETable</code> matches exactly</td>
+</tr>
+<tr>
+<td><code>os</code></td>
+<td>stdlib</td>
+<td>Create and write <code>.evtx</code> file on disk</td>
+<td>Direct file I/O for output path</td>
+</tr>
+<tr>
+<td><code>sync</code></td>
+<td>stdlib</td>
+<td><code>sync.Mutex</code> guards <code>*os.File</code> against concurrent <code>WriteEvent</code> calls</td>
+<td>All Writers in this project use <code>sync.Mutex</code> — matches GELFWriter/BeatsWriter pattern</td>
+</tr>
+<tr>
+<td><code>bytes</code></td>
+<td>stdlib</td>
+<td><code>bytes.Buffer</code> for constructing BinXML payloads before flushing</td>
+<td>Avoids partial-write corruption during BinXML assembly</td>
+</tr>
+<tr>
+<td><code>log/slog</code></td>
+<td>stdlib</td>
+<td>Structured logging consistent with rest of codebase</td>
+<td>All writers use <code>slog</code></td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>stdlib</td>
+<td><code>WriteEvent(ctx, e)</code> interface signature</td>
+<td>Required by <code>evtx.Writer</code> interface</td>
+</tr>
+</tbody>
+</table>
+<h3 id="test-oracle-test-only-not-a-runtime-dependency">Test Oracle (test-only, not a runtime dependency)<a class="headerlink" href="#test-oracle-test-only-not-a-runtime-dependency" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/0xrawsec/golang-evtx</code></td>
+<td>latest</td>
+<td>Round-trip parse of generated <code>.evtx</code> files in tests</td>
+<td>Verify generated files are structurally valid — use only in <code>_test.go</code> to avoid adding a runtime dep</td>
+</tr>
+</tbody>
+</table>
+<h3 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Instead of</th>
+<th>Could Use</th>
+<th>Tradeoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hand-rolled BinXML</td>
+<td>xml2evtx Python tool invoked as subprocess</td>
+<td>Platform dependency; not acceptable for a static Go binary</td>
+</tr>
+<tr>
+<td>Static template BinXML</td>
+<td>Full BinXML template engine</td>
+<td>OUT-F01 deferred; static template covers all required EventIDs at 1/3 the complexity</td>
+</tr>
+<tr>
+<td>Single <code>.evtx</code> file per run</td>
+<td>Rolling files by date</td>
+<td>Out of scope per REQUIREMENTS.md out-of-scope list ("EVTX chunked streaming (mid-chunk)")</td>
+</tr>
+<tr>
+<td>0xrawsec/golang-evtx as runtime dep</td>
+<td>Velocidex/evtx</td>
+<td>Either works as test oracle; 0xrawsec is more widely referenced</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Installation (test-only oracle):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go<span class="w"> </span>get<span class="w"> </span>github.com/0xrawsec/golang-evtx@latest
+</code></pre></div>
+<p>Place only in <code>_test.go</code> imports so it does not enter the production binary.</p>
+<hr />
+<h2 id="architecture-patterns">Architecture Patterns<a class="headerlink" href="#architecture-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="recommended-file-structure-no-new-packages-needed">Recommended File Structure (no new packages needed)<a class="headerlink" href="#recommended-file-structure-no-new-packages-needed" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pkg/evtx/
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── writer_evtx_notwindows.go   # Replaces writer_evtx_stub.go — BinaryEvtxWriter impl
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│                               # //go:build !windows
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>├── writer_evtx_notwindows_test.go  # Round-trip tests using 0xrawsec as oracle
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>├── writer_native_notwindows.go # UNCHANGED — already routes to NewBinaryEvtxWriter
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>└── ... (existing files unchanged)
+</code></pre></div>
+<p>The file <code>writer_evtx_stub.go</code> must be <strong>deleted</strong> and replaced with <code>writer_evtx_notwindows.go</code>. The <code>_stub</code> suffix is no longer appropriate. The <code>//go:build !windows</code> guard stays.</p>
+<h3 id="pattern-1-static-binxml-template">Pattern 1: Static BinXML Template<a class="headerlink" href="#pattern-1-static-binxml-template" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> Pre-encode the BinXML fragment for the known <code>Event/System/EventData</code> schema once at construction. At write time, substitute variable fields (EventID, timestamps, string values) at known byte offsets in the pre-built template bytes.</p>
+<p><strong>When to use:</strong> When the XML schema is fixed and known at compile time (true here — we only emit 4663/4660/4670 with identical structure).</p>
+<p><strong>Why:</strong> Full BinXML encoding (name hash table, template pointer array, string deduplication) is 600-1000 LOC. Static template substitution is ~150-200 LOC and produces valid files that pass round-trip parsing.</p>
+<p><strong>Key fields to substitute per event:</strong></p>
+<ul>
+<li>EventID (uint16 at known offset)</li>
+<li>TimeCreated SystemTime attribute (FILETIME uint64 at known offset)</li>
+<li>EventRecordID (uint64 in event record header)</li>
+<li>Written timestamp in record header (FILETIME uint64)</li>
+<li>String substitutions: Computer, SubjectUserSID, SubjectUsername, SubjectDomain, ObjectName, AccessMask, etc.</li>
+</ul>
+<h3 id="pattern-2-single-chunk-flush-strategy">Pattern 2: Single-Chunk Flush Strategy<a class="headerlink" href="#pattern-2-single-chunk-flush-strategy" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> Buffer events in memory until the chunk (65536 bytes) is full or <code>Close()</code> is called. On close/flush, finalize the chunk header (last record offset, free space offset, CRC32), then write the complete file header + chunk to disk atomically.</p>
+<p><strong>When to use:</strong> For the v2.0 implementation — avoids mid-chunk partial-write corruption.</p>
+<p><strong>Note from REQUIREMENTS.md out-of-scope:</strong> "EVTX chunked streaming (mid-chunk)" is explicitly out of scope. Flush per chunk on <code>Close()</code> is the correct approach.</p>
+<h3 id="pattern-3-crc32-deferred-patch">Pattern 3: CRC32 Deferred Patch<a class="headerlink" href="#pattern-3-crc32-deferred-patch" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> Write placeholder zeros for CRC32 fields during initial construction. Patch them in the final buffer using slice indexing before flushing to disk.</p>
+<p><strong>Example (Go stdlib):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// Source: libevtx spec + hash/crc32 stdlib</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="s">&quot;hash/crc32&quot;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">// File header CRC32 covers bytes 0-119</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nx">headerCRC</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">crc32</span><span class="p">.</span><span class="nx">Checksum</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">120</span><span class="p">],</span><span class="w"> </span><span class="nx">crc32</span><span class="p">.</span><span class="nx">IEEETable</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">124</span><span class="p">:</span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="nx">headerCRC</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1">// Chunk header CRC32 covers bytes 0-119 and 128-511</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nx">chunkCRC</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">crc32</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">crc32</span><span class="p">.</span><span class="nx">IEEETable</span><span class="p">)</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nx">chunkCRC</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">chunkBuf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">120</span><span class="p">])</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nx">chunkCRC</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">chunkBuf</span><span class="p">[</span><span class="mi">128</span><span class="p">:</span><span class="mi">512</span><span class="p">])</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">chunkBuf</span><span class="p">[</span><span class="mi">124</span><span class="p">:</span><span class="mi">128</span><span class="p">],</span><span class="w"> </span><span class="nx">chunkCRC</span><span class="p">.</span><span class="nx">Sum32</span><span class="p">())</span>
+</code></pre></div>
+<h3 id="pattern-4-filetime-encoding">Pattern 4: FILETIME Encoding<a class="headerlink" href="#pattern-4-filetime-encoding" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> Windows FILETIME = 100-nanosecond intervals since 1601-01-01 00:00:00 UTC. Go <code>time.Time</code> → FILETIME requires a fixed epoch offset.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// Source: windows FILETIME spec (libevtx documentation)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1">// FILETIME epoch: January 1, 1601 UTC</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1">// Unix epoch:     January 1, 1970 UTC</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">// Delta = 116444736000000000 × 100ns intervals</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kd">const</span><span class="w"> </span><span class="nx">filetimeEpochDelta</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">int64</span><span class="p">(</span><span class="mi">116444736000000000</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="kd">func</span><span class="w"> </span><span class="nx">toFILETIME</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Time</span><span class="p">)</span><span class="w"> </span><span class="kt">uint64</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nx">ns100</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">UTC</span><span class="p">().</span><span class="nx">UnixNano</span><span class="p">()</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">100</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">uint64</span><span class="p">(</span><span class="nx">ns100</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">filetimeEpochDelta</span><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="anti-patterns-to-avoid">Anti-Patterns to Avoid<a class="headerlink" href="#anti-patterns-to-avoid" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Writing partial chunks to disk then patching:</strong> CRC32 in chunk header must cover the finalized chunk. Write the full chunk as one atomic <code>os.File.Write</code> call.</li>
+<li><strong>Using <code>binary.Write</code> on non-fixed-size structs:</strong> <code>binary.Write</code> panics on structs with string fields. Use <code>encoding/binary</code> with fixed-size Go types (<code>[8]byte</code>, <code>uint64</code>, <code>uint32</code>, <code>uint16</code>) only.</li>
+<li><strong>Confusing CRC32 scopes:</strong> File header CRC covers bytes 0-119. Chunk header CRC covers bytes 0-119 AND 128-511 (skipping the 8 bytes where the CRC itself sits). Event records CRC covers the entire event data section.</li>
+<li><strong>Using <code>_linux.go</code> suffix:</strong> CLAUDE.md explicitly prohibits this. Use <code>_notwindows.go</code> + <code>//go:build !windows</code>.</li>
+<li><strong>Adding testify or external test deps:</strong> CLAUDE.md: "stdlib only — no testify or external test libraries."</li>
+</ul>
+<hr />
+<h2 id="dont-hand-roll">Don't Hand-Roll<a class="headerlink" href="#dont-hand-roll" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Don't Build</th>
+<th>Use Instead</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CRC32 checksum</td>
+<td>Custom polynomial loop</td>
+<td><code>hash/crc32</code> with <code>crc32.IEEETable</code></td>
+<td>RFC 1952 polynomial; stdlib is correct and tested</td>
+</tr>
+<tr>
+<td>Little-endian struct serialization</td>
+<td>Manual byte shifting</td>
+<td><code>encoding/binary</code> with <code>binary.LittleEndian</code></td>
+<td>Handles all numeric types; <code>PutUint32</code>/<code>PutUint64</code> for in-place patching</td>
+</tr>
+<tr>
+<td>EVTX round-trip validation</td>
+<td>Custom EVTX parser for tests</td>
+<td><code>0xrawsec/golang-evtx</code> as test-only oracle</td>
+<td>Existing battle-tested parser validates file structure</td>
+</tr>
+<tr>
+<td>File concurrency</td>
+<td>Ad-hoc locking</td>
+<td><code>sync.Mutex</code> (already the project pattern)</td>
+<td>Matches GELFWriter/BeatsWriter; queue workers call WriteEvent concurrently</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key insight:</strong> The hard part of EVTX writing is BinXML encoding, not file I/O. A static template approach avoids 70% of the complexity while satisfying OUT-05 and OUT-06.</p>
+<hr />
+<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<h3 id="pitfall-1-incorrect-crc32-scope-for-chunk-header">Pitfall 1: Incorrect CRC32 Scope for Chunk Header<a class="headerlink" href="#pitfall-1-incorrect-crc32-scope-for-chunk-header" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> File rejected by parsers with "corrupt chunk" error.
+<strong>Why it happens:</strong> Chunk header CRC32 covers bytes 0-119 AND 128-511, NOT bytes 0-511. The 8 bytes at 120-127 (flags) are included but the CRC field itself (124-127) must be zero when computing.
+<strong>How to avoid:</strong> Zero out bytes 120-127 before computing, then patch the CRC at offset 124.
+<strong>Warning signs:</strong> 0xrawsec parser returns CRC error; Windows Event Viewer shows "The event log file is corrupted".</p>
+<h3 id="pitfall-2-wrong-filetime-epoch">Pitfall 2: Wrong FILETIME Epoch<a class="headerlink" href="#pitfall-2-wrong-filetime-epoch" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Event timestamps appear as year ~1601 or distant future in Event Viewer.
+<strong>Why it happens:</strong> Confusing Unix epoch (1970) with FILETIME epoch (1601). The delta is 116444736000000000 hundred-nanosecond intervals.
+<strong>How to avoid:</strong> Use the constant <code>filetimeEpochDelta</code> and always convert via <code>time.UTC().UnixNano()/100 + delta</code>.
+<strong>Warning signs:</strong> Events show 1601-01-01 or 2106+ timestamps in Event Viewer.</p>
+<h3 id="pitfall-3-event-record-size-mismatch">Pitfall 3: Event Record Size Mismatch<a class="headerlink" href="#pitfall-3-event-record-size-mismatch" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Parser panic or parse failure after the first event.
+<strong>Why it happens:</strong> The event record size field at offset 4 AND the size-copy field at the end of the record must both equal the total record length. If BinXML payload grows/shrinks, both must be updated.
+<strong>How to avoid:</strong> Assemble the full event record in a <code>bytes.Buffer</code>, then patch the size fields once the final length is known.
+<strong>Warning signs:</strong> Round-trip test fails on second event; parser returns "unexpected EOF" or "size mismatch".</p>
+<h3 id="pitfall-4-empty-string-utf-16le-encoding">Pitfall 4: Empty String UTF-16LE Encoding<a class="headerlink" href="#pitfall-4-empty-string-utf-16le-encoding" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Strings appear garbled in Event Viewer; parser extracts empty fields.
+<strong>Why it happens:</strong> EVTX strings are UTF-16LE (not UTF-8). String values in BinXML are length-prefixed (character count as uint16) followed by UTF-16LE bytes with a null terminator.
+<strong>How to avoid:</strong> Use <code>unicode/utf16</code> + <code>encoding/binary</code> for all string encoding:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// Source: BinXML spec (libevtx documentation)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">import</span><span class="w"> </span><span class="s">&quot;unicode/utf16&quot;</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nx">runes</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">utf16</span><span class="p">.</span><span class="nx">Encode</span><span class="p">([]</span><span class="nb">rune</span><span class="p">(</span><span class="nx">s</span><span class="p">))</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1">// write uint16(len(runes)) then each uint16 in LittleEndian, then 0x0000</span>
+</code></pre></div>
+<p><strong>Warning signs:</strong> Event Viewer shows "?" characters; 0xrawsec extracts empty strings.</p>
+<h3 id="pitfall-5-file-header-next-record-identifier-off-by-one">Pitfall 5: File Header "Next Record Identifier" Off-By-One<a class="headerlink" href="#pitfall-5-file-header-next-record-identifier-off-by-one" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Forensics tools report record ID gaps.
+<strong>Why it happens:</strong> The file header <code>Next Record Identifier</code> must equal the last written record ID + 1. It is incremented atomically with each event.
+<strong>How to avoid:</strong> Track a monotonically incrementing <code>recordID uint64</code> counter guarded by the mutex; write it to the file header on <code>Close()</code>.</p>
+<h3 id="pitfall-6-cgo_enabled0-incompatibility">Pitfall 6: CGO_ENABLED=0 Incompatibility<a class="headerlink" href="#pitfall-6-cgo_enabled0-incompatibility" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Build fails if any dependency uses CGO.
+<strong>Why it happens:</strong> The project mandates <code>CGO_ENABLED=0</code> (CLAUDE.md). The <code>0xrawsec/golang-evtx</code> library must be checked for CGO dependencies before use as a test oracle.
+<strong>How to avoid:</strong> Verify <code>0xrawsec/golang-evtx</code> compiles with <code>CGO_ENABLED=0</code>. If it does not, use <code>Velocidex/evtx</code> or <code>refractionPOINT/evtx</code> instead.
+<strong>Warning signs:</strong> <code>make test</code> fails with "cgo not available" or CGO linker errors.</p>
+<hr />
+<h2 id="code-examples">Code Examples<a class="headerlink" href="#code-examples" title="Permanent link">&para;</a></h2>
+<p>Verified patterns from specifications and stdlib:</p>
+<h3 id="file-header-construction-encodingbinary-pattern">File Header Construction (encoding/binary pattern)<a class="headerlink" href="#file-header-construction-encodingbinary-pattern" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// Source: libevtx specification (github.com/libyal/libevtx) + stdlib encoding/binary</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="s">&quot;encoding/binary&quot;</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="s">&quot;hash/crc32&quot;</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="kd">type</span><span class="w"> </span><span class="nx">evtxFileHeader</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nx">Signature</span><span class="w">        </span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="kt">byte</span><span class="w">  </span><span class="c1">// &quot;ElfFile\x00&quot;</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="nx">FirstChunkNum</span><span class="w">    </span><span class="kt">uint64</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nx">LastChunkNum</span><span class="w">     </span><span class="kt">uint64</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="nx">NextRecordID</span><span class="w">     </span><span class="kt">uint64</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="nx">HeaderSize</span><span class="w">       </span><span class="kt">uint32</span><span class="w">   </span><span class="c1">// always 128</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">    </span><span class="nx">MinorVersion</span><span class="w">     </span><span class="kt">uint16</span><span class="w">   </span><span class="c1">// 1</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="nx">MajorVersion</span><span class="w">     </span><span class="kt">uint16</span><span class="w">   </span><span class="c1">// 3</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="nx">BlockSize</span><span class="w">        </span><span class="kt">uint16</span><span class="w">   </span><span class="c1">// 4096</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="nx">ChunkCount</span><span class="w">       </span><span class="kt">uint16</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="nx">_</span><span class="w">                </span><span class="p">[</span><span class="mi">76</span><span class="p">]</span><span class="kt">byte</span><span class="w"> </span><span class="c1">// reserved</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="nx">Flags</span><span class="w">            </span><span class="kt">uint32</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">    </span><span class="nx">CRC32</span><span class="w">            </span><span class="kt">uint32</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">    </span><span class="nx">_</span><span class="w">                </span><span class="p">[</span><span class="mi">3968</span><span class="p">]</span><span class="kt">byte</span><span class="w"> </span><span class="c1">// padding to 4096 bytes</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="p">}</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="kd">func</span><span class="w"> </span><span class="nx">buildFileHeader</span><span class="p">(</span><span class="nx">chunkCount</span><span class="w"> </span><span class="kt">uint16</span><span class="p">,</span><span class="w"> </span><span class="nx">nextRecordID</span><span class="w"> </span><span class="kt">uint64</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">    </span><span class="nx">buf</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="mi">4096</span><span class="p">)</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">    </span><span class="nb">copy</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">8</span><span class="p">],</span><span class="w"> </span><span class="s">&quot;ElfFile\x00&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint64</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">8</span><span class="p">:],</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w">            </span><span class="c1">// first chunk</span>
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint64</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">16</span><span class="p">:],</span><span class="w"> </span><span class="nb">uint64</span><span class="p">(</span><span class="nx">chunkCount</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="c1">// last chunk</span>
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint64</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">24</span><span class="p">:],</span><span class="w"> </span><span class="nx">nextRecordID</span><span class="p">)</span>
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">32</span><span class="p">:],</span><span class="w"> </span><span class="mi">128</span><span class="p">)</span><span class="w">          </span><span class="c1">// header size</span>
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint16</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">36</span><span class="p">:],</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w">            </span><span class="c1">// minor version</span>
+<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint16</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">38</span><span class="p">:],</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span><span class="w">            </span><span class="c1">// major version</span>
+<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint16</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">40</span><span class="p">:],</span><span class="w"> </span><span class="mi">4096</span><span class="p">)</span><span class="w">         </span><span class="c1">// block size</span>
+<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint16</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">42</span><span class="p">:],</span><span class="w"> </span><span class="nx">chunkCount</span><span class="p">)</span>
+<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a><span class="w">    </span><span class="c1">// CRC32 of bytes 0-119 (with CRC field zeroed)</span>
+<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="w">    </span><span class="nx">crc</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">crc32</span><span class="p">.</span><span class="nx">Checksum</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">120</span><span class="p">],</span><span class="w"> </span><span class="nx">crc32</span><span class="p">.</span><span class="nx">IEEETable</span><span class="p">)</span>
+<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">124</span><span class="p">:],</span><span class="w"> </span><span class="nx">crc</span><span class="p">)</span>
+<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">buf</span>
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="chunk-header-crc32-dual-range-checksum">Chunk Header CRC32 (dual-range checksum)<a class="headerlink" href="#chunk-header-crc32-dual-range-checksum" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// Source: libevtx specification — CRC covers bytes 0-119 AND 128-511</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kd">func</span><span class="w"> </span><span class="nx">patchChunkCRC</span><span class="p">(</span><span class="nx">chunk</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="c1">// Zero the CRC field before computing</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">chunk</span><span class="p">[</span><span class="mi">124</span><span class="p">:],</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nx">h</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">crc32</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">crc32</span><span class="p">.</span><span class="nx">IEEETable</span><span class="p">)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nx">h</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">chunk</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">120</span><span class="p">])</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="nx">h</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">chunk</span><span class="p">[</span><span class="mi">128</span><span class="p">:</span><span class="mi">512</span><span class="p">])</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">chunk</span><span class="p">[</span><span class="mi">124</span><span class="p">:],</span><span class="w"> </span><span class="nx">h</span><span class="p">.</span><span class="nx">Sum32</span><span class="p">())</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="filetime-conversion">FILETIME Conversion<a class="headerlink" href="#filetime-conversion" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// Source: Windows FILETIME specification</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1">// FILETIME epoch: 1601-01-01 00:00:00 UTC = 11644473600 seconds before Unix epoch</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">filetimeEpochDelta</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">int64</span><span class="p">(</span><span class="mi">116444736000000000</span><span class="p">)</span><span class="w"> </span><span class="c1">// 100ns intervals</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kd">func</span><span class="w"> </span><span class="nx">toFILETIME</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Time</span><span class="p">)</span><span class="w"> </span><span class="kt">uint64</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">uint64</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">UTC</span><span class="p">().</span><span class="nx">UnixNano</span><span class="p">()</span><span class="o">/</span><span class="mi">100</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">filetimeEpochDelta</span><span class="p">)</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="utf-16le-string-encoding-for-binxml">UTF-16LE String Encoding for BinXML<a class="headerlink" href="#utf-16le-string-encoding-for-binxml" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// Source: BinXML value type specification (libevtx)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">import</span><span class="w"> </span><span class="s">&quot;unicode/utf16&quot;</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kd">func</span><span class="w"> </span><span class="nx">encodeUTF16LE</span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nx">u16</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">utf16</span><span class="p">.</span><span class="nx">Encode</span><span class="p">([]</span><span class="nb">rune</span><span class="p">(</span><span class="nx">s</span><span class="p">))</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">u16</span><span class="p">)</span><span class="o">*</span><span class="mi">2</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="c1">// +2 for null terminator</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">r</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">u16</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">        </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint16</span><span class="p">(</span><span class="nx">b</span><span class="p">[</span><span class="nx">i</span><span class="o">*</span><span class="mi">2</span><span class="p">:],</span><span class="w"> </span><span class="nx">r</span><span class="p">)</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="c1">// last 2 bytes are 0x0000 (null terminator)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">b</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="event-record-wrapper">Event Record Wrapper<a class="headerlink" href="#event-record-wrapper" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// Source: libevtx event record format</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">evtxRecordSignature</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">uint32</span><span class="p">(</span><span class="mh">0x00002A2A</span><span class="p">)</span><span class="w"> </span><span class="c1">// &quot;**\x00\x00&quot;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kd">func</span><span class="w"> </span><span class="nx">wrapEventRecord</span><span class="p">(</span><span class="nx">recordID</span><span class="w"> </span><span class="kt">uint64</span><span class="p">,</span><span class="w"> </span><span class="nx">timestamp</span><span class="w"> </span><span class="kt">uint64</span><span class="p">,</span><span class="w"> </span><span class="nx">binXMLPayload</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nx">recordSize</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">uint32</span><span class="p">(</span><span class="mi">24</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">binXMLPayload</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="c1">// header(24) + payload + size_copy(4)</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nx">buf</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">recordSize</span><span class="p">)</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:],</span><span class="w"> </span><span class="nx">evtxRecordSignature</span><span class="p">)</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">4</span><span class="p">:],</span><span class="w"> </span><span class="nx">recordSize</span><span class="p">)</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint64</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">8</span><span class="p">:],</span><span class="w"> </span><span class="nx">recordID</span><span class="p">)</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint64</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">16</span><span class="p">:],</span><span class="w"> </span><span class="nx">timestamp</span><span class="p">)</span><span class="w"> </span><span class="c1">// FILETIME</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="nb">copy</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="mi">24</span><span class="p">:],</span><span class="w"> </span><span class="nx">binXMLPayload</span><span class="p">)</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">LittleEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">buf</span><span class="p">[</span><span class="nx">recordSize</span><span class="o">-</span><span class="mi">4</span><span class="p">:],</span><span class="w"> </span><span class="nx">recordSize</span><span class="p">)</span><span class="w"> </span><span class="c1">// size copy</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">buf</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="test-structure-matching-claudemd-conventions">Test Structure (matching CLAUDE.md conventions)<a class="headerlink" href="#test-structure-matching-claudemd-conventions" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">//go:build !windows</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">package</span><span class="w"> </span><span class="nx">evtx</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="s">&quot;os&quot;</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="s">&quot;testing&quot;</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="c1">// test-only oracle — must not appear in production imports</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="p">)</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="kd">func</span><span class="w"> </span><span class="nx">TestBinaryEvtxWriter_RoundTrip</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">    </span><span class="nx">dir</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">t</span><span class="p">.</span><span class="nx">TempDir</span><span class="p">()</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">    </span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">NewBinaryEvtxWriter</span><span class="p">(</span><span class="nx">dir</span><span class="p">)</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;NewBinaryEvtxWriter: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">    </span><span class="c1">// ... write events, Close(), parse with oracle, verify EventIDs</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h2 id="state-of-the-art">State of the Art<a class="headerlink" href="#state-of-the-art" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Old Approach</th>
+<th>Current Approach</th>
+<th>When Changed</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BinaryEvtxWriter</code> stub (returns error)</td>
+<td>Full implementation with static BinXML template</td>
+<td>Phase 7 (v2.0)</td>
+<td>OUT-05/OUT-06 satisfied; Linux operators get native .evtx output</td>
+</tr>
+<tr>
+<td>Per-event BinXML template</td>
+<td>Cross-event template sharing (OUT-F01)</td>
+<td>Future (deferred)</td>
+<td>Would reduce file size ~40%; deferred beyond v2.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Deferred/out-of-scope per REQUIREMENTS.md:</strong></p>
+<ul>
+<li><code>OUT-F01: BinaryEvtxWriter uses cross-event template sharing</code> — reduces file size but adds significant complexity; future work.</li>
+<li>Rolling/chunked streaming mid-chunk — explicitly out of scope; flush-on-close is the v2 approach.</li>
+</ul>
+<hr />
+<h2 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>CGO compatibility of <code>0xrawsec/golang-evtx</code> under <code>CGO_ENABLED=0</code></strong></li>
+<li>What we know: The project mandates <code>CGO_ENABLED=0</code>; the library has not been verified for this constraint</li>
+<li>What's unclear: Whether any transitive deps use CGO (e.g., for mmap or syscall wrappers)</li>
+<li>
+<p>Recommendation: First task in Phase 7 must be a spike: <code>CGO_ENABLED=0 go test ./pkg/evtx/ -run TestBinaryEvtxWriter</code> with the oracle imported; if CGO issues arise, switch to <code>Velocidex/evtx</code> or manual hex-dump comparison</p>
+</li>
+<li>
+<p><strong>Minimum viable BinXML payload for Event Viewer acceptance</strong></p>
+</li>
+<li>What we know: xml2evtx produces valid EVTX from full Event XML; the static template needs to match Windows' expected schema namespace <code>http://schemas.microsoft.com/win/2004/08/events/event</code></li>
+<li>What's unclear: Whether Event Viewer requires the <code>Provider</code> element's <code>Guid</code> attribute or accepts <code>Name</code> only; whether missing optional fields (Version, Level, Task, Opcode, Keywords) cause display errors</li>
+<li>
+<p>Recommendation: Use xml2evtx to generate a reference .evtx from a minimal Event XML, then use that as the static template byte sequence</p>
+</li>
+<li>
+<p><strong><code>evtx_path</code> config semantics: directory vs. file path</strong></p>
+</li>
+<li>What we know: <code>OutputConfig.EVTXPath</code> already exists in <code>main.go</code>; the stub used it as <code>outputDir</code></li>
+<li>What's unclear: Should the writer create one file per session (e.g., <code>cee-exporter-20260303.evtx</code>) or accept a literal file path?</li>
+<li>
+<p>Recommendation: Treat <code>evtx_path</code> as a file path (not a directory) — simpler, no rotation, matches the requirement's description "write native .evtx files". Document in config.toml.example.</p>
+</li>
+<li>
+<p><strong>Event records CRC32 in chunk header (offset 52)</strong></p>
+</li>
+<li>What we know: The libevtx spec says "CRC32 of event records"; some parsers tolerate a zero value here</li>
+<li>What's unclear: Whether <code>0xrawsec/golang-evtx</code> or Windows Event Viewer validates this field strictly</li>
+<li>Recommendation: Implement correctly (CRC32 of all event record bytes in the chunk); if causing test failures, investigate tolerance</li>
+</ol>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<h3 id="primary-high-confidence">Primary (HIGH confidence)<a class="headerlink" href="#primary-high-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="https://github.com/libyal/libevtx/blob/main/documentation/Windows%20XML%20Event%20Log%20(EVTX).asciidoc">libyal/libevtx EVTX specification</a> — file header, chunk header, event record, BinXML token structure</li>
+<li><a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-even6/8c61aef7-bd4b-4edb-8dfd-3c9a7537886b">MS-EVEN6: Event type schema (Microsoft Learn)</a> — official XML schema for <code>Event/System</code> and <code>Event/EventData</code></li>
+<li><code>pkg.go.dev/encoding/binary</code> — stdlib write API (HIGH — stdlib)</li>
+<li><code>pkg.go.dev/hash/crc32</code> — CRC32 IEEE table (HIGH — stdlib)</li>
+</ul>
+<h3 id="secondary-medium-confidence">Secondary (MEDIUM confidence)<a class="headerlink" href="#secondary-medium-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="https://github.com/JPCERTCC/xml2evtx/blob/main/xml2evtx.py">JPCERTCC/xml2evtx — Python reference implementation</a> — BinXML token encoding, SDBM hash algorithm, chunk construction patterns; MEDIUM because Python code not directly tested in Go context</li>
+<li><a href="https://github.com/0xrawsec/golang-evtx">0xrawsec/golang-evtx</a> — binary constants, chunk/file magic values, token types; MEDIUM because it is a parser (not writer) but defines the same constants</li>
+<li><a href="https://pkg.go.dev/www.velocidex.com/golang/evtx">Velocidex/evtx chunk structure</a> — cross-reference for chunk header layout confirmation</li>
+</ul>
+<h3 id="tertiary-low-confidence">Tertiary (LOW confidence)<a class="headerlink" href="#tertiary-low-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li>WebSearch results confirming no EVTX writer library exists in Go ecosystem — useful negative result but LOW because absence of evidence</li>
+<li>Windows FILETIME epoch delta value — verified against libevtx and xml2evtx independently (MEDIUM after cross-reference)</li>
+</ul>
+<hr />
+<h2 id="metadata">Metadata<a class="headerlink" href="#metadata" title="Permanent link">&para;</a></h2>
+<p><strong>Confidence breakdown:</strong></p>
+<ul>
+<li>Standard stack: HIGH — stdlib only; no library choices to get wrong</li>
+<li>Binary format spec: MEDIUM-HIGH — libevtx + MS-EVEN6 are authoritative; xml2evtx provides reference Python impl</li>
+<li>BinXML encoding: MEDIUM — static template approach reduces risk; full encoding remains complex</li>
+<li>Pitfalls: MEDIUM — derived from spec + reference impl analysis; CGO compatibility unverified</li>
+<li>Architecture: HIGH — fits existing codebase patterns exactly (same Writer interface, same mutex pattern, same build tag convention)</li>
+</ul>
+<p><strong>Research date:</strong> 2026-03-03
+<strong>Valid until:</strong> 2026-09-03 (EVTX format is stable; stable for 30+ days; check libevtx changelog if format questions arise)</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.sections", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

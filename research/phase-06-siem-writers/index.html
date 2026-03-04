@@ -1,0 +1,1426 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Dell PowerStore CEPA audit events → Windows EventLog / GELF">
+      
+      
+      
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/research/phase-06-siem-writers/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Phase 6: SIEM Writers — Research - cee-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#phase-6-siem-writers-research" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="cee-exporter" class="md-header__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cee-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Phase 6: SIEM Writers — Research
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="cee-exporter" class="md-nav__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cee-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operator-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operator Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Requirements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-language-go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Language (Go)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-gelf-primary-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 GELF Primary Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-async-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 Async Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-binary-evtx-deferred/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Binary EVTX Deferred
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-cgo-disabled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 CGO Disabled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-prometheus-separate-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Prometheus Port
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-windows-svc-x-sys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 Windows Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-rfc5424-crewjam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 RFC5424 Syslog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-binary-evtx-scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 BinaryEvtx Scratch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../v2-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2 Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="phase-6-siem-writers-research">Phase 6: SIEM Writers — Research<a class="headerlink" href="#phase-6-siem-writers-research" title="Permanent link">&para;</a></h1>
+<p><strong>Researched:</strong> 2026-03-03
+<strong>Domain:</strong> Go syslog RFC 5424 writer + Lumberjack v2 (Beats) client, CGO_ENABLED=0, cross-platform
+<strong>Confidence:</strong> HIGH</p>
+<p><phase_requirements></p>
+<h2 id="phase-requirements">Phase Requirements<a class="headerlink" href="#phase-requirements" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Description</th>
+<th>Research Support</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OUT-01</td>
+<td>Operator can configure BeatsWriter to forward events to Logstash or Graylog Beats Input via Lumberjack v2 protocol</td>
+<td><code>github.com/elastic/go-lumber/client/v2</code> SyncClient.Send, reconnect pattern from GELFWriter</td>
+</tr>
+<tr>
+<td>OUT-02</td>
+<td>BeatsWriter supports TLS for encrypted Beats transport</td>
+<td><code>SyncDialWith</code> + <code>tls.Dial</code> custom dialer; no built-in TLS Option in go-lumber — inject via dialer</td>
+</tr>
+<tr>
+<td>OUT-03</td>
+<td>Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over UDP</td>
+<td><code>github.com/crewjam/rfc5424</code> Message.WriteTo(udpConn); UDP: plain write, no framing</td>
+</tr>
+<tr>
+<td>OUT-04</td>
+<td>Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over TCP</td>
+<td>RFC 6587 octet-counting framing: <code>fmt.Fprintf(conn, "%d ", len(msg)); conn.Write(msg)</code></td>
+</tr>
+<tr>
+<td></phase_requirements></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>Phase 6 adds two new writer backends to <code>pkg/evtx</code>: a <strong>SyslogWriter</strong> that emits RFC 5424 messages over UDP or TCP, and a <strong>BeatsWriter</strong> that publishes Lumberjack v2 frames to Logstash or Graylog Beats Input (with optional TLS). Both writers implement the existing <code>evtx.Writer</code> interface (<code>WriteEvent(ctx, WindowsEvent) error</code> / <code>Close() error</code>) and follow the pattern established by <code>GELFWriter</code>: lazy reconnect on send failure under a <code>sync.Mutex</code>.</p>
+<p>The key technical decision already recorded in STATE.md is confirmed: use <code>github.com/crewjam/rfc5424</code> for syslog message construction (bypasses the <code>log/syslog</code> stdlib package which is excluded from Windows builds and not RFC 5424 compliant), and use <code>github.com/elastic/go-lumber/client/v2</code> for Beats/Lumberjack v2. TLS for BeatsWriter is achieved by injecting a <code>tls.Dial</code>-compatible function via <code>SyncDialWith</code> — go-lumber has no built-in TLS Option; it exposes a <code>dial func(network, address string) (net.Conn, error)</code> parameter instead. RFC 6587 octet-counting (<code>"&lt;len&gt; &lt;msg&gt;"</code>) is the required TCP syslog framing — the crewjam library produces raw bytes via <code>MarshalBinary()</code>, which the writer prepends with the length.</p>
+<p>Neither library uses CGO — both are pure Go, satisfying the project's <code>CGO_ENABLED=0</code> constraint. Neither is present in go.sum yet; both need <code>go get</code>. The config struct in <code>main.go</code> needs new fields (<code>SyslogHost</code>, <code>SyslogPort</code>, <code>SyslogProtocol</code>, <code>BeatsHost</code>, <code>BeatsPort</code>, <code>BeatsTLS</code>), and the <code>buildWriter</code> switch must handle <code>"syslog"</code> and <code>"beats"</code> type tokens.</p>
+<p><strong>Primary recommendation:</strong> Implement SyslogWriter first (simpler — pure stdlib net + crewjam), then BeatsWriter (requires go-lumber SyncClient reconnect + TLS dialer injection), each with its own config struct, writer file, and test file. Add both cases to the <code>buildWriter</code> factory in <code>main.go</code>.</p>
+<hr />
+<h2 id="standard-stack">Standard Stack<a class="headerlink" href="#standard-stack" title="Permanent link">&para;</a></h2>
+<h3 id="core">Core<a class="headerlink" href="#core" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>Why Standard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/crewjam/rfc5424</code></td>
+<td>v0.1.0 (May 2020)</td>
+<td>Build RFC 5424 syslog messages with structured data</td>
+<td>Only maintained pure-Go RFC 5424 serializer; zero CGO; <code>WriteTo(io.Writer)</code> works with any <code>net.Conn</code></td>
+</tr>
+<tr>
+<td><code>github.com/elastic/go-lumber/client/v2</code></td>
+<td>v0.1.1 (Jan 2021)</td>
+<td>Lumberjack v2 SyncClient — sends ACK-ed batches to Logstash/Graylog Beats Input</td>
+<td>Official Elastic implementation; no CGO; used by Filebeat/Winlogbeat itself</td>
+</tr>
+</tbody>
+</table>
+<h3 id="supporting">Supporting<a class="headerlink" href="#supporting" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crypto/tls</code> (stdlib)</td>
+<td>Go 1.24</td>
+<td>TLS dialer for BeatsWriter</td>
+<td>Always — injected into <code>SyncDialWith</code> via custom dial function</td>
+</tr>
+<tr>
+<td><code>net</code> (stdlib)</td>
+<td>Go 1.24</td>
+<td>UDP/TCP connections for SyslogWriter</td>
+<td>Always — <code>net.DialTimeout("udp", ...)</code>, <code>net.DialTimeout("tcp", ...)</code></td>
+</tr>
+<tr>
+<td><code>fmt</code> (stdlib)</td>
+<td>Go 1.24</td>
+<td>RFC 6587 octet-counting prefix for TCP</td>
+<td>Always — <code>fmt.Fprintf(conn, "%d ", n)</code> before writing message bytes</td>
+</tr>
+<tr>
+<td><code>sync</code> (stdlib)</td>
+<td>Go 1.24</td>
+<td>Mutex protecting conn in both writers</td>
+<td>Always — matches GELFWriter pattern</td>
+</tr>
+</tbody>
+</table>
+<h3 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Instead of</th>
+<th>Could Use</th>
+<th>Tradeoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/crewjam/rfc5424</code></td>
+<td><code>log/syslog</code> (stdlib)</td>
+<td>stdlib excluded from Windows builds (<code>//go:build !windows &amp;&amp; !plan9</code>); not RFC 5424 compliant (missing VERSION field); REJECTED</td>
+</tr>
+<tr>
+<td><code>github.com/crewjam/rfc5424</code></td>
+<td><code>github.com/nathanaelle/syslog5424/v2</code></td>
+<td>More complex API, actively maintained but heavier; crewjam is simpler for write-only use case</td>
+</tr>
+<tr>
+<td><code>github.com/elastic/go-lumber/client/v2</code></td>
+<td>Custom TCP framing</td>
+<td>Lumberjack v2 protocol is non-trivial (window ACK, compression, framing); go-lumber is the reference implementation; DO NOT hand-roll</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Installation:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go<span class="w"> </span>get<span class="w"> </span>github.com/crewjam/rfc5424@v0.1.0
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>go<span class="w"> </span>get<span class="w"> </span>github.com/elastic/go-lumber@v0.1.1
+</code></pre></div>
+<hr />
+<h2 id="architecture-patterns">Architecture Patterns<a class="headerlink" href="#architecture-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="recommended-project-structure">Recommended Project Structure<a class="headerlink" href="#recommended-project-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pkg/evtx/
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── writer_syslog.go          # SyslogWriter struct + NewSyslogWriter + WriteEvent + Close
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├── writer_syslog_test.go     # Table-driven tests: buildSyslog5424(), TCP framing, UDP send
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>├── writer_beats.go           # BeatsWriter struct + NewBeatsWriter + WriteEvent + Close
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>└── writer_beats_test.go      # Table-driven tests: buildBeatsEvent(), TLS dialer injection
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>cmd/cee-exporter/
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>└── main.go                   # Add SyslogConfig + BeatsConfig to OutputConfig; extend buildWriter()
+</code></pre></div>
+<h3 id="pattern-1-writer-struct-with-mutex-protected-reconnect">Pattern 1: Writer Struct with Mutex-Protected Reconnect<a class="headerlink" href="#pattern-1-writer-struct-with-mutex-protected-reconnect" title="Permanent link">&para;</a></h3>
+<p>This is the established pattern from <code>GELFWriter</code>. Both new writers must follow it exactly.</p>
+<p><strong>What:</strong> Writer holds a <code>net.Conn</code> (or <code>*SyncClient</code>) protected by <code>sync.Mutex</code>. On send failure, attempt one reconnect before returning error.
+<strong>When to use:</strong> Any writer over a stateful network connection — TCP syslog, Beats.
+<strong>Note:</strong> UDP syslog uses <code>net.Conn</code> but reconnect is a no-op (UDP is connectionless); still guard with mutex for goroutine safety.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// Source: pkg/evtx/writer_gelf.go (established project pattern)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kd">type</span><span class="w"> </span><span class="nx">SyslogWriter</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nx">cfg</span><span class="w">  </span><span class="nx">SyslogConfig</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nx">mu</span><span class="w">   </span><span class="nx">sync</span><span class="p">.</span><span class="nx">Mutex</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nx">conn</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">Conn</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">}</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">SyslogWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">WriteEvent</span><span class="p">(</span><span class="nx">ctx</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="w"> </span><span class="nx">WindowsEvent</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nx">payload</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">buildSyslog5424</span><span class="p">(</span><span class="nx">e</span><span class="p">,</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">AppName</span><span class="p">)</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;syslog build: %w&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="nx">w</span><span class="p">.</span><span class="nx">mu</span><span class="p">.</span><span class="nx">Lock</span><span class="p">()</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">mu</span><span class="p">.</span><span class="nx">Unlock</span><span class="p">()</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">send</span><span class="p">(</span><span class="nx">payload</span><span class="p">);</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">        </span><span class="nx">slog</span><span class="p">.</span><span class="nx">Warn</span><span class="p">(</span><span class="s">&quot;syslog_reconnect&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;reason&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">rerr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">connect</span><span class="p">();</span><span class="w"> </span><span class="nx">rerr</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;syslog send+reconnect: %w / %w&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="nx">rerr</span><span class="p">)</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err2</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">send</span><span class="p">(</span><span class="nx">payload</span><span class="p">);</span><span class="w"> </span><span class="nx">err2</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;syslog send after reconnect: %w&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err2</span><span class="p">)</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="pattern-2-rfc-5424-message-construction-with-crewjamrfc5424">Pattern 2: RFC 5424 Message Construction with crewjam/rfc5424<a class="headerlink" href="#pattern-2-rfc-5424-message-construction-with-crewjamrfc5424" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> Build a <code>rfc5424.Message</code> with priority, timestamp, hostname, app-name, and structured-data SD-ELEMENT containing audit fields.
+<strong>When to use:</strong> Every syslog event write.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// Source: pkg.go.dev/github.com/crewjam/rfc5424</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="s">&quot;github.com/crewjam/rfc5424&quot;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kd">func</span><span class="w"> </span><span class="nx">buildSyslog5424</span><span class="p">(</span><span class="nx">e</span><span class="w"> </span><span class="nx">evtx</span><span class="p">.</span><span class="nx">WindowsEvent</span><span class="p">,</span><span class="w"> </span><span class="nx">appName</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nx">m</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">rfc5424</span><span class="p">.</span><span class="nx">Message</span><span class="p">{</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">        </span><span class="nx">Priority</span><span class="p">:</span><span class="w">  </span><span class="nx">rfc5424</span><span class="p">.</span><span class="nx">Daemon</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nx">rfc5424</span><span class="p">.</span><span class="nx">Info</span><span class="p">,</span><span class="w">  </span><span class="c1">// facility=1, severity=6</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">        </span><span class="nx">Timestamp</span><span class="p">:</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">TimeCreated</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">        </span><span class="nx">Hostname</span><span class="p">:</span><span class="w">  </span><span class="nx">e</span><span class="p">.</span><span class="nx">Computer</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">        </span><span class="nx">AppName</span><span class="p">:</span><span class="w">   </span><span class="nx">appName</span><span class="p">,</span><span class="w">                         </span><span class="c1">// e.g. &quot;cee-exporter&quot;</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">        </span><span class="nx">ProcessID</span><span class="p">:</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">ProcessID</span><span class="p">),</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">        </span><span class="nx">MessageID</span><span class="p">:</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">EventID</span><span class="p">),</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">        </span><span class="nx">Message</span><span class="p">:</span><span class="w">   </span><span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%s on %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">CEPAEventType</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">ObjectName</span><span class="p">)),</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="c1">// SD-ID uses private enterprise number format: &quot;name@PEN&quot;</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="c1">// Use IANA example PEN 32473 in tests; operators can configure their PEN.</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nx">sdID</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;audit@32473&quot;</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;EventID&quot;</span><span class="p">,</span><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">EventID</span><span class="p">))</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;User&quot;</span><span class="p">,</span><span class="w">       </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectUsername</span><span class="p">)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Domain&quot;</span><span class="p">,</span><span class="w">     </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectDomain</span><span class="p">)</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Object&quot;</span><span class="p">,</span><span class="w">     </span><span class="nx">e</span><span class="p">.</span><span class="nx">ObjectName</span><span class="p">)</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;AccessMask&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">AccessMask</span><span class="p">)</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ClientAddr&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">ClientAddr</span><span class="p">)</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;CEPAType&quot;</span><span class="p">,</span><span class="w">   </span><span class="nx">e</span><span class="p">.</span><span class="nx">CEPAEventType</span><span class="p">)</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">m</span><span class="p">.</span><span class="nx">MarshalBinary</span><span class="p">()</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Note:</strong> <code>AddDatum(sdID, name, value)</code> — the same SD-ID string must be used for all params in one SD-ELEMENT. The <code>sdID</code> format for private use is <code>name@&lt;private-enterprise-number&gt;</code>. RFC 5424 reserves IANA-registered IDs (no <code>@</code>) — do not use bare names. IANA PEN 32473 is designated for documentation/examples per RFC 5612.</p>
+<h3 id="pattern-3-rfc-6587-tcp-syslog-framing-octet-counting">Pattern 3: RFC 6587 TCP Syslog Framing (Octet-Counting)<a class="headerlink" href="#pattern-3-rfc-6587-tcp-syslog-framing-octet-counting" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> TCP syslog requires each message to be prefixed with its byte length and a space, per RFC 6587 section 3.4.1. UDP requires no framing.
+<strong>When to use:</strong> <code>syslog_protocol = "tcp"</code> only.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// Source: RFC 6587 §3.4.1 octet-counting method</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">SyslogWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">send</span><span class="p">(</span><span class="nx">payload</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="k">switch</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Protocol</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;tcp&quot;</span><span class="p">:</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">        </span><span class="c1">// Octet-counting: &quot;&lt;MSG-LEN&gt; &lt;SYSLOG-MSG&gt;&quot;</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Fprintf</span><span class="p">(</span><span class="nx">w</span><span class="p">.</span><span class="nx">conn</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;%d &quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">payload</span><span class="p">));</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">        </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">payload</span><span class="p">)</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="k">default</span><span class="p">:</span><span class="w"> </span><span class="c1">// udp — single datagram, no framing</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">        </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">payload</span><span class="p">)</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="pattern-4-beatswriter-with-tls-via-syncdialwith-custom-dialer">Pattern 4: BeatsWriter with TLS via SyncDialWith Custom Dialer<a class="headerlink" href="#pattern-4-beatswriter-with-tls-via-syncdialwith-custom-dialer" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> go-lumber's <code>SyncDial</code> uses plain TCP. For TLS, use <code>SyncDialWith</code> and supply a <code>tls.DialWithDialer</code>-based custom function.
+<strong>When to use:</strong> <code>beats_tls = true</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// Source: pkg.go.dev/github.com/elastic/go-lumber/client/v2 + crypto/tls (stdlib)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nx">lumberv2</span><span class="w"> </span><span class="s">&quot;github.com/elastic/go-lumber/client/v2&quot;</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="s">&quot;crypto/tls&quot;</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="s">&quot;net&quot;</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="s">&quot;time&quot;</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="kd">func</span><span class="w"> </span><span class="nx">dialBeats</span><span class="p">(</span><span class="nx">cfg</span><span class="w"> </span><span class="nx">BeatsConfig</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">SyncClient</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nx">addr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">JoinHostPort</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="p">))</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">TLS</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">        </span><span class="nx">dialer</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">tls</span><span class="p">.</span><span class="nx">Dialer</span><span class="p">{</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">            </span><span class="nx">NetDialer</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">net</span><span class="p">.</span><span class="nx">Dialer</span><span class="p">{</span><span class="nx">Timeout</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">},</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">            </span><span class="nx">Config</span><span class="p">:</span><span class="w">    </span><span class="o">&amp;</span><span class="nx">tls</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span><span class="nx">MinVersion</span><span class="p">:</span><span class="w"> </span><span class="nx">tls</span><span class="p">.</span><span class="nx">VersionTLS12</span><span class="p">},</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">SyncDialWith</span><span class="p">(</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">            </span><span class="kd">func</span><span class="p">(</span><span class="nx">network</span><span class="p">,</span><span class="w"> </span><span class="nx">address</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">net</span><span class="p">.</span><span class="nx">Conn</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">dialer</span><span class="p">.</span><span class="nx">DialContext</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">network</span><span class="p">,</span><span class="w"> </span><span class="nx">address</span><span class="p">)</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">            </span><span class="p">},</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">            </span><span class="nx">addr</span><span class="p">,</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">            </span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">Timeout</span><span class="p">(</span><span class="mi">30</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">),</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">        </span><span class="p">)</span>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">SyncDial</span><span class="p">(</span><span class="nx">addr</span><span class="p">,</span><span class="w"> </span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">Timeout</span><span class="p">(</span><span class="mi">30</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">))</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="pattern-5-beatswriter-event-payload">Pattern 5: BeatsWriter Event Payload<a class="headerlink" href="#pattern-5-beatswriter-event-payload" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> <code>SyncClient.Send([]interface{})</code> accepts a slice of JSON-serialisable values. Each element is JSON-encoded by the library using the configured encoder (default: <code>json.Marshal</code>). Graylog/Logstash Beats Input expects <code>map[string]interface{}</code> with a <code>"message"</code> field and custom fields.
+<strong>When to use:</strong> Every <code>WriteEvent</code> call on BeatsWriter.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">buildBeatsEvent</span><span class="p">(</span><span class="nx">e</span><span class="w"> </span><span class="nx">evtx</span><span class="p">.</span><span class="nx">WindowsEvent</span><span class="p">)</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{}</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{}{</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">        </span><span class="s">&quot;@timestamp&quot;</span><span class="p">:</span><span class="w">      </span><span class="nx">e</span><span class="p">.</span><span class="nx">TimeCreated</span><span class="p">.</span><span class="nx">UTC</span><span class="p">().</span><span class="nx">Format</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339Nano</span><span class="p">),</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">        </span><span class="s">&quot;message&quot;</span><span class="p">:</span><span class="w">         </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%s on %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">CEPAEventType</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">ObjectName</span><span class="p">),</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">        </span><span class="s">&quot;event_id&quot;</span><span class="p">:</span><span class="w">        </span><span class="nx">e</span><span class="p">.</span><span class="nx">EventID</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">        </span><span class="s">&quot;provider&quot;</span><span class="p">:</span><span class="w">        </span><span class="nx">e</span><span class="p">.</span><span class="nx">ProviderName</span><span class="p">,</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="s">&quot;computer&quot;</span><span class="p">:</span><span class="w">        </span><span class="nx">e</span><span class="p">.</span><span class="nx">Computer</span><span class="p">,</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">        </span><span class="s">&quot;user&quot;</span><span class="p">:</span><span class="w">            </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectUsername</span><span class="p">,</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">        </span><span class="s">&quot;domain&quot;</span><span class="p">:</span><span class="w">          </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectDomain</span><span class="p">,</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">        </span><span class="s">&quot;user_sid&quot;</span><span class="p">:</span><span class="w">        </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectUserSID</span><span class="p">,</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">        </span><span class="s">&quot;logon_id&quot;</span><span class="p">:</span><span class="w">        </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectLogonID</span><span class="p">,</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">        </span><span class="s">&quot;object_name&quot;</span><span class="p">:</span><span class="w">     </span><span class="nx">e</span><span class="p">.</span><span class="nx">ObjectName</span><span class="p">,</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">        </span><span class="s">&quot;object_type&quot;</span><span class="p">:</span><span class="w">     </span><span class="nx">e</span><span class="p">.</span><span class="nx">ObjectType</span><span class="p">,</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">        </span><span class="s">&quot;access_mask&quot;</span><span class="p">:</span><span class="w">     </span><span class="nx">e</span><span class="p">.</span><span class="nx">AccessMask</span><span class="p">,</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">        </span><span class="s">&quot;accesses&quot;</span><span class="p">:</span><span class="w">        </span><span class="nx">e</span><span class="p">.</span><span class="nx">Accesses</span><span class="p">,</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">        </span><span class="s">&quot;client_address&quot;</span><span class="p">:</span><span class="w">  </span><span class="nx">e</span><span class="p">.</span><span class="nx">ClientAddr</span><span class="p">,</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">        </span><span class="s">&quot;cepa_event_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">CEPAEventType</span><span class="p">,</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="pattern-6-config-extension-in-maingo">Pattern 6: Config Extension in main.go<a class="headerlink" href="#pattern-6-config-extension-in-maingo" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> <code>OutputConfig</code> needs new fields for both writers; <code>buildWriter</code> switch needs two new cases.
+<strong>When to use:</strong> Wiring new writers into the existing factory.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// Additions to OutputConfig in main.go</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kd">type</span><span class="w"> </span><span class="nx">OutputConfig</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="c1">// ... existing fields ...</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="c1">// Syslog</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nx">SyslogHost</span><span class="w">     </span><span class="kt">string</span><span class="w"> </span><span class="s">`toml:&quot;syslog_host&quot;`</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nx">SyslogPort</span><span class="w">     </span><span class="kt">int</span><span class="w">    </span><span class="s">`toml:&quot;syslog_port&quot;`</span><span class="w">     </span><span class="c1">// default 514</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nx">SyslogProtocol</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="s">`toml:&quot;syslog_protocol&quot;`</span><span class="w"> </span><span class="c1">// &quot;udp&quot; | &quot;tcp&quot;</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nx">SyslogAppName</span><span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="s">`toml:&quot;syslog_app_name&quot;`</span><span class="w"> </span><span class="c1">// default &quot;cee-exporter&quot;</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="c1">// Beats</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="nx">BeatsHost</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="s">`toml:&quot;beats_host&quot;`</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="nx">BeatsPort</span><span class="w"> </span><span class="kt">int</span><span class="w">    </span><span class="s">`toml:&quot;beats_port&quot;`</span><span class="w"> </span><span class="c1">// default 5044</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="nx">BeatsTLS</span><span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="s">`toml:&quot;beats_tls&quot;`</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="p">}</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="c1">// In buildWriter switch:</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="k">case</span><span class="w"> </span><span class="s">&quot;syslog&quot;</span><span class="p">:</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">evtx</span><span class="p">.</span><span class="nx">NewSyslogWriter</span><span class="p">(</span><span class="nx">evtx</span><span class="p">.</span><span class="nx">SyslogConfig</span><span class="p">{</span><span class="o">...</span><span class="p">})</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="nx">addr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">JoinHostPort</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">SyslogHost</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">SyslogPort</span><span class="p">))</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">addr</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="k">case</span><span class="w"> </span><span class="s">&quot;beats&quot;</span><span class="p">:</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">    </span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">evtx</span><span class="p">.</span><span class="nx">NewBeatsWriter</span><span class="p">(</span><span class="nx">evtx</span><span class="p">.</span><span class="nx">BeatsConfig</span><span class="p">{</span><span class="o">...</span><span class="p">})</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">    </span><span class="nx">addr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">JoinHostPort</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">BeatsHost</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">BeatsPort</span><span class="p">))</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="nx">addr</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+</code></pre></div>
+<h3 id="anti-patterns-to-avoid">Anti-Patterns to Avoid<a class="headerlink" href="#anti-patterns-to-avoid" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Using <code>log/syslog</code> stdlib:</strong> It has <code>//go:build !windows &amp;&amp; !plan9</code> — the project builds for Windows, so this breaks cross-compilation. It also generates non-RFC-5424-compliant output (missing VERSION field).</li>
+<li><strong>Hand-rolling Lumberjack v2 framing:</strong> The protocol has window-size ACK semantics, compression (gzip), and a custom binary framing. go-lumber handles all of this. Do not re-implement.</li>
+<li><strong>Non-transparent framing for TCP syslog:</strong> Append-newline/NUL framing (RFC 6587 §3.4.2) has documented interoperability problems. Use octet-counting exclusively.</li>
+<li><strong>Using <code>SyncClient</code> without mutex protection:</strong> <code>SyncClient</code> is documented as "not thread-safe". The BeatsWriter must serialize calls with <code>sync.Mutex</code>, mirroring GELFWriter.</li>
+<li><strong>Long connection timeout in <code>connect()</code>:</strong> Use 5 seconds for initial dial (matches GELFWriter). A 30-second timeout for <code>lumberv2.Timeout</code> option controls read/write, not dial.</li>
+<li><strong>Storing <code>*SyncClient</code> without reconnect logic:</strong> Unlike GELFWriter's raw <code>net.Conn</code>, go-lumber's <code>SyncClient</code> cannot be reused after a send error — close and recreate via <code>dialBeats()</code>.</li>
+<li><strong>Bare SD-ID in syslog without <code>@PEN</code>:</strong> Bare names (no <code>@</code>) are IANA-reserved. Always use <code>name@&lt;PEN&gt;</code> format for private structured data.</li>
+</ul>
+<hr />
+<h2 id="dont-hand-roll">Don't Hand-Roll<a class="headerlink" href="#dont-hand-roll" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Don't Build</th>
+<th>Use Instead</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lumberjack v2 wire protocol</td>
+<td>Custom binary framing with window ACK</td>
+<td><code>github.com/elastic/go-lumber/client/v2</code></td>
+<td>Protocol has gzip compression, window-size negotiation, sequence numbers, ACK tracking — reference implementation is 1000+ LOC</td>
+</tr>
+<tr>
+<td>RFC 5424 message serialization</td>
+<td>Custom string formatter</td>
+<td><code>github.com/crewjam/rfc5424</code></td>
+<td>SD-PARAM values require escaping (<code>"</code>, <code>\</code>, <code>]</code>); Priority encoding; timestamp RFC 3339 with micro precision; NILVALUE handling — spec compliance is subtle</td>
+</tr>
+<tr>
+<td>TLS for Beats</td>
+<td>Custom TLS wrapping on SyncClient internals</td>
+<td><code>SyncDialWith</code> + <code>tls.Dialer</code></td>
+<td>go-lumber accepts a <code>dial func</code> parameter exactly for this; inject <code>tls.Dialer</code> as shown</td>
+</tr>
+<tr>
+<td>RFC 6587 TCP framing</td>
+<td>Custom length-prefix logic</td>
+<td>2-line <code>fmt.Fprintf</code> + <code>conn.Write</code></td>
+<td>This one IS trivially hand-rolled (2 lines); no library needed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key insight:</strong> The Lumberjack v2 ACK mechanism is the trap — sending without waiting for ACK risks data loss on connection failure. <code>SyncClient.Send</code> blocks until ACK received, which is exactly correct for a reliable audit log writer.</p>
+<hr />
+<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<h3 id="pitfall-1-syncclient-is-not-thread-safe">Pitfall 1: SyncClient is Not Thread-Safe<a class="headerlink" href="#pitfall-1-syncclient-is-not-thread-safe" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Multiple goroutines call <code>BeatsWriter.WriteEvent</code> concurrently; <code>SyncClient.Send</code> corrupts state.
+<strong>Why it happens:</strong> go-lumber documents <code>SyncClient</code> as not thread-safe; the queue sends events from multiple worker goroutines.
+<strong>How to avoid:</strong> Wrap every <code>SyncClient.Send</code> call with <code>sync.Mutex</code> (same as GELFWriter wraps <code>conn.Write</code>).
+<strong>Warning signs:</strong> Intermittent <code>ErrProtocolError</code> or panics on concurrent writes.</p>
+<h3 id="pitfall-2-syncclient-cannot-be-reused-after-error">Pitfall 2: SyncClient Cannot Be Reused After Error<a class="headerlink" href="#pitfall-2-syncclient-cannot-be-reused-after-error" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> After a <code>SyncClient.Send</code> error, subsequent calls also fail even after the remote recovers.
+<strong>Why it happens:</strong> go-lumber's <code>SyncClient</code> does not internally reconnect. Once the underlying <code>net.Conn</code> is broken, the client is dead.
+<strong>How to avoid:</strong> On <code>Send</code> error: call <code>w.client.Close()</code>, call <code>w.dialBeats()</code> to get a new <code>*SyncClient</code>, then retry send once.
+<strong>Warning signs:</strong> Permanent failure after any transient network blip.</p>
+<h3 id="pitfall-3-rfc-6587-framing-only-for-tcp-syslog">Pitfall 3: RFC 6587 Framing Only for TCP Syslog<a class="headerlink" href="#pitfall-3-rfc-6587-framing-only-for-tcp-syslog" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Applying octet-counting prefix to UDP datagrams; or omitting it for TCP.
+<strong>Why it happens:</strong> The framing requirement is protocol-specific and easy to conflate.
+<strong>How to avoid:</strong> Check <code>cfg.Protocol</code> in <code>send()</code> — use framing only for <code>"tcp"</code>.
+<strong>Warning signs:</strong> rsyslog/syslog-ng rejects TCP frames or UDP receiver sees malformed messages.</p>
+<h3 id="pitfall-4-sd-param-value-characters-must-be-escaped">Pitfall 4: SD-PARAM Value Characters Must Be Escaped<a class="headerlink" href="#pitfall-4-sd-param-value-characters-must-be-escaped" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> File paths with <code>]</code>, <code>"</code>, or <code>\</code> characters break structured-data parsing in receivers.
+<strong>Why it happens:</strong> RFC 5424 §6.3.3 requires escaping <code>]</code>, <code>"</code>, and <code>\</code> in SD-PARAM values.
+<strong>How to avoid:</strong> <code>crewjam/rfc5424</code> handles this automatically in <code>AddDatum</code>. Do not format SD-params manually.
+<strong>Warning signs:</strong> Syslog receiver truncates or rejects messages with Windows-style file paths (backslashes).</p>
+<h3 id="pitfall-5-logsyslog-windows-build-failure">Pitfall 5: log/syslog Windows Build Failure<a class="headerlink" href="#pitfall-5-logsyslog-windows-build-failure" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> <code>import "log/syslog"</code> causes build failure for <code>GOOS=windows</code>.
+<strong>Why it happens:</strong> stdlib syslog has <code>//go:build !windows &amp;&amp; !plan9</code>.
+<strong>How to avoid:</strong> Do not use <code>log/syslog</code> — use <code>crewjam/rfc5424</code> + <code>net.Conn</code> directly (no build tags needed).
+<strong>Warning signs:</strong> <code>go build -o cee-exporter.exe</code> fails with "undefined: syslog".</p>
+<h3 id="pitfall-6-go-lumber-compression-vs-receiver-compatibility">Pitfall 6: go-lumber Compression vs. Receiver Compatibility<a class="headerlink" href="#pitfall-6-go-lumber-compression-vs-receiver-compatibility" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> <code>lumberv2.CompressionLevel(6)</code> enabled but receiver rejects compressed frames.
+<strong>Why it happens:</strong> Not all Beats receivers support gzip compression; Graylog Beats Input typically does but older versions may not.
+<strong>How to avoid:</strong> Default to <code>CompressionLevel(0)</code> (disabled). Document as optional config. Graylog 5+ supports it; verify with receiver.
+<strong>Warning signs:</strong> Receiver logs protocol errors immediately after TLS handshake succeeds.</p>
+<h3 id="pitfall-7-syslog-port-default">Pitfall 7: Syslog Port Default<a class="headerlink" href="#pitfall-7-syslog-port-default" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Default port 514 requires root on Linux for binding; clients sending to 514 work fine.
+<strong>Why it happens:</strong> Ports below 1024 need CAP_NET_BIND_SERVICE or root for the <em>server</em>. Client connecting to port 514 is always fine.
+<strong>How to avoid:</strong> Default <code>syslog_port = 514</code> for client config is correct. Receivers run as root or on 514. No issue for cee-exporter (it is the client).</p>
+<hr />
+<h2 id="code-examples">Code Examples<a class="headerlink" href="#code-examples" title="Permanent link">&para;</a></h2>
+<p>Verified patterns from official sources:</p>
+<h3 id="syslogwriter-constructor">SyslogWriter Constructor<a class="headerlink" href="#syslogwriter-constructor" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// Source: established GELFWriter pattern (pkg/evtx/writer_gelf.go) + crewjam/rfc5424 API</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">type</span><span class="w"> </span><span class="nx">SyslogConfig</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nx">Host</span><span class="w">     </span><span class="kt">string</span><span class="w"> </span><span class="c1">// syslog receiver host</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nx">Port</span><span class="w">     </span><span class="kt">int</span><span class="w">    </span><span class="c1">// default 514</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nx">Protocol</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="c1">// &quot;udp&quot; | &quot;tcp&quot;</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nx">AppName</span><span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="c1">// default &quot;cee-exporter&quot;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">}</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="kd">type</span><span class="w"> </span><span class="nx">SyslogWriter</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="nx">cfg</span><span class="w">  </span><span class="nx">SyslogConfig</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="nx">mu</span><span class="w">   </span><span class="nx">sync</span><span class="p">.</span><span class="nx">Mutex</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">    </span><span class="nx">conn</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">Conn</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">}</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewSyslogWriter</span><span class="p">(</span><span class="nx">cfg</span><span class="w"> </span><span class="nx">SyslogConfig</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">SyslogWriter</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">        </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">514</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Protocol</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">        </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Protocol</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;udp&quot;</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">AppName</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">        </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">AppName</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;cee-exporter&quot;</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="w">    </span><span class="nx">w</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">SyslogWriter</span><span class="p">{</span><span class="nx">cfg</span><span class="p">:</span><span class="w"> </span><span class="nx">cfg</span><span class="p">}</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">connect</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="w">    </span><span class="nx">slog</span><span class="p">.</span><span class="nx">Info</span><span class="p">(</span><span class="s">&quot;syslog_writer_ready&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a><span class="w">        </span><span class="s">&quot;host&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span>
+<a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a><span class="w">        </span><span class="s">&quot;port&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="p">,</span>
+<a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a><span class="w">        </span><span class="s">&quot;protocol&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Protocol</span><span class="p">,</span>
+<a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a><span class="w">    </span><span class="p">)</span>
+<a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a><span class="p">}</span>
+<a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a>
+<a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">SyslogWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">connect</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a><span class="w">    </span><span class="nx">addr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">JoinHostPort</span><span class="p">(</span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="p">))</span>
+<a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a><span class="w">    </span><span class="nx">conn</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">DialTimeout</span><span class="p">(</span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Protocol</span><span class="p">,</span><span class="w"> </span><span class="nx">addr</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">)</span>
+<a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;syslog connect %s://%s: %w&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Protocol</span><span class="p">,</span><span class="w"> </span><span class="nx">addr</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a><span class="w">    </span><span class="nx">w</span><span class="p">.</span><span class="nx">conn</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">conn</span>
+<a id="__codelineno-8-44" name="__codelineno-8-44" href="#__codelineno-8-44"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-8-45" name="__codelineno-8-45" href="#__codelineno-8-45"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="rfc-5424-message-build">RFC 5424 Message Build<a class="headerlink" href="#rfc-5424-message-build" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// Source: pkg.go.dev/github.com/crewjam/rfc5424 (verified API)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">import</span><span class="w"> </span><span class="s">&quot;github.com/crewjam/rfc5424&quot;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kd">func</span><span class="w"> </span><span class="nx">buildSyslog5424</span><span class="p">(</span><span class="nx">e</span><span class="w"> </span><span class="nx">WindowsEvent</span><span class="p">,</span><span class="w"> </span><span class="nx">appName</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nx">m</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">rfc5424</span><span class="p">.</span><span class="nx">Message</span><span class="p">{</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">        </span><span class="nx">Priority</span><span class="p">:</span><span class="w">  </span><span class="nx">rfc5424</span><span class="p">.</span><span class="nx">Daemon</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nx">rfc5424</span><span class="p">.</span><span class="nx">Info</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">        </span><span class="nx">Timestamp</span><span class="p">:</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">TimeCreated</span><span class="p">,</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">        </span><span class="nx">Hostname</span><span class="p">:</span><span class="w">  </span><span class="nx">e</span><span class="p">.</span><span class="nx">Computer</span><span class="p">,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">        </span><span class="nx">AppName</span><span class="p">:</span><span class="w">   </span><span class="nx">appName</span><span class="p">,</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="nx">ProcessID</span><span class="p">:</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">ProcessID</span><span class="p">),</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">        </span><span class="nx">MessageID</span><span class="p">:</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">EventID</span><span class="p">),</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">        </span><span class="nx">Message</span><span class="p">:</span><span class="w">   </span><span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%s on %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">CEPAEventType</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">ObjectName</span><span class="p">)),</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">    </span><span class="nx">sdID</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;audit@32473&quot;</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;EventID&quot;</span><span class="p">,</span><span class="w">    </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">EventID</span><span class="p">))</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;User&quot;</span><span class="p">,</span><span class="w">       </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectUsername</span><span class="p">)</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Domain&quot;</span><span class="p">,</span><span class="w">     </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectDomain</span><span class="p">)</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Object&quot;</span><span class="p">,</span><span class="w">     </span><span class="nx">e</span><span class="p">.</span><span class="nx">ObjectName</span><span class="p">)</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;AccessMask&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">AccessMask</span><span class="p">)</span>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;ClientAddr&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">ClientAddr</span><span class="p">)</span>
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a><span class="w">    </span><span class="nx">m</span><span class="p">.</span><span class="nx">AddDatum</span><span class="p">(</span><span class="nx">sdID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;CEPAType&quot;</span><span class="p">,</span><span class="w">   </span><span class="nx">e</span><span class="p">.</span><span class="nx">CEPAEventType</span><span class="p">)</span>
+<a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">m</span><span class="p">.</span><span class="nx">MarshalBinary</span><span class="p">()</span>
+<a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="beatswriter-constructor-with-tls">BeatsWriter Constructor with TLS<a class="headerlink" href="#beatswriter-constructor-with-tls" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">// Source: pkg.go.dev/github.com/elastic/go-lumber/client/v2 (verified API)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">import</span><span class="w"> </span><span class="nx">lumberv2</span><span class="w"> </span><span class="s">&quot;github.com/elastic/go-lumber/client/v2&quot;</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kd">type</span><span class="w"> </span><span class="nx">BeatsConfig</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nx">Host</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nx">Port</span><span class="w"> </span><span class="kt">int</span><span class="w">  </span><span class="c1">// default 5044</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nx">TLS</span><span class="w">  </span><span class="kt">bool</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">}</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="kd">type</span><span class="w"> </span><span class="nx">BeatsWriter</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="nx">cfg</span><span class="w">    </span><span class="nx">BeatsConfig</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">    </span><span class="nx">mu</span><span class="w">     </span><span class="nx">sync</span><span class="p">.</span><span class="nx">Mutex</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">    </span><span class="nx">client</span><span class="w"> </span><span class="o">*</span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">SyncClient</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="p">}</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewBeatsWriter</span><span class="p">(</span><span class="nx">cfg</span><span class="w"> </span><span class="nx">BeatsConfig</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">BeatsWriter</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">        </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">5044</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="w">    </span><span class="nx">w</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">BeatsWriter</span><span class="p">{</span><span class="nx">cfg</span><span class="p">:</span><span class="w"> </span><span class="nx">cfg</span><span class="p">}</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">dial</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="w">    </span><span class="nx">slog</span><span class="p">.</span><span class="nx">Info</span><span class="p">(</span><span class="s">&quot;beats_writer_ready&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="w">        </span><span class="s">&quot;host&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span>
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="w">        </span><span class="s">&quot;port&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="p">,</span>
+<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="w">        </span><span class="s">&quot;tls&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">TLS</span><span class="p">,</span>
+<a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a><span class="w">    </span><span class="p">)</span>
+<a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">w</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a><span class="p">}</span>
+<a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>
+<a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">BeatsWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">dial</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a><span class="w">    </span><span class="nx">addr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">net</span><span class="p">.</span><span class="nx">JoinHostPort</span><span class="p">(</span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Port</span><span class="p">))</span>
+<a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a><span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a><span class="w">        </span><span class="nx">cl</span><span class="w">  </span><span class="o">*</span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">SyncClient</span>
+<a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a><span class="w">        </span><span class="nx">err</span><span class="w"> </span><span class="kt">error</span>
+<a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a><span class="w">    </span><span class="p">)</span>
+<a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">TLS</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a><span class="w">        </span><span class="nx">tlsDialer</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">tls</span><span class="p">.</span><span class="nx">Dialer</span><span class="p">{</span>
+<a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a><span class="w">            </span><span class="nx">NetDialer</span><span class="p">:</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">net</span><span class="p">.</span><span class="nx">Dialer</span><span class="p">{</span><span class="nx">Timeout</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">},</span>
+<a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a><span class="w">            </span><span class="nx">Config</span><span class="p">:</span><span class="w">    </span><span class="o">&amp;</span><span class="nx">tls</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span><span class="nx">MinVersion</span><span class="p">:</span><span class="w"> </span><span class="nx">tls</span><span class="p">.</span><span class="nx">VersionTLS12</span><span class="p">},</span>
+<a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a><span class="w">        </span><span class="nx">cl</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">SyncDialWith</span><span class="p">(</span>
+<a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a><span class="w">            </span><span class="kd">func</span><span class="p">(</span><span class="nx">network</span><span class="p">,</span><span class="w"> </span><span class="nx">address</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">net</span><span class="p">.</span><span class="nx">Conn</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a><span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">tlsDialer</span><span class="p">.</span><span class="nx">DialContext</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">(),</span><span class="w"> </span><span class="nx">network</span><span class="p">,</span><span class="w"> </span><span class="nx">address</span><span class="p">)</span>
+<a id="__codelineno-10-46" name="__codelineno-10-46" href="#__codelineno-10-46"></a><span class="w">            </span><span class="p">},</span>
+<a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a><span class="w">            </span><span class="nx">addr</span><span class="p">,</span>
+<a id="__codelineno-10-48" name="__codelineno-10-48" href="#__codelineno-10-48"></a><span class="w">            </span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">Timeout</span><span class="p">(</span><span class="mi">30</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">),</span>
+<a id="__codelineno-10-49" name="__codelineno-10-49" href="#__codelineno-10-49"></a><span class="w">        </span><span class="p">)</span>
+<a id="__codelineno-10-50" name="__codelineno-10-50" href="#__codelineno-10-50"></a><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-51" name="__codelineno-10-51" href="#__codelineno-10-51"></a><span class="w">        </span><span class="nx">cl</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">SyncDial</span><span class="p">(</span><span class="nx">addr</span><span class="p">,</span><span class="w"> </span><span class="nx">lumberv2</span><span class="p">.</span><span class="nx">Timeout</span><span class="p">(</span><span class="mi">30</span><span class="o">*</span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">))</span>
+<a id="__codelineno-10-52" name="__codelineno-10-52" href="#__codelineno-10-52"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-53" name="__codelineno-10-53" href="#__codelineno-10-53"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-54" name="__codelineno-10-54" href="#__codelineno-10-54"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;beats dial %s: %w&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">addr</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-10-55" name="__codelineno-10-55" href="#__codelineno-10-55"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-56" name="__codelineno-10-56" href="#__codelineno-10-56"></a><span class="w">    </span><span class="nx">w</span><span class="p">.</span><span class="nx">client</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">cl</span>
+<a id="__codelineno-10-57" name="__codelineno-10-57" href="#__codelineno-10-57"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-10-58" name="__codelineno-10-58" href="#__codelineno-10-58"></a><span class="p">}</span>
+<a id="__codelineno-10-59" name="__codelineno-10-59" href="#__codelineno-10-59"></a>
+<a id="__codelineno-10-60" name="__codelineno-10-60" href="#__codelineno-10-60"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">BeatsWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">WriteEvent</span><span class="p">(</span><span class="nx">ctx</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="w"> </span><span class="nx">WindowsEvent</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-61" name="__codelineno-10-61" href="#__codelineno-10-61"></a><span class="w">    </span><span class="nx">event</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">buildBeatsEvent</span><span class="p">(</span><span class="nx">e</span><span class="p">)</span>
+<a id="__codelineno-10-62" name="__codelineno-10-62" href="#__codelineno-10-62"></a><span class="w">    </span><span class="nx">w</span><span class="p">.</span><span class="nx">mu</span><span class="p">.</span><span class="nx">Lock</span><span class="p">()</span>
+<a id="__codelineno-10-63" name="__codelineno-10-63" href="#__codelineno-10-63"></a><span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">mu</span><span class="p">.</span><span class="nx">Unlock</span><span class="p">()</span>
+<a id="__codelineno-10-64" name="__codelineno-10-64" href="#__codelineno-10-64"></a><span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">client</span><span class="p">.</span><span class="nx">Send</span><span class="p">([]</span><span class="kd">interface</span><span class="p">{}{</span><span class="nx">event</span><span class="p">})</span>
+<a id="__codelineno-10-65" name="__codelineno-10-65" href="#__codelineno-10-65"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-66" name="__codelineno-10-66" href="#__codelineno-10-66"></a><span class="w">        </span><span class="nx">slog</span><span class="p">.</span><span class="nx">Warn</span><span class="p">(</span><span class="s">&quot;beats_reconnect&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;reason&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-10-67" name="__codelineno-10-67" href="#__codelineno-10-67"></a><span class="w">        </span><span class="nx">_</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">client</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<a id="__codelineno-10-68" name="__codelineno-10-68" href="#__codelineno-10-68"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">rerr</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">dial</span><span class="p">();</span><span class="w"> </span><span class="nx">rerr</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-69" name="__codelineno-10-69" href="#__codelineno-10-69"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;beats send+reconnect: %w / %w&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="nx">rerr</span><span class="p">)</span>
+<a id="__codelineno-10-70" name="__codelineno-10-70" href="#__codelineno-10-70"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-10-71" name="__codelineno-10-71" href="#__codelineno-10-71"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err2</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">client</span><span class="p">.</span><span class="nx">Send</span><span class="p">([]</span><span class="kd">interface</span><span class="p">{}{</span><span class="nx">event</span><span class="p">});</span><span class="w"> </span><span class="nx">err2</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-72" name="__codelineno-10-72" href="#__codelineno-10-72"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;beats send after reconnect: %w&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err2</span><span class="p">)</span>
+<a id="__codelineno-10-73" name="__codelineno-10-73" href="#__codelineno-10-73"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-10-74" name="__codelineno-10-74" href="#__codelineno-10-74"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-75" name="__codelineno-10-75" href="#__codelineno-10-75"></a><span class="w">    </span><span class="nx">slog</span><span class="p">.</span><span class="nx">Debug</span><span class="p">(</span><span class="s">&quot;beats_event_sent&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;event_id&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">EventID</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;cepa_event_type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">e</span><span class="p">.</span><span class="nx">CEPAEventType</span><span class="p">)</span>
+<a id="__codelineno-10-76" name="__codelineno-10-76" href="#__codelineno-10-76"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-10-77" name="__codelineno-10-77" href="#__codelineno-10-77"></a><span class="p">}</span>
+<a id="__codelineno-10-78" name="__codelineno-10-78" href="#__codelineno-10-78"></a>
+<a id="__codelineno-10-79" name="__codelineno-10-79" href="#__codelineno-10-79"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">BeatsWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">Close</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-80" name="__codelineno-10-80" href="#__codelineno-10-80"></a><span class="w">    </span><span class="nx">w</span><span class="p">.</span><span class="nx">mu</span><span class="p">.</span><span class="nx">Lock</span><span class="p">()</span>
+<a id="__codelineno-10-81" name="__codelineno-10-81" href="#__codelineno-10-81"></a><span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">mu</span><span class="p">.</span><span class="nx">Unlock</span><span class="p">()</span>
+<a id="__codelineno-10-82" name="__codelineno-10-82" href="#__codelineno-10-82"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">client</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-83" name="__codelineno-10-83" href="#__codelineno-10-83"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">client</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<a id="__codelineno-10-84" name="__codelineno-10-84" href="#__codelineno-10-84"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-85" name="__codelineno-10-85" href="#__codelineno-10-85"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-10-86" name="__codelineno-10-86" href="#__codelineno-10-86"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="test-pattern-for-syslogwriter-stdlib-only">Test Pattern for SyslogWriter (Stdlib Only)<a class="headerlink" href="#test-pattern-for-syslogwriter-stdlib-only" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1">// Source: CLAUDE.md testing conventions + established project tests</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">package</span><span class="w"> </span><span class="nx">evtx</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="s">&quot;testing&quot;</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="s">&quot;time&quot;</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="p">)</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="kd">func</span><span class="w"> </span><span class="nx">TestBuildSyslog5424</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="nx">e</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">WindowsEvent</span><span class="p">{</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">        </span><span class="nx">EventID</span><span class="p">:</span><span class="w">         </span><span class="mi">4663</span><span class="p">,</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">        </span><span class="nx">ProviderName</span><span class="p">:</span><span class="w">    </span><span class="s">&quot;PowerStore-CEPA&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">        </span><span class="nx">Computer</span><span class="p">:</span><span class="w">        </span><span class="s">&quot;nas01.corp.local&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">        </span><span class="nx">TimeCreated</span><span class="p">:</span><span class="w">     </span><span class="nx">time</span><span class="p">.</span><span class="nx">Unix</span><span class="p">(</span><span class="mi">1700000000</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">),</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">        </span><span class="nx">SubjectUsername</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;testuser&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">        </span><span class="nx">SubjectDomain</span><span class="p">:</span><span class="w">   </span><span class="s">&quot;DOMAIN&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">        </span><span class="nx">ObjectName</span><span class="p">:</span><span class="w">      </span><span class="s">&quot;/share/file.txt&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">        </span><span class="nx">AccessMask</span><span class="p">:</span><span class="w">      </span><span class="s">&quot;0x2&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="w">        </span><span class="nx">ClientAddr</span><span class="p">:</span><span class="w">      </span><span class="s">&quot;10.0.0.5&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">        </span><span class="nx">CEPAEventType</span><span class="p">:</span><span class="w">   </span><span class="s">&quot;CEPP_FILE_WRITE&quot;</span><span class="p">,</span>
+<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="w">    </span><span class="nx">payload</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">buildSyslog5424</span><span class="p">(</span><span class="nx">e</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;cee-exporter&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">&quot;buildSyslog5424 returned error: %v&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="w">    </span><span class="nx">s</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">string</span><span class="p">(</span><span class="nx">payload</span><span class="p">)</span>
+<a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a><span class="w">    </span><span class="c1">// RFC 5424 header: &lt;PRI&gt;VERSION SP TIMESTAMP SP HOSTNAME SP APPNAME SP PROCID SP MSGID</span>
+<a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">s</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s">&quot;&lt;&quot;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;expected RFC 5424 PRI start &#39;&lt;&#39;, got: %.20s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">)</span>
+<a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a><span class="w">    </span><span class="c1">// Must contain structured-data block</span>
+<a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">field</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;audit@32473&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;EventID&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;User&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Object&quot;</span><span class="p">}</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">!</span><span class="nx">strings</span><span class="p">.</span><span class="nx">Contains</span><span class="p">(</span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">field</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a><span class="w">            </span><span class="nx">t</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;missing field %q in syslog payload: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">field</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">)</span>
+<a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h2 id="state-of-the-art">State of the Art<a class="headerlink" href="#state-of-the-art" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Old Approach</th>
+<th>Current Approach</th>
+<th>When Changed</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>log/syslog</code> stdlib</td>
+<td><code>crewjam/rfc5424</code> + <code>net.Conn</code></td>
+<td>Go stdlib syslog frozen (pre-1.21)</td>
+<td>Correct RFC 5424; cross-platform (Windows builds)</td>
+</tr>
+<tr>
+<td>Logstash-Forwarder (deprecated)</td>
+<td>Lumberjack v2 (<code>go-lumber</code>)</td>
+<td>~2015 with Beats 1.0</td>
+<td>Beats-compatible; ACK semantics prevent data loss</td>
+</tr>
+<tr>
+<td>Non-transparent framing (newline) for TCP syslog</td>
+<td>Octet-counting (RFC 6587 §3.4.1)</td>
+<td>RFC 6587 published 2012</td>
+<td>Reliable framing; no ambiguity with embedded newlines</td>
+</tr>
+<tr>
+<td>Custom Lumberjack client</td>
+<td><code>github.com/elastic/go-lumber</code></td>
+<td>2016 (Elastic official)</td>
+<td>Reference implementation; battle-tested in production</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Deprecated/outdated:</strong></p>
+<ul>
+<li><code>log/syslog</code>: Frozen, not RFC 5424 compliant, Windows-excluded — do not use.</li>
+<li>Lumberjack v1: Superseded by v2 (different wire format); <code>go-lumber/client/v2</code> implements v2.</li>
+<li>RFC 3164 BSD syslog: Explicitly out of scope per REQUIREMENTS.md.</li>
+</ul>
+<hr />
+<h2 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>SD-ID Private Enterprise Number (PEN)</strong></li>
+<li>What we know: SD-IDs without <code>@PEN</code> are IANA-reserved; <code>name@32473</code> is the IANA documentation PEN (safe for examples/testing).</li>
+<li>What's unclear: Whether to use <code>32473</code> (doc PEN) in production or leave configurable. Using <code>32473</code> in production is technically a protocol violation (reserved for documentation).</li>
+<li>
+<p>Recommendation: Use <code>audit@32473</code> for the initial implementation (functionally identical to any other PEN for receivers that don't validate). Add <code>syslog_sd_id</code> config field as a follow-up if operators need a registered PEN. This is LOW priority.</p>
+</li>
+<li>
+<p><strong>go-lumber Compression Default</strong></p>
+</li>
+<li>What we know: <code>CompressionLevel(0)</code> = disabled; <code>CompressionLevel(6)</code> = gzip. Graylog 5+ supports it; Logstash supports it.</li>
+<li>What's unclear: Whether Graylog Beats Input in all common versions accepts compressed frames.</li>
+<li>
+<p>Recommendation: Default <code>CompressionLevel(0)</code> (safe). Add <code>beats_compression_level</code> config option in the config struct but default to 0.</p>
+</li>
+<li>
+<p><strong>BeatsWriter ACK Timeout Under Load</strong></p>
+</li>
+<li>What we know: <code>lumberv2.Timeout(30*time.Second)</code> sets read/write deadline. Under high event rates, batching a single event per <code>Send</code> call may be slow.</li>
+<li>What's unclear: Whether per-event <code>Send</code> is adequate for the expected throughput (~1000 events/PUT).</li>
+<li>Recommendation: Start with per-event <code>Send</code> (simple, correct). The queue's <code>Workers=4</code> means max 4 concurrent sends (serialised to 1 by mutex). REQUIREMENTS.md defers async batching to <code>OUT-F02</code>. Do not optimize prematurely.</li>
+</ol>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<h3 id="primary-high-confidence">Primary (HIGH confidence)<a class="headerlink" href="#primary-high-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>pkg.go.dev/github.com/crewjam/rfc5424</code> — Full API: Message, Priority, StructuredData, SDParam, AddDatum, MarshalBinary, WriteTo verified</li>
+<li><code>pkg.go.dev/github.com/elastic/go-lumber/client/v2</code> — Full API: SyncClient, SyncDial, SyncDialWith, SyncClient.Send, Client.Close verified</li>
+<li><code>github.com/elastic/go-lumber/blob/main/client/v2/sync.go</code> — SyncDialWith signature verified from source</li>
+<li><code>github.com/elastic/go-lumber/blob/main/client/v2/opts.go</code> — No TLS Option in opts (Timeout, CompressionLevel, JSONEncoder only) — TLS via dialer confirmed</li>
+<li><code>github.com/elastic/go-lumber/blob/main/lj/lj.go</code> — Batch.Events is <code>[]interface{}</code> confirmed</li>
+<li><code>github.com/elastic/go-lumber/blob/main/go.mod</code> — No CGO dependency confirmed</li>
+<li><code>www.rfc-editor.org/rfc/rfc6587</code> — Octet-counting format <code>MSG-LEN SP SYSLOG-MSG</code> verified</li>
+<li><code>pkg/evtx/writer_gelf.go</code> — Project writer pattern (mutex, reconnect, connect/send split) read directly</li>
+</ul>
+<h3 id="secondary-medium-confidence">Secondary (MEDIUM confidence)<a class="headerlink" href="#secondary-medium-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>go.dev/src/log/syslog/syslog.go</code> (via WebSearch) — <code>//go:build !windows &amp;&amp; !plan9</code> confirmed; stdlib syslog Windows exclusion verified</li>
+<li><code>github.com/golang/go/issues/66666</code> — log/syslog non-RFC-5424-compliance confirmed (frozen package)</li>
+<li><code>go2docs.graylog.org/current/setting_up_graylog/secured_graylog_and_beats_input.html</code> — Graylog Beats Input TLS configuration; port 5044 confirmed</li>
+<li><code>elastic.co/guide/en/logstash/current/ls-to-ls-lumberjack.html</code> — Logstash Beats/Lumberjack event field format verified</li>
+<li><code>www.rfc-editor.org/rfc/rfc5424</code> — SD-ID private enterprise number format <code>name@PEN</code> confirmed</li>
+</ul>
+<h3 id="tertiary-low-confidence">Tertiary (LOW confidence)<a class="headerlink" href="#tertiary-low-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li>PEN 32473 as documentation/example PEN: referenced from RFC 5612 conventions; functionally safe but technically reserved for examples. Flag for validation if strict RFC compliance required.</li>
+</ul>
+<hr />
+<h2 id="metadata">Metadata<a class="headerlink" href="#metadata" title="Permanent link">&para;</a></h2>
+<p><strong>Confidence breakdown:</strong></p>
+<ul>
+<li>Standard stack: HIGH — both libraries verified via pkg.go.dev and source inspection; no CGO confirmed</li>
+<li>Architecture: HIGH — writer pattern copied from existing GELFWriter; library APIs verified</li>
+<li>Pitfalls: HIGH (thread-safety, reconnect, TCP framing) / MEDIUM (SD-ID PEN, compression compatibility)</li>
+<li>TLS approach: HIGH — go-lumber has no TLS Option; <code>SyncDialWith</code> + custom dialer is the only way; confirmed from source</li>
+</ul>
+<p><strong>Research date:</strong> 2026-03-03
+<strong>Valid until:</strong> 2026-06-03 (stable libraries — crewjam/rfc5424 v0.1.0 released 2020; go-lumber v0.1.1 released 2021; neither has had releases since)</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.sections", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

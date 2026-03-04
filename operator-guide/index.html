@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -405,6 +405,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tls-config-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLS config reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#output-types" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -426,8 +437,80 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#beats-lumberjack-v2-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beats (Lumberjack v2) output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binary-evtx-output-linux" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binary EVTX output (Linux)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#windows-service-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows Service management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Windows Service management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatic-restart-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic restart behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#linux-systemd-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux systemd service
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prometheus-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prometheus metrics
+      
+    </span>
+  </a>
   
 </li>
       
@@ -444,10 +527,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#step-1-generate-a-self-signed-san-certificate" class="md-nav__link">
+  <a href="#mode-off-default" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1 — Generate a self-signed SAN certificate
+        Mode: off (default)
       
     </span>
   </a>
@@ -455,10 +538,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-2-enable-tls-in-config" class="md-nav__link">
+  <a href="#mode-manual-operator-supplied-certificates" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2 — Enable TLS in config
+        Mode: manual — operator-supplied certificates
       
     </span>
   </a>
@@ -466,10 +549,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-3-import-the-certificate-into-powerstore" class="md-nav__link">
+  <a href="#mode-acme-automatic-lets-encrypt-certificate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 3 — Import the certificate into PowerStore
+        Mode: acme — automatic Let's Encrypt certificate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-self-signed-runtime-generated-certificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode: self-signed — runtime-generated certificate
       
     </span>
   </a>
@@ -1038,84 +1132,337 @@
 <a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="n">level</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;info&quot;</span><span class="w">               </span><span class="c1"># debug | info | warn | error</span>
 <a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="w">               </span><span class="c1"># json | text</span>
 </code></pre></div>
+<h3 id="tls-config-reference">TLS config reference<a class="headerlink" href="#tls-config-reference" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Optional: override the hostname embedded in every event.</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># Defaults to os.Hostname() if not set.</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">hostname</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">[listen]</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">addr</span><span class="w">          </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span><span class="w">  </span><span class="c1"># TCP address and port to listen on</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">tls_mode</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;off&quot;</span><span class="w">            </span><span class="c1"># &quot;off&quot; | &quot;manual&quot; | &quot;acme&quot; | &quot;self-signed&quot;</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">cert_file</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w">               </span><span class="c1"># tls_mode=&quot;manual&quot;: path to TLS certificate (PEM)</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">key_file</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w">               </span><span class="c1"># tls_mode=&quot;manual&quot;: path to TLS private key (PEM)</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">acme_domains</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="p">[]</span><span class="w">               </span><span class="c1"># tls_mode=&quot;acme&quot;: domain names for Let&#39;s Encrypt</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">acme_email</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w">               </span><span class="c1"># tls_mode=&quot;acme&quot;: contact email for Let&#39;s Encrypt</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="n">acme_cache_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/var/cache/cee-exporter/acme&quot;</span><span class="w">  </span><span class="c1"># tls_mode=&quot;acme&quot;: cert cache dir</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">acme_staging</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">            </span><span class="c1"># tls_mode=&quot;acme&quot;: use LE staging (dev/testing)</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="k">[output]</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="n">type</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;gelf&quot;</span><span class="w">         </span><span class="c1"># Output type — see table below</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="n">targets</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="p">[]</span><span class="w">             </span><span class="c1"># type=&quot;multi&quot;: list of types to fan-out to</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="n">evtx_path</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w">             </span><span class="c1"># type=&quot;evtx&quot; or &quot;binary-evtx&quot;: output path</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="c1"># GELF</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="n">gelf_host</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;localhost&quot;</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="n">gelf_port</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">12201</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="n">gelf_protocol</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;udp&quot;</span><span class="w">          </span><span class="c1"># &quot;tcp&quot; or &quot;udp&quot;</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="n">gelf_tls</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">          </span><span class="c1"># Wrap TCP in TLS (requires gelf_protocol=&quot;tcp&quot;)</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="c1"># Syslog (RFC 5424)</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="n">syslog_host</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;localhost&quot;</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="n">syslog_port</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">514</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="n">syslog_protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;udp&quot;</span><span class="w">         </span><span class="c1"># &quot;tcp&quot; or &quot;udp&quot;</span>
+<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="n">syslog_app_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cee-exporter&quot;</span>
+<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a><span class="c1"># Beats / Lumberjack v2</span>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="n">beats_host</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;localhost&quot;</span>
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="n">beats_port</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">5044</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="n">beats_tls</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="k">[queue]</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="n">capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100000</span><span class="w">               </span><span class="c1"># Maximum events buffered in memory</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="n">workers</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="w">                    </span><span class="c1"># Concurrent writer goroutines</span>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="k">[logging]</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="n">level</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;info&quot;</span><span class="w">                 </span><span class="c1"># debug | info | warn | error</span>
+<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="w">                 </span><span class="c1"># json | text</span>
+<a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a>
+<a id="__codelineno-6-42" name="__codelineno-6-42" href="#__codelineno-6-42"></a><span class="k">[metrics]</span>
+<a id="__codelineno-6-43" name="__codelineno-6-43" href="#__codelineno-6-43"></a><span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:9228&quot;</span><span class="w">          </span><span class="c1"># Prometheus /metrics listener</span>
+</code></pre></div>
 <h3 id="output-types">Output types<a class="headerlink" href="#output-types" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
 <th>Type</th>
 <th>Description</th>
+<th>Platform</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>gelf</code></td>
-<td>GELF 1.1 JSON over UDP or TCP → Graylog (works on all platforms)</td>
+<td>GELF 1.1 JSON over UDP or TCP → Graylog</td>
+<td>All</td>
 </tr>
 <tr>
 <td><code>evtx</code></td>
-<td>Write to Windows Event Log via Win32 <code>ReportEvent</code> API (Windows only)</td>
+<td>Win32 <code>ReportEvent</code> → Windows Application Event Log</td>
+<td>Windows</td>
+</tr>
+<tr>
+<td><code>syslog</code></td>
+<td>RFC 5424 structured syslog over UDP or TCP (RFC 6587 framing for TCP)</td>
+<td>All</td>
+</tr>
+<tr>
+<td><code>beats</code></td>
+<td>Lumberjack v2 to Logstash / Graylog Beats Input (± TLS)</td>
+<td>All</td>
+</tr>
+<tr>
+<td><code>binary-evtx</code></td>
+<td>Native <code>.evtx</code> files readable by Windows Event Viewer</td>
+<td>Non-Windows</td>
 </tr>
 <tr>
 <td><code>multi</code></td>
-<td>Fan-out to multiple backends simultaneously</td>
+<td>Fan-out to any combination of the above</td>
+<td>All</td>
 </tr>
 </tbody>
 </table>
 <h3 id="multi-target-example">Multi-target example<a class="headerlink" href="#multi-target-example" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">[output]</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">type</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;multi&quot;</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">targets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;gelf&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;evtx&quot;</span><span class="p">]</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">gelf_host</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;192.168.1.50&quot;</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">gelf_port</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">12201</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">gelf_protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;tcp&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">[output]</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">type</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;multi&quot;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">targets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;gelf&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;syslog&quot;</span><span class="p">]</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">gelf_host</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;192.168.1.50&quot;</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">gelf_port</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">12201</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">gelf_protocol</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;tcp&quot;</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="n">syslog_host</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;syslog.corp.local&quot;</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">syslog_port</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">514</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">syslog_protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;udp&quot;</span>
+</code></pre></div>
+<h3 id="beats-lumberjack-v2-output">Beats (Lumberjack v2) output<a class="headerlink" href="#beats-lumberjack-v2-output" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">[output]</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">type</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;beats&quot;</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">beats_host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;logstash.corp.local&quot;</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">beats_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5044</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">beats_tls</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div>
+<p>Logstash must have a <a href="https://www.elastic.co/guide/en/logstash/current/plugins-inputs-beats.html">Beats input</a> configured on port 5044. Graylog also supports the Beats protocol via its Beats Input plugin.</p>
+<h3 id="binary-evtx-output-linux">Binary EVTX output (Linux)<a class="headerlink" href="#binary-evtx-output-linux" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">[output]</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">type</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;binary-evtx&quot;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">evtx_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/var/log/cee-exporter/audit.evtx&quot;</span>
+</code></pre></div>
+<p>Generates a native Windows <code>.evtx</code> file that can be opened directly in Windows Event Viewer or parsed by forensics tools (Splunk, Elastic Agent, Velociraptor). Only available on non-Windows platforms — on Windows, use <code>type = "evtx"</code> for direct Win32 Event Log writing.</p>
+<hr />
+<h2 id="windows-service-management">Windows Service management<a class="headerlink" href="#windows-service-management" title="Permanent link">&para;</a></h2>
+<p>On Windows, <code>cee-exporter.exe</code> can register itself with the Windows Service Control
+Manager (SCM) for automatic startup and restart on failure.</p>
+<blockquote>
+<p>Run all service management commands from an <strong>Administrator</strong> command prompt.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c"># Register the service (Delayed Auto-Start, restarts on failure after 5 s)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">cee-exporter</span><span class="p">.</span><span class="n">exe</span> <span class="n">install</span> <span class="n">-config</span> <span class="n">C</span><span class="p">:\</span><span class="n">cee-exporter</span><span class="p">\</span><span class="n">config</span><span class="p">.</span><span class="n">toml</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c"># Start the service</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nb">sc start </span><span class="n">cee-exporter</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c"># Check status</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="nb">sc </span><span class="n">query</span> <span class="n">cee-exporter</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="c"># Verify recovery actions are configured</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="nb">sc </span><span class="n">qfailure</span> <span class="n">cee-exporter</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="c"># Stop the service</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="nb">sc </span><span class="n">stop</span> <span class="n">cee-exporter</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="c"># Remove the service</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="n">cee-exporter</span><span class="p">.</span><span class="n">exe</span> <span class="n">uninstall</span>
+</code></pre></div>
+<p>The service runs as <code>LocalSystem</code> by default. If your CEPA configuration or cert files
+require network access to SMB shares, change the service account via <code>services.msc</code>.</p>
+<h3 id="automatic-restart-behavior">Automatic restart behavior<a class="headerlink" href="#automatic-restart-behavior" title="Permanent link">&para;</a></h3>
+<p>cee-exporter registers with these recovery settings automatically at install:</p>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Action</th>
+<th>Delay</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First failure</td>
+<td>Restart service</td>
+<td>5 seconds</td>
+</tr>
+<tr>
+<td>Second failure</td>
+<td>Restart service</td>
+<td>5 seconds</td>
+</tr>
+<tr>
+<td>Subsequent</td>
+<td>Restart service</td>
+<td>5 seconds</td>
+</tr>
+<tr>
+<td>Reset failure count after</td>
+<td>—</td>
+<td>24 hours</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="linux-systemd-service">Linux systemd service<a class="headerlink" href="#linux-systemd-service" title="Permanent link">&para;</a></h2>
+<p>A systemd unit file is included for production deployments:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Copy the binary and unit file</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>install<span class="w"> </span>-m<span class="w"> </span><span class="m">755</span><span class="w"> </span>cee-exporter<span class="w"> </span>/usr/local/bin/
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>install<span class="w"> </span>-m<span class="w"> </span><span class="m">644</span><span class="w"> </span>systemd/cee-exporter.service<span class="w"> </span>/etc/systemd/system/
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="c1"># Place your config</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>/etc/cee-exporter
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>cp<span class="w"> </span>config.toml<span class="w"> </span>/etc/cee-exporter/config.toml
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="c1"># Enable and start</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>systemctl<span class="w"> </span>daemon-reload
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>cee-exporter
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="c1"># Check status</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>systemctl<span class="w"> </span>status<span class="w"> </span>cee-exporter
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>journalctl<span class="w"> </span>-u<span class="w"> </span>cee-exporter<span class="w"> </span>-f
+</code></pre></div>
+<hr />
+<h2 id="prometheus-metrics">Prometheus metrics<a class="headerlink" href="#prometheus-metrics" title="Permanent link">&para;</a></h2>
+<p><code>cee-exporter</code> exposes a Prometheus-compatible <code>/metrics</code> endpoint on port 9228
+(separate from the CEPA listener to allow independent TLS configuration):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>curl<span class="w"> </span>http://localhost:9228/metrics
+</code></pre></div>
+<p>Available metrics:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cee_events_received_total</code></td>
+<td>Counter</td>
+<td>Events received from PowerStore</td>
+</tr>
+<tr>
+<td><code>cee_events_written_total</code></td>
+<td>Counter</td>
+<td>Events successfully forwarded</td>
+</tr>
+<tr>
+<td><code>cee_events_dropped_total</code></td>
+<td>Counter</td>
+<td>Events dropped (queue full)</td>
+</tr>
+<tr>
+<td><code>cee_writer_errors_total</code></td>
+<td>Counter</td>
+<td>Writer backend errors</td>
+</tr>
+<tr>
+<td><code>cee_queue_depth</code></td>
+<td>Gauge</td>
+<td>Current event queue depth</td>
+</tr>
+</tbody>
+</table>
+<p>Example Prometheus scrape config:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cee-exporter</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">static_configs</span><span class="p">:</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;cee-exporter-host:9228&#39;</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <hr />
 <h2 id="tls-https-setup">TLS / HTTPS setup<a class="headerlink" href="#tls-https-setup" title="Permanent link">&para;</a></h2>
-<p>Production deployments must use HTTPS to protect audit data in transit. The certificate must include the daemon's hostname as a Subject Alternative Name (SAN) — PowerStore validates the SAN, not the Common Name.</p>
-<h3 id="step-1-generate-a-self-signed-san-certificate">Step 1 — Generate a self-signed SAN certificate<a class="headerlink" href="#step-1-generate-a-self-signed-san-certificate" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>openssl<span class="w"> </span>req<span class="w"> </span>-x509<span class="w"> </span>-nodes<span class="w"> </span>-newkey<span class="w"> </span>rsa:4096<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>-keyout<span class="w"> </span>server.key<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>-out<span class="w"> </span>server.crt<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>-days<span class="w"> </span><span class="m">825</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>-subj<span class="w"> </span><span class="s2">&quot;/CN=cee-exporter&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>-addext<span class="w"> </span><span class="s2">&quot;subjectAltName=DNS:cee-exporter.example.com,IP:192.168.1.10&quot;</span>
+<blockquote>
+<p><strong>Reminder:</strong> The CEPA protocol uses HTTP only. TLS on the cee-exporter CEPA listener
+(port 12228) does NOT encrypt the PowerStore-to-exporter event channel. TLS here is
+only meaningful when a TLS-capable reverse proxy sits in front.</p>
+</blockquote>
+<p>cee-exporter supports four TLS modes controlled by the <code>tls_mode</code> config field.</p>
+<h3 id="mode-off-default">Mode: <code>off</code> (default)<a class="headerlink" href="#mode-off-default" title="Permanent link">&para;</a></h3>
+<p>No TLS. Correct for all standard CEPA deployments.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">[listen]</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">addr</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">tls_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;off&quot;</span>
 </code></pre></div>
-<p>Replace <code>cee-exporter.example.com</code> and <code>192.168.1.10</code> with the actual DNS name and IP address that PowerStore will use to reach this host.</p>
-<h3 id="step-2-enable-tls-in-config">Step 2 — Enable TLS in config<a class="headerlink" href="#step-2-enable-tls-in-config" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">[listen]</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">addr</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">tls</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">cert_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/etc/cee-exporter/server.crt&quot;</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">key_file</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/etc/cee-exporter/server.key&quot;</span>
+<h3 id="mode-manual-operator-supplied-certificates">Mode: <code>manual</code> — operator-supplied certificates<a class="headerlink" href="#mode-manual-operator-supplied-certificates" title="Permanent link">&para;</a></h3>
+<p>Use when you have certificates from an internal CA or a public CA.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">[listen]</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">addr</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">tls_mode</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;manual&quot;</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">cert_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/etc/cee-exporter/server.crt&quot;</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">key_file</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/etc/cee-exporter/server.key&quot;</span>
 </code></pre></div>
-<h3 id="step-3-import-the-certificate-into-powerstore">Step 3 — Import the certificate into PowerStore<a class="headerlink" href="#step-3-import-the-certificate-into-powerstore" title="Permanent link">&para;</a></h3>
-<p>PowerStore must trust the certificate. Upload <code>server.crt</code> to PowerStore's trusted certificate store before configuring CEPA. See your PowerStore documentation for the certificate import procedure.</p>
+<p>To generate a self-signed certificate for testing:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>openssl<span class="w"> </span>req<span class="w"> </span>-x509<span class="w"> </span>-nodes<span class="w"> </span>-newkey<span class="w"> </span>rsa:4096<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span>-keyout<span class="w"> </span>server.key<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span>-out<span class="w"> </span>server.crt<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span>-days<span class="w"> </span><span class="m">825</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span>-subj<span class="w"> </span><span class="s2">&quot;/CN=cee-exporter&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span>-addext<span class="w"> </span><span class="s2">&quot;subjectAltName=DNS:cee-exporter.example.com,IP:192.168.1.10&quot;</span>
+</code></pre></div>
+<h3 id="mode-acme-automatic-lets-encrypt-certificate">Mode: <code>acme</code> — automatic Let's Encrypt certificate<a class="headerlink" href="#mode-acme-automatic-lets-encrypt-certificate" title="Permanent link">&para;</a></h3>
+<p>Use when the cee-exporter host has a public DNS name and port 443 is reachable from
+the internet (or from Let's Encrypt's servers).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">[listen]</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">addr</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">tls_mode</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;acme&quot;</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">acme_domains</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cee-exporter.example.com&quot;</span><span class="p">]</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">acme_email</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;ops@example.com&quot;</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="n">acme_cache_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/var/cache/cee-exporter/acme&quot;</span><span class="w">  </span><span class="c1"># must be persistent</span>
+</code></pre></div>
+<p>cee-exporter starts a TLS-ALPN-01 challenge listener on port 443 in addition to the
+CEPA listener on 12228. The certificate is automatically renewed 30 days before expiry.</p>
+<p><strong>Prerequisites:</strong></p>
+<ul>
+<li>Port 443/TCP must be reachable from the internet</li>
+<li><code>acme_cache_dir</code> must be on persistent storage (mount a volume if using Docker)</li>
+<li>On Linux: the systemd unit must have <code>AmbientCapabilities=CAP_NET_BIND_SERVICE</code></li>
+<li>During development: set <code>acme_staging = true</code> to avoid Let's Encrypt rate limits</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">acme_staging</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">  </span><span class="c1"># Remove this line for production</span>
+</code></pre></div>
+<h3 id="mode-self-signed-runtime-generated-certificate">Mode: <code>self-signed</code> — runtime-generated certificate<a class="headerlink" href="#mode-self-signed-runtime-generated-certificate" title="Permanent link">&para;</a></h3>
+<p>Use for air-gapped networks, private deployments, or testing. No network access needed.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">[listen]</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">addr</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">tls_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;self-signed&quot;</span>
+</code></pre></div>
+<p>cee-exporter generates an ECDSA-P256 certificate at startup (valid 1 year). The
+certificate is not persisted — it changes on every restart. Clients must disable
+certificate verification or add the cert to their trust store.</p>
 <hr />
 <h2 id="registering-with-powerstore-cepa">Registering with PowerStore CEPA<a class="headerlink" href="#registering-with-powerstore-cepa" title="Permanent link">&para;</a></h2>
 <p>CEPA (Common Event Publishing Agent) is the PowerStore mechanism that sends file-system audit events to external consumers over HTTP.</p>
+<blockquote>
+<p><strong>Protocol constraint:</strong> The Dell PowerStore CEPA client sends events over <strong>plain HTTP only</strong>. The endpoint URL in the PowerStore configuration must always use the <code>http://</code> scheme. Configuring <code>tls = true</code> on the cee-exporter CEPA listener (port 12228) does <em>not</em> encrypt the PowerStore-to-exporter connection — CEPA will fail to connect if it encounters a TLS handshake. TLS on port 12228 is only useful if a TLS-capable reverse proxy sits in front of cee-exporter.</p>
+</blockquote>
 <h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <ul>
 <li>cee-exporter is running and reachable from the PowerStore management network</li>
-<li>If using TLS, the certificate is imported into PowerStore</li>
-<li>Port 12228/TCP is open between PowerStore and the cee-exporter host</li>
+<li>Port 12228/TCP is open between PowerStore and the cee-exporter host (firewall rules for HTTP)</li>
 </ul>
 <h3 id="registration-steps">Registration steps<a class="headerlink" href="#registration-steps" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Log in to the PowerStore Manager web UI as an administrator.</li>
 <li>Navigate to <strong>Settings → Security → Audit &amp; CEE</strong>.</li>
 <li>In the <strong>CEE servers</strong> section, click <strong>Add</strong>.</li>
-<li>Enter the cee-exporter endpoint URL:</li>
-<li>Plain HTTP: <code>http://192.168.1.10:12228</code></li>
-<li>HTTPS: <code>https://cee-exporter.example.com:12228</code></li>
-<li>Set <strong>Protocol</strong> to <strong>HTTP</strong> (even for HTTPS — the URL scheme controls TLS).</li>
+<li>Enter the cee-exporter endpoint URL using <code>http://</code> — CEPA supports HTTP only:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>http://192.168.1.10:12228
+</code></pre></div>
+<ol>
 <li>Leave the <strong>Username</strong> and <strong>Password</strong> fields empty (cee-exporter uses no authentication).</li>
 <li>Under <strong>Events to publish</strong>, select all audit event types you want to capture (file create, read, write, delete, ACL change, etc.).</li>
 <li>Click <strong>Save</strong>.</li>
 <li>PowerStore sends a <code>RegisterRequest</code> to cee-exporter to confirm connectivity. The daemon logs <code>cepa_register_request</code> at INFO level.</li>
-<li>Verify events are flowing:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>curl<span class="w"> </span>http://localhost:12228/health<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.events_received_total
-</code></pre></div></li>
+<li>
+<p>Verify events are flowing:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>curl<span class="w"> </span>http://localhost:12228/health<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.events_received_total
+</code></pre></div>
+</li>
 </ol>
 <h3 id="troubleshooting-registration">Troubleshooting registration<a class="headerlink" href="#troubleshooting-registration" title="Permanent link">&para;</a></h3>
 <table>
@@ -1147,21 +1494,21 @@
 <hr />
 <h2 id="health-endpoint">Health endpoint<a class="headerlink" href="#health-endpoint" title="Permanent link">&para;</a></h2>
 <p><code>GET /health</code> returns a JSON object with operational status. HTTP 200 = healthy; HTTP 503 = degraded.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>curl<span class="w"> </span>http://localhost:12228/health
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>curl<span class="w"> </span>http://localhost:12228/health
 </code></pre></div>
 <p>Example response:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="p">,</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">&quot;uptime&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2h34m&quot;</span><span class="p">,</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">&quot;writer_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gelf&quot;</span><span class="p">,</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">&quot;writer_addr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;192.168.1.50:12201&quot;</span><span class="p">,</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">&quot;tls_enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="nt">&quot;events_received_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14823</span><span class="p">,</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">&quot;events_written_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14823</span><span class="p">,</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="nt">&quot;events_dropped_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="nt">&quot;queue_depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">&quot;last_event_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-03T08:15:42Z&quot;</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">&quot;uptime&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2h34m&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nt">&quot;writer_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gelf&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nt">&quot;writer_addr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;192.168.1.50:12201&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">  </span><span class="nt">&quot;tls_enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="w">  </span><span class="nt">&quot;events_received_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14823</span><span class="p">,</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">  </span><span class="nt">&quot;events_written_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14823</span><span class="p">,</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="w">  </span><span class="nt">&quot;events_dropped_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="w">  </span><span class="nt">&quot;queue_depth&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="w">  </span><span class="nt">&quot;last_event_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-03T08:15:42Z&quot;</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="p">}</span>
 </code></pre></div>
 <hr />
 <h2 id="graceful-shutdown">Graceful shutdown<a class="headerlink" href="#graceful-shutdown" title="Permanent link">&para;</a></h2>
@@ -1171,9 +1518,9 @@
 <li>Waits for the event queue to flush.</li>
 <li>Closes the writer connection.</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># systemd / Docker / Kubernetes: SIGTERM is sent automatically</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="c1"># Manual:</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="nb">kill</span><span class="w"> </span>-TERM<span class="w"> </span><span class="k">$(</span>pgrep<span class="w"> </span>cee-exporter<span class="k">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># systemd / Docker / Kubernetes: SIGTERM is sent automatically</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="c1"># Manual:</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="nb">kill</span><span class="w"> </span>-TERM<span class="w"> </span><span class="k">$(</span>pgrep<span class="w"> </span>cee-exporter<span class="k">)</span>
 </code></pre></div>
 
 

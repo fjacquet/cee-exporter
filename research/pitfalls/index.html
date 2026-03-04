@@ -1,0 +1,1623 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Dell PowerStore CEPA audit events → Windows EventLog / GELF">
+      
+      
+      
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/research/pitfalls/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Domain Pitfalls - cee-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#domain-pitfalls" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="cee-exporter" class="md-header__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cee-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Domain Pitfalls
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="cee-exporter" class="md-nav__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cee-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operator-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operator Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Requirements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-language-go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Language (Go)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-gelf-primary-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 GELF Primary Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-async-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 Async Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-binary-evtx-deferred/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Binary EVTX Deferred
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-cgo-disabled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 CGO Disabled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-prometheus-separate-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Prometheus Port
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-windows-svc-x-sys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 Windows Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-rfc5424-crewjam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 RFC5424 Syslog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-binary-evtx-scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 BinaryEvtx Scratch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../v2-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2 Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="domain-pitfalls">Domain Pitfalls<a class="headerlink" href="#domain-pitfalls" title="Permanent link">&para;</a></h1>
+<p><strong>Domain:</strong> Go daemon — v2 feature additions (ops + output writers)
+<strong>Project:</strong> cee-exporter
+<strong>Researched:</strong> 2026-03-03
+<strong>Overall Confidence:</strong> HIGH (architecture-specific pitfalls from code inspection + MEDIUM for external library specifics)</p>
+<hr />
+<h2 id="critical-pitfalls">Critical Pitfalls<a class="headerlink" href="#critical-pitfalls" title="Permanent link">&para;</a></h2>
+<p>Mistakes that cause rewrites, corrupt data, or silently break the deployment contract.</p>
+<hr />
+<h3 id="pitfall-1-prometheus-metrics-http-port-and-mux-collision">Pitfall 1: Prometheus /metrics — HTTP port and mux collision<a class="headerlink" href="#pitfall-1-prometheus-metrics-http-port-and-mux-collision" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+The CEPA listener owns <code>0.0.0.0:12228</code> and uses a dedicated <code>*http.ServeMux</code>.
+If <code>promhttp.Handler()</code> is registered on <code>http.DefaultServeMux</code> and metrics served
+on the same port as CEPA, a second <code>ListenAndServe</code> call races at startup and one
+server wins randomly. Alternatively, if <code>/metrics</code> is accidentally registered on
+the CEPA mux, Prometheus scrape requests can trigger the <code>PUT</code>-only check in
+<code>server.ServeHTTP</code> and the scraper receives 405 errors indefinitely.</p>
+<p><strong>Why it happens:</strong>
+<code>prometheus.MustRegister</code> and <code>promhttp.Handler()</code> target <code>DefaultRegisterer</code>/
+<code>DefaultServeMux</code> by default. Developers add a <code>http.Handle("/metrics", …)</code> call
+without specifying which mux, polluting the default mux that the CEPA mux does
+NOT use.</p>
+<p><strong>Consequences:</strong>
+Prometheus scrapes fail silently (404 or 405). If metrics port equals CEPA port,
+one listener never binds and the daemon exits or logs a panic at startup.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Use a <strong>separate port</strong> (e.g., <code>9101</code>) for metrics with its own <code>*http.ServeMux</code>.</li>
+<li>Create a private <code>prometheus.NewRegistry()</code> and pass it explicitly to
+  <code>promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg})</code>.</li>
+<li>Never call <code>http.Handle</code> without a mux target in a daemon that has multiple
+  HTTP servers.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>curl -s http://localhost:9101/metrics</code> returns 404 or 405 on first deploy.</p>
+<p><strong>Phase:</strong> Prometheus metrics phase.</p>
+<hr />
+<h3 id="pitfall-2-prometheus-metrics-custom-collector-blocking-collect">Pitfall 2: Prometheus /metrics — Custom Collector blocking Collect()<a class="headerlink" href="#pitfall-2-prometheus-metrics-custom-collector-blocking-collect" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+The existing <code>pkg/metrics/Store</code> uses <code>sync/atomic</code> — perfectly fast. But if the
+new Prometheus Collector's <code>Collect(ch chan&lt;- Metric)</code> method acquires a mutex,
+calls <code>metrics.M.Snapshot()</code> through a slow path, or does any I/O, it blocks the
+entire Prometheus scrape goroutine. Because the library serializes all registered
+Collectors per scrape, one blocking Collector delays all metrics, potentially
+causing a Prometheus timeout and a "scrape duration exceeded" alert.</p>
+<p><strong>Why it happens:</strong>
+Developers copy patterns from blog posts where the service has only one metric.
+With <code>WriterErrorsTotal</code>, <code>EventsDroppedTotal</code>, <code>EventsReceivedTotal</code>, and
+<code>QueueDepth</code> all gated behind a single <code>Collect</code> implementation, any added lock
+propagates.</p>
+<p><strong>Consequences:</strong>
+Prometheus scrape timeouts. <code>rate()</code> gaps in dashboards. Potential goroutine
+pile-up if scrapes queue faster than they complete.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Read directly from <code>metrics.M</code> atomic fields inside <code>Collect</code>; no mutex needed.</li>
+<li><code>Collect</code> must be concurrency-safe (two scrapes can overlap); atomic reads
+  are already safe.</li>
+<li>Implement <code>Describe</code> with static <code>*prometheus.Desc</code> values created at
+  registration time, not dynamically inside <code>Describe</code>.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>go test -race ./pkg/metrics/...</code> will catch any data race introduced around the
+Collector. Prometheus scrape histogram <code>scrape_duration_seconds</code> spikes.</p>
+<p><strong>Phase:</strong> Prometheus metrics phase.</p>
+<hr />
+<h3 id="pitfall-3-prometheus-metrics-cardinality-explosion-on-writer-labels">Pitfall 3: Prometheus /metrics — Cardinality explosion on writer labels<a class="headerlink" href="#pitfall-3-prometheus-metrics-cardinality-explosion-on-writer-labels" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+If any label on a counter or gauge takes a value derived from the event stream
+(file path, username, CEPA event type string, client IP), cardinality explodes.
+A single NAS with thousands of files generates thousands of unique label
+combinations; Prometheus memory usage grows without bound and eventually OOMs.</p>
+<p><strong>Why it happens:</strong>
+The <code>WindowsEvent</code> struct contains <code>ObjectName</code> (file path) and
+<code>SubjectUsername</code>. It is tempting to attach these as labels on
+<code>cee_events_received_total</code> to enable per-file dashboards. This pattern is
+correct for low-cardinality dimensions like <code>event_id</code> (5 values) or
+<code>writer_type</code> (4 values), but catastrophic for paths.</p>
+<p><strong>Consequences:</strong>
+Prometheus server memory exhaustion. The client binary's own memory grows because
+<code>client_golang</code> caches all label combinations in the registry.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Labels must be <strong>bounded and low-cardinality</strong>. Allowable label values for
+  cee-exporter: <code>event_id</code> (4663, 4660, 4670), <code>writer</code> (gelf, evtx, beats,
+  syslog), <code>status</code> (ok, error).</li>
+<li>Never label by: file path, username, client IP, SID, CEPA event string.</li>
+<li>Use <code>cee_events_received_total{event_id="4663"}</code> counters, not per-file
+  counters.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>curl -s http://localhost:9101/metrics | wc -l</code> grows unboundedly during an
+active audit session — immediate sign of cardinality explosion.</p>
+<p><strong>Phase:</strong> Prometheus metrics phase.</p>
+<hr />
+<h3 id="pitfall-4-windows-service-scm-30-second-startup-timeout">Pitfall 4: Windows Service — SCM 30-second startup timeout<a class="headerlink" href="#pitfall-4-windows-service-scm-30-second-startup-timeout" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+The Go runtime initializes package-level variables, sets up goroutines, and runs
+<code>init()</code> functions before <code>main()</code> executes. On a heavily loaded system at boot
+(especially a VM with many services starting concurrently), the delay between
+<code>CreateProcess</code> and the Go <code>main()</code> entry can exceed 26 seconds (documented in
+golang/go#23479). If <code>main()</code> then performs TLS certificate loading, config
+parsing, and network listener binding before calling <code>svc.Run()</code>, the total time
+easily breaches the SCM's 30-second window, generating Event ID 7009/7000 and
+killing the process.</p>
+<p><strong>Why it happens:</strong>
+Go executables are heavier than simple C++ services at startup. The SCM clock
+starts at <code>CreateProcess</code>, not at <code>main()</code>.</p>
+<p><strong>Consequences:</strong>
+Service fails to start on every system reboot. Manual starts succeed (system is
+idle), masking the bug during development.</p>
+<p><strong>Prevention:</strong></p>
+<ol>
+<li>In <code>Execute()</code>, send <code>svc.Status{State: svc.StartPending}</code> as the <strong>very
+   first action</strong> before any config loading or listener binding.</li>
+<li>Use <code>StartType: mgr.StartAutoDelayed</code> (Automatic Delayed Start, which gives
+   120 seconds) for the service configuration rather than <code>mgr.StartAutomatic</code>.</li>
+<li>Keep <code>init()</code> functions and package-level variable initialization in
+   <code>cmd/cee-exporter/main.go</code> minimal — defer config loading into <code>main()</code>.</li>
+<li>The <code>Execute</code> implementation must send <code>Running</code> status within 30 seconds of
+   the <code>StartPending</code> send.</li>
+</ol>
+<p><strong>Detection:</strong>
+Windows Event Log → System channel → Event ID 7009 after a clean reboot.</p>
+<p><strong>Phase:</strong> Windows Service phase.</p>
+<hr />
+<h3 id="pitfall-5-windows-service-ossignal-sigterm-conflict-with-scm">Pitfall 5: Windows Service — os/signal SIGTERM conflict with SCM<a class="headerlink" href="#pitfall-5-windows-service-ossignal-sigterm-conflict-with-scm" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+The current <code>main.go</code> likely uses <code>os/signal.Notify(c, syscall.SIGTERM,
+os.Interrupt)</code> for graceful shutdown on Linux. On Windows as a managed service,
+the SCM sends SERVICE_CONTROL_STOP, not SIGTERM. The <code>golang.org/x/sys/windows/svc</code>
+package installs its own Windows control handler. If <code>os/signal.Notify</code> also
+registers for <code>syscall.SIGTERM</code>, the two handlers fight over the same underlying
+Win32 <code>SetConsoleCtrlHandler</code> API. The SCM STOP command may be swallowed by one
+handler and never reach the other, causing the service to appear "stuck stopping"
+and the SCM to forcefully kill it after the stop timeout.</p>
+<p><strong>Why it happens:</strong>
+Cross-platform <code>main.go</code> files share signal handling code between the service and
+non-service paths. The <code>svc.IsWindowsService()</code> check is easy to forget before
+registering OS signals.</p>
+<p><strong>Consequences:</strong>
+<code>sc stop cee-exporter</code> hangs for 20 seconds then force-kills the process. The
+queue is not drained; in-flight events are lost.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Gate <code>os/signal.Notify</code> behind <code>!svc.IsWindowsService()</code>.</li>
+<li>In service mode, all shutdown must flow through the <code>&lt;-r</code> channel in the
+  <code>Execute</code> method, which receives <code>svc.ChangeRequest{Cmd: svc.Stop}</code>.</li>
+<li>The service <code>Execute</code> must write <code>svc.StopPending</code> to <code>s</code> before returning, so
+  the SCM knows shutdown is in progress.</li>
+<li>Add build-tag-guarded <code>cmd/cee-exporter/service_windows.go</code> and
+  <code>service_notwindows.go</code> rather than mixing the paths in <code>main.go</code>.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>sc stop cee-exporter</code> hangs &gt;5 seconds in testing. Check with <code>sc query
+cee-exporter</code> during the hang — state is STOP_PENDING indefinitely.</p>
+<p><strong>Phase:</strong> Windows Service phase.</p>
+<hr />
+<h3 id="pitfall-6-windows-service-panic-in-execute-crashes-scm-registration">Pitfall 6: Windows Service — panic in Execute() crashes SCM registration<a class="headerlink" href="#pitfall-6-windows-service-panic-in-execute-crashes-scm-registration" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+Any unrecovered panic in the goroutine that calls <code>svc.Run()</code> (which internally
+calls the <code>Execute</code> method) will crash the entire process. The SCM will then log
+Event ID 7031 ("service terminated unexpectedly") and may restart per the
+configured recovery action. However, if the panic happens <strong>before</strong> the service
+has sent <code>Running</code> status, the SCM marks the service as failed immediately and
+increments the failure counter, potentially reaching the "take no action" state
+after 3 resets — meaning the service never auto-restarts again.</p>
+<p><strong>Why it happens:</strong>
+Writers like <code>BinaryEvtxWriter</code> or <code>BeatsWriter</code> are constructed inside
+<code>Execute()</code>. A nil-pointer or failed initialization in a new writer will panic
+rather than return an error because the factory pattern used in the existing code
+(e.g., <code>NewGELFWriter</code>) returns an error, but code calling it might not check
+the error before deferring to the writer.</p>
+<p><strong>Consequences:</strong>
+Service permanently disabled by SCM after 3 crashes. Requires manual
+<code>sc failure cee-exporter reset= 0</code> and <code>sc start</code>.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Wrap the body of <code>Execute()</code> in <code>defer func() { if r := recover(); r != nil {
+  slog.Error("service_panic", "panic", r); } }()</code>.</li>
+<li>All writer construction errors must be returned as errors, never trigger
+  panics. Use <code>prometheus.MustRegister</code> only in <code>init()</code> or at program start —
+  not inside <code>Execute()</code> where a registration conflict panics at service start.</li>
+<li>Validate all config before calling <code>svc.Run()</code>.</li>
+</ul>
+<p><strong>Detection:</strong>
+Windows Event Log → Application channel, look for unhandled exception or go
+runtime crash entries alongside Event ID 7031.</p>
+<p><strong>Phase:</strong> Windows Service phase.</p>
+<hr />
+<h3 id="pitfall-7-binaryevtxwriter-dual-chunk-checksum-fields">Pitfall 7: BinaryEvtxWriter — Dual chunk checksum fields<a class="headerlink" href="#pitfall-7-binaryevtxwriter-dual-chunk-checksum-fields" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+The EVTX chunk header contains <strong>two</strong> CRC32 fields that must be computed
+separately and in the correct order:</p>
+<ol>
+<li><strong>Event records checksum</strong> (offset 52): CRC32 of all event record bytes in
+   the chunk data region.</li>
+<li><strong>Header checksum</strong> (offset 124): CRC32 of the first 120 bytes of the chunk
+   header <strong>plus</strong> bytes 128-512 of the chunk header (the string offset array
+   and template pointer array).</li>
+</ol>
+<p>If both checksums are computed with the same input, or if checksum 1 is omitted,
+Event Viewer rejects the file with no useful error message.</p>
+<p><strong>Why it happens:</strong>
+The libevtx format spec describes both checksums but the distinction is subtle.
+Read-only parsers (like <code>golang-evtx</code>) often skip validation and work fine with
+wrong checksums. Writers discovered this only when testing against Event Viewer.</p>
+<p><strong>Consequences:</strong>
+Event Viewer silently shows an empty log or returns "The event log file is
+corrupted." <code>wevtutil</code> may partially parse but report individual record errors.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Use RFC 1952 CRC32 (polynomial 0xEDB88320, initial value 0) for both.</li>
+<li>Compute event records checksum <strong>first</strong>, write it at offset 52, then compute
+  the header checksum covering the already-updated offset-52 value.</li>
+<li>Write a unit test that round-trips via <code>wevtutil qe &lt;file&gt;</code> or the Rust
+  <code>evtx</code> crate to verify checksum correctness before integrating with the Writer
+  interface.</li>
+</ul>
+<p><strong>Detection:</strong>
+Event Viewer → "The event log file is corrupted" on open. <code>wevtutil qe
+output.evtx</code> returns error with no events.</p>
+<p><strong>Phase:</strong> BinaryEvtxWriter phase.</p>
+<hr />
+<h3 id="pitfall-8-binaryevtxwriter-record-size-field-must-appear-at-both-start-and-end">Pitfall 8: BinaryEvtxWriter — Record size field must appear at both start and end<a class="headerlink" href="#pitfall-8-binaryevtxwriter-record-size-field-must-appear-at-both-start-and-end" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+Each EVTX event record has the record size (4 bytes) at <strong>offset 4</strong> (after the
+magic <code>0x2A2A0000</code>) AND a <strong>copy of the size</strong> as the final 4 bytes of the
+record. If the two values disagree, Event Viewer marks the record as corrupt and
+skips it. If the trailing size copy is missing entirely, every subsequent record
+offset is wrong and the entire chunk is unreadable.</p>
+<p><strong>Why it happens:</strong>
+Pure-Go writers naively write the header size field as a placeholder, fill in
+the BinXML content, then forget to append the trailing copy. The format mirrors
+the NT file record structure and is non-obvious from partial documentation.</p>
+<p><strong>Consequences:</strong>
+Corrupt individual records or entire chunk. Event Viewer skips all records after
+the first bad one.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Build records in a <code>bytes.Buffer</code>, compute final size, then write:
+  <code>[magic][size][record_id][timestamp][binxml][size_copy]</code>.</li>
+<li>Assert <code>len(record) == size</code> before writing to chunk.</li>
+<li>Test with records of varying BinXML content length.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>evtx</code> (Rust crate, <code>omerbenamram/evtx</code>) reports "size mismatch between record
+header and record copy" per record.</p>
+<p><strong>Phase:</strong> BinaryEvtxWriter phase.</p>
+<hr />
+<h3 id="pitfall-9-binaryevtxwriter-string-table-and-template-offset-management">Pitfall 9: BinaryEvtxWriter — String table and template offset management<a class="headerlink" href="#pitfall-9-binaryevtxwriter-string-table-and-template-offset-management" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+The BinXML encoding uses an in-chunk <strong>string table</strong> (up to 64 entries in the
+common string offset array at chunk header offset 128-384) and a <strong>template
+pointer array</strong> (32 entries at 384-512). Offsets in these arrays are relative to
+the start of the <strong>chunk</strong>, not the start of the file. If a writer computes
+offsets from the start of the file, every string reference is wrong. Worse, if
+the string table is not populated (all zeros), Event Viewer falls back to
+inline string encoding — which is 3-5x larger — but will reject records that
+reference string table entries by offset if the table is empty.</p>
+<p><strong>Why it happens:</strong>
+The offset coordinate system switches between file-relative (file header) and
+chunk-relative (chunk header and BinXML token stream). This is not consistently
+spelled out in informal documentation.</p>
+<p><strong>Consequences:</strong>
+Bloated .evtx files if string table is skipped. Corrupt records if wrong offset
+base is used for string references.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Maintain a <code>map[string]uint32</code> string intern table per chunk, reset at each
+  new chunk boundary (every 64 KB).</li>
+<li>When serializing BinXML <code>Value</code> tokens that reference the string table, use
+  the chunk-relative offset, not an absolute file offset.</li>
+<li>Template pointers (the 32-entry array) should be populated for any template
+  used more than once in the chunk; compute their chunk-relative offsets after
+  the template bytes are written.</li>
+</ul>
+<p><strong>Detection:</strong>
+Parsed XML from <code>evtx</code> crate shows empty <code>&lt;Data&gt;</code> elements where values should
+appear — classic symptom of a broken string table reference.</p>
+<p><strong>Phase:</strong> BinaryEvtxWriter phase.</p>
+<hr />
+<h3 id="pitfall-10-binaryevtxwriter-build-tag-vs-stub-coexistence">Pitfall 10: BinaryEvtxWriter — build tag vs. stub coexistence<a class="headerlink" href="#pitfall-10-binaryevtxwriter-build-tag-vs-stub-coexistence" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+<code>writer_evtx_stub.go</code> already uses <code>//go:build !windows</code>. If the new real
+<code>BinaryEvtxWriter</code> is placed in a file without a build tag, both the stub and
+the real implementation are compiled simultaneously on non-Windows, producing a
+duplicate symbol error. If the real implementation also uses <code>!windows</code>, the
+stub must be removed or renamed so only one <code>BinaryEvtxWriter</code> type exists per
+target.</p>
+<p><strong>Why it happens:</strong>
+The stub was intentionally compiled on all non-Windows platforms to satisfy the
+<code>Writer</code> interface. Adding the real implementation requires coordinating two files
+that previously coexisted without conflict.</p>
+<p><strong>Consequences:</strong>
+<code>go build</code> fails with "BinaryEvtxWriter redeclared in this block" on Linux.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Remove <code>writer_evtx_stub.go</code> when the real implementation is complete.</li>
+<li>During incremental development, rename the stub to
+  <code>writer_evtx_stub_placeholder.go</code> with a temporary build tag
+  <code>//go:build ignore</code> so it is excluded.</li>
+<li>Follow the existing naming convention: the real writer file should be
+  <code>writer_evtx_notwindows.go</code> with <code>//go:build !windows</code>.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>go build ./...</code> on Linux immediately after adding the new file.</p>
+<p><strong>Phase:</strong> BinaryEvtxWriter phase.</p>
+<hr />
+<h3 id="pitfall-11-beatswriter-asyncclient-callback-deadlock">Pitfall 11: BeatsWriter — AsyncClient callback deadlock<a class="headerlink" href="#pitfall-11-beatswriter-asyncclient-callback-deadlock" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+<code>go-lumber</code>'s <code>AsyncClient.Send(cb, data)</code> is safe for concurrent calls.
+However, the <code>cb</code> callback (called when the server ACKs the batch) <strong>must not
+block</strong>. If the callback attempts to re-enqueue events by calling
+<code>queue.Enqueue()</code> — for example, to retry unacknowledged events — it calls back
+into the same <code>AsyncClient.Send()</code> path, which acquires an internal semaphore.
+If the inflight window is full, <code>Send</code> blocks, and since <code>Send</code> is waiting for
+<code>cb</code> to return (which is waiting for <code>Send</code> to unblock), the program deadlocks.</p>
+<p><strong>Why it happens:</strong>
+The go-lumber documentation explicitly warns: "The callback MUST NOT BLOCK. In
+case the callback is trying to republish not ACKed events, care must be taken
+not to deadlock the AsyncClient when calling Send." This warning is easy to miss
+because most examples show simple logging callbacks.</p>
+<p><strong>Consequences:</strong>
+The queue worker goroutine hangs permanently on <code>WriteEvent</code>. The buffered event
+channel fills, Enqueue starts dropping events, and the
+<code>cee_events_dropped_total</code> counter climbs without bound — but no error is logged
+because the worker never returns an error.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Use <code>SyncClient</code> for the initial implementation. It is simpler and thread-safe
+  for the single-worker-per-writer pattern that the existing queue already
+  provides (N queue workers each owning one writer call).</li>
+<li>If <code>AsyncClient</code> is used, the callback must only signal a separate goroutine
+  (e.g., by sending to a channel) and return immediately.</li>
+<li>Never call <code>AsyncClient.Send()</code> or <code>queue.Enqueue()</code> from inside the
+  AsyncClient callback.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>goroutine dump (kill -SIGQUIT on Linux)</code> shows all queue workers blocked in
+<code>go-lumber.(*AsyncClient).Send</code> → waiting on semaphore → callback goroutine
+blocked on the same semaphore.</p>
+<p><strong>Phase:</strong> BeatsWriter phase.</p>
+<hr />
+<h3 id="pitfall-12-beatswriter-syncclient-is-not-goroutine-safe">Pitfall 12: BeatsWriter — SyncClient is not goroutine-safe<a class="headerlink" href="#pitfall-12-beatswriter-syncclient-is-not-goroutine-safe" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+<code>go-lumber</code>'s <code>SyncClient</code> is documented as <strong>not thread-safe</strong>. The existing
+queue runs N worker goroutines (default: configurable via <code>workers</code> in config),
+each calling <code>writer.WriteEvent()</code> concurrently. If a single <code>SyncClient</code> is
+shared across all workers without a mutex, concurrent <code>Send()</code> calls corrupt the
+internal framing state and produce a malformed Lumberjack v2 byte stream that
+the receiving Logstash/Graylog Beats input cannot parse.</p>
+<p><strong>Why it happens:</strong>
+The existing <code>GELFWriter</code> uses a <code>sync.Mutex</code> around the connection, making it
+safe for concurrent queue workers. The BeatsWriter will look superficially
+similar but the underlying <code>SyncClient</code> has no internal locking.</p>
+<p><strong>Consequences:</strong>
+Logstash/Graylog Beats input reports framing errors and drops connections. Events
+are silently lost (no ACK, no retry in SyncClient).</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Wrap <code>SyncClient</code> calls in a <code>sync.Mutex</code> inside <code>BeatsWriter.WriteEvent()</code>.</li>
+<li>Or, create one <code>SyncClient</code> <strong>per queue worker</strong> — but this requires
+  architectural support (the Writer interface currently has no per-worker
+  initialization hook).</li>
+<li>The mutex approach is simpler and consistent with <code>GELFWriter</code>'s existing
+  pattern.</li>
+</ul>
+<p><strong>Detection:</strong>
+Graylog/Logstash logs show "connection reset by peer" or "framing error" from
+the Beats input. <code>-race</code> test on <code>BeatsWriter</code> immediately flags the race.</p>
+<p><strong>Phase:</strong> BeatsWriter phase.</p>
+<hr />
+<h3 id="pitfall-13-beatswriter-missing-tls-custom-dialer-path">Pitfall 13: BeatsWriter — Missing TLS custom dialer path<a class="headerlink" href="#pitfall-13-beatswriter-missing-tls-custom-dialer-path" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+<code>go-lumber</code>'s <code>SyncDial(address, opts...)</code> only accepts a plain TCP connection.
+TLS is not a built-in option. To use TLS with Logstash/Graylog Beats TLS input,
+the caller must use <code>NewSyncClientWithConn(tlsConn, opts...)</code> where <code>tlsConn</code> is
+a <code>*tls.Conn</code>. If the reconnect logic in <code>BeatsWriter</code> calls <code>SyncDial</code> instead
+of the TLS-aware constructor after a connection failure, subsequent reconnections
+are plaintext, silently downgrading security.</p>
+<p><strong>Why it happens:</strong>
+The TLS path is not documented in the <code>go-lumber</code> README. It is only discoverable
+by reading the API. The natural reconnect pattern (<code>SyncDial</code> on error) bypasses
+TLS.</p>
+<p><strong>Consequences:</strong>
+Beats events sent in plaintext to a TLS-only input get rejected with a TLS
+handshake error. If the server accepts both, data transits unencrypted — an audit
+data confidentiality violation.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Implement a <code>dialFunc</code> that always wraps <code>net.Dial</code> with <code>tls.Client()</code> when
+  TLS is configured.</li>
+<li>Use <code>SyncDialWith(dialFunc, address, opts...)</code> for the initial connection.</li>
+<li>Use the same <code>dialFunc</code> in the reconnect path to ensure TLS is never dropped.</li>
+<li>Mirror the TLS pattern from <code>GELFWriter.connect()</code> which already handles TLS
+  correctly.</li>
+</ul>
+<p><strong>Detection:</strong>
+Wireshark on the Beats port shows plaintext frames when TLS was configured. OR:
+<code>openssl s_client -connect host:5044</code> succeeds but Logstash logs show
+<code>ssl_error_rx_record_too_long</code> (plaintext data sent to TLS socket).</p>
+<p><strong>Phase:</strong> BeatsWriter phase.</p>
+<hr />
+<h3 id="pitfall-14-syslogwriter-logsyslog-package-unavailable-on-windows">Pitfall 14: SyslogWriter — log/syslog package unavailable on Windows<a class="headerlink" href="#pitfall-14-syslogwriter-logsyslog-package-unavailable-on-windows" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+Go's stdlib <code>log/syslog</code> package has <code>//go:build !windows &amp;&amp; !plan9</code>. On Windows
+(with or without <code>CGO_ENABLED=0</code>), importing it causes a build failure:
+"build constraints exclude all Go files in …/log/syslog". Since cee-exporter
+must cross-compile from Linux to Windows, any <code>SyslogWriter</code> that imports
+<code>log/syslog</code> will break the Windows build.</p>
+<p><strong>Why it happens:</strong>
+The natural instinct is to use stdlib syslog since no external dependency is
+needed. The build constraint is correct — syslog is a Unix protocol — but the
+error only surfaces during cross-compilation, not on the development Linux host.</p>
+<p><strong>Consequences:</strong>
+<code>GOOS=windows go build ./...</code> fails in CI. The Windows binary cannot be built.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Use a third-party pure-Go RFC 5424 library that has no Windows build
+  constraint, such as <code>github.com/RackSec/srslog</code> or write directly to a UDP/TCP
+  socket with manual RFC 5424 message formatting.</li>
+<li>Gate <code>SyslogWriter</code> with <code>//go:build !windows</code> and provide a stub with the
+  same build tag pattern as <code>writer_evtx_stub.go</code>.</li>
+<li>Verify cross-compilation passes in the <code>Makefile</code> <code>cross-compile</code> target before
+  merging.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build ./...</code> fails with "build
+constraints exclude all Go files" referencing <code>log/syslog</code>.</p>
+<p><strong>Phase:</strong> SyslogWriter phase.</p>
+<hr />
+<h3 id="pitfall-15-syslogwriter-stdlib-logsyslog-is-not-rfc-5424-compliant">Pitfall 15: SyslogWriter — stdlib log/syslog is not RFC 5424 compliant<a class="headerlink" href="#pitfall-15-syslogwriter-stdlib-logsyslog-is-not-rfc-5424-compliant" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+Even on Linux, Go's <code>log/syslog</code> package generates a non-standard hybrid format:
+<code>&lt;PRI&gt;RFC3339Timestamp HOSTNAME APP-NAME[PID]: MESSAGE</code> — mixing RFC 3164
+structure with RFC 5424 timestamp. The VERSION field (the digit <code>1</code>) required by
+RFC 5424 is missing. Many syslog servers that enforce strict RFC 5424 parsing
+(rsyslog with <code>$ActionFileDefaultTemplate RSYSLOG_SyslogProtocol23Format</code>) reject
+these messages or misparsed the PRI.</p>
+<p><strong>Why it happens:</strong>
+This is a known Go stdlib deficiency (golang/go#66666, filed 2024). The stdlib
+has not been patched.</p>
+<p><strong>Consequences:</strong>
+STRUCTURED-DATA elements encoded in the message are never parsed by the syslog
+server. Windows event fields sent as structured data are lost.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Use <code>github.com/nathanaelle/syslog5424/v2</code> or <code>github.com/leavengood/rfc5424</code>
+  for proper RFC 5424 message construction.</li>
+<li>These libraries correctly handle: VERSION field, STRUCTURED-DATA encoding,
+  required escaping of <code>]</code>, <code>"</code>, <code>\</code> in parameter values, and consecutive
+  SD-ELEMENT placement without spaces.</li>
+<li>Write a unit test that validates the output of <code>SyslogWriter</code> against the RFC
+  5424 ABNF grammar rather than eyeballing it.</li>
+</ul>
+<p><strong>Detection:</strong>
+Capture output with <code>nc -l -u 514</code> and check whether the byte stream starts
+with <code>&lt;PRI&gt;1</code> (note the <code>1</code> and space = RFC 5424 VERSION). If it starts with
+<code>&lt;PRI&gt;2024-...</code> (a timestamp after PRI), it is non-compliant.</p>
+<p><strong>Phase:</strong> SyslogWriter phase.</p>
+<hr />
+<h3 id="pitfall-16-syslogwriter-nil-pointer-on-closed-udp-connection">Pitfall 16: SyslogWriter — nil pointer on closed UDP connection<a class="headerlink" href="#pitfall-16-syslogwriter-nil-pointer-on-closed-udp-connection" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+The existing <code>GELFWriter</code> uses a <code>sync.Mutex</code> and reconnects on write failure.
+A naive <code>SyslogWriter</code> over UDP that closes the <code>net.Conn</code> in one goroutine
+(during shutdown or reconnect) while another queue worker goroutine is mid-write
+will panic with a nil pointer dereference if <code>w.conn</code> is set to <code>nil</code> after the
+lock is released but before the write call.</p>
+<p><strong>Why it happens:</strong>
+The close-then-nil pattern (<code>w.conn.Close(); w.conn = nil</code>) is not safe if the
+mutex is released between the close and the nil assignment, or if code checks
+<code>w.conn != nil</code> outside the mutex.</p>
+<p><strong>Consequences:</strong>
+Process panic. On Linux as a systemd service, systemd restarts the daemon (if
+<code>Restart=on-failure</code>). Events in the queue are lost on restart.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Always hold the mutex for the <strong>entire</strong> close-and-nil sequence.</li>
+<li>Check <code>w.conn != nil</code> <strong>inside</strong> the mutex before every write.</li>
+<li>Mirror the exact pattern from <code>GELFWriter.WriteEvent()</code>: lock, nil-check,
+  write, reconnect-on-error — no gap between the check and the write.</li>
+<li>Add a <code>closing</code> atomic bool to suppress reconnect attempts during <code>Close()</code>.</li>
+</ul>
+<p><strong>Detection:</strong>
+Race detector: <code>go test -race ./pkg/evtx/...</code> with concurrent Close and WriteEvent
+calls in the test.</p>
+<p><strong>Phase:</strong> SyslogWriter phase.</p>
+<hr />
+<h3 id="pitfall-17-syslogwriter-rfc-5424-structured-data-encoding-of-windowsevent-fields">Pitfall 17: SyslogWriter — RFC 5424 STRUCTURED-DATA encoding of WindowsEvent fields<a class="headerlink" href="#pitfall-17-syslogwriter-rfc-5424-structured-data-encoding-of-windowsevent-fields" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+RFC 5424 STRUCTURED-DATA requires that parameter values escape three characters:
+<code>]</code> → <code>\]</code>, <code>"</code> → <code>\"</code>, <code>\</code> → <code>\\</code>. Windows file paths contain backslashes
+(<code>C:\Share\File.txt</code>). CEPA file paths from PowerStore NAS are Unix paths but
+may contain characters that require escaping. SIDs contain hyphens but no
+escapable characters. If the writer does raw string insertion without escaping,
+the syslog server cannot parse the STRUCTURED-DATA block.</p>
+<p>Additionally, the RFC prohibits the same SD-ID appearing more than once per
+message. A writer that emits multiple SD-ELEMENTs for the same group (e.g., two
+<code>[cee-exporter@xxx ...]</code> blocks) will be rejected by strict parsers.</p>
+<p><strong>Why it happens:</strong>
+String formatting shortcuts like <code>fmt.Sprintf("[%s %s=\"%s\"]", id, key, value)</code>
+do not escape the value. The escaping requirement is easy to overlook.</p>
+<p><strong>Consequences:</strong>
+Syslog server logs parse errors. Fields are silently dropped. Windows file paths
+with backslashes corrupt the entire STRUCTURED-DATA section.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Delegate STRUCTURED-DATA construction to a validated library
+  (<code>nathanaelle/syslog5424</code> handles escaping automatically).</li>
+<li>If hand-coding, write a <code>escapeSyslogParam(s string) string</code> helper that
+  applies <code>strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "]", "\\]")</code> and
+  test it with path strings like <code>C:\Users\Admin\Report.xlsx</code>.</li>
+<li>Use a single SD-ID (e.g., <code>cee@32473</code>) with all WindowsEvent fields as
+  parameters, rather than multiple SD-ELEMENTs.</li>
+</ul>
+<p><strong>Detection:</strong>
+Parse the emitted syslog message with <code>github.com/influxdata/go-syslog</code> in
+a unit test. An invalid STRUCTURED-DATA section causes a parse error.</p>
+<p><strong>Phase:</strong> SyslogWriter phase.</p>
+<hr />
+<h3 id="pitfall-18-systemd-unit-file-missing-after-and-wants-for-network">Pitfall 18: Systemd unit file — missing After= and Wants= for network<a class="headerlink" href="#pitfall-18-systemd-unit-file-missing-after-and-wants-for-network" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+If the unit file does not include <code>After=network-online.target</code> and
+<code>Wants=network-online.target</code>, systemd may start cee-exporter before the network
+interface that serves CEPA traffic is up. The CEPA listener will bind to
+<code>0.0.0.0:12228</code> successfully (because the kernel accepts binds to wildcard even
+without routes), but the GELF writer's <code>connect()</code> call (which resolves a
+hostname and opens a TCP connection) will fail. Depending on the error handling,
+the daemon exits at startup or runs with a broken writer.</p>
+<p><strong>Why it happens:</strong>
+<code>After=network.target</code> only means the <code>network.target</code> systemd milestone is
+reached, which does not guarantee routable network interfaces. The
+<code>network-online.target</code> is the correct dependency for services that need an
+actual routable connection at startup.</p>
+<p><strong>Consequences:</strong>
+GELF writer fails to connect at startup. Daemon exits (if the connection error
+is fatal) or runs without a working output writer (if the error is swallowed).</p>
+<p><strong>Prevention:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[Unit]</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="na">After</span><span class="o">=</span><span class="s">network-online.target</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="na">Wants</span><span class="o">=</span><span class="s">network-online.target</span>
+</code></pre></div>
+<ul>
+<li>For services that reconnect automatically on write failure (as GELFWriter does),
+  <code>After=network.target</code> is tolerable but <code>network-online.target</code> is safer.</li>
+<li>Add <code>Restart=on-failure</code> and <code>RestartSec=5s</code> so a startup network failure
+  triggers a restart rather than leaving the daemon in a failed state.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>systemctl status cee-exporter</code> shows "active (running)" but GELF writer logs
+"gelf connect tcp://...: dial tcp: i/o timeout" in <code>journalctl -u cee-exporter</code>.</p>
+<p><strong>Phase:</strong> Systemd unit file phase.</p>
+<hr />
+<h3 id="pitfall-19-systemd-unit-file-execstart-path-and-binary-location">Pitfall 19: Systemd unit file — ExecStart path and binary location<a class="headerlink" href="#pitfall-19-systemd-unit-file-execstart-path-and-binary-location" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+Systemd unit files require <strong>absolute paths</strong> in <code>ExecStart</code>. A relative path or
+a path using shell expansion (<code>~/bin/cee-exporter</code>) causes the unit to fail with
+"Executable path is not absolute." Additionally, if the binary is installed to
+<code>/usr/local/bin</code> but the unit file references <code>/usr/bin</code>, the service fails with
+<code>ENOENT</code> and journald logs only "Failed to execute command" without the actual
+missing file.</p>
+<p><strong>Why it happens:</strong>
+Makefile installs are often configurable (<code>PREFIX=/usr/local</code>), but the unit
+file is written at development time with a hardcoded path. The install and unit
+paths fall out of sync.</p>
+<p><strong>Consequences:</strong>
+<code>systemctl start cee-exporter</code> fails with "failed to execute" error.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Parameterize the install path: use <code>make install DESTDIR=/usr/local/bin</code> and
+  generate the unit file from a template (<code>cee-exporter.service.in</code>) during
+  <code>make install</code>, substituting <code>@BINDIR@</code>.</li>
+<li>Default to <code>/usr/local/bin/cee-exporter</code> (matches standard Go binary install
+  convention).</li>
+<li>Run <code>systemd-analyze verify cee-exporter.service</code> as part of CI.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>systemctl start cee-exporter &amp;&amp; systemctl status cee-exporter</code> immediately; if
+<code>ExecStart</code> path is wrong, status shows <code>code=exited, status=203/EXEC</code> within 1
+second.</p>
+<p><strong>Phase:</strong> Systemd unit file phase.</p>
+<hr />
+<h3 id="pitfall-20-systemd-unit-file-type-mismatch-blocks-start">Pitfall 20: Systemd unit file — Type= mismatch blocks start<a class="headerlink" href="#pitfall-20-systemd-unit-file-type-mismatch-blocks-start" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+Go daemons do <strong>not</strong> fork. They run in the foreground. Using <code>Type=forking</code> for
+a non-forking Go binary causes systemd to wait indefinitely for a child PID file
+that never appears, eventually timing out and killing the process.</p>
+<p>If <code>Type=notify</code> is used without sending <code>sd_notify READY=1</code> from the application,
+systemd waits for the notification until <code>TimeoutStartSec</code> expires and kills the
+process.</p>
+<p><strong>Why it happens:</strong>
+Copy-paste from init script templates or systemd units for Java/Python services
+that do daemonize.</p>
+<p><strong>Consequences:</strong>
+<code>systemctl start cee-exporter</code> times out. Service is marked as failed.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Use <code>Type=simple</code> (safe and correct for any Go daemon that does not call
+  <code>daemon.SdNotify(false, daemon.SdNotifyReady)</code>).</li>
+<li>OR use <code>Type=notify</code> if the daemon sends <code>READY=1</code> via <code>coreos/go-systemd</code>
+  after the CEPA listener is bound and writers are initialized.</li>
+<li><code>Type=notify</code> is preferred because systemd then knows the daemon is truly
+  ready before marking it active, which matters for dependent services.</li>
+<li>If using <code>Type=notify</code>, add <code>coreos/go-systemd/v22</code> as a dependency and send
+  <code>daemon.SdNotify(false, daemon.SdNotifyReady)</code> after <code>listener.Accept()</code> loop
+  is started.</li>
+</ul>
+<p><strong>Detection:</strong>
+<code>systemctl start cee-exporter</code> hangs for <code>TimeoutStartSec</code> seconds (default 90s)
+before failing, OR starts immediately but <code>ss -tlnp | grep 12228</code> shows the port
+not yet bound when systemd declared the service active.</p>
+<p><strong>Phase:</strong> Systemd unit file phase.</p>
+<hr />
+<h2 id="moderate-pitfalls">Moderate Pitfalls<a class="headerlink" href="#moderate-pitfalls" title="Permanent link">&para;</a></h2>
+<p>Mistakes that cause incorrect behavior or maintenance burden but do not require a full rewrite.</p>
+<hr />
+<h3 id="pitfall-21-cgo_enabled0-and-make-test-race-incompatibility">Pitfall 21: CGO_ENABLED=0 and make test -race incompatibility<a class="headerlink" href="#pitfall-21-cgo_enabled0-and-make-test-race-incompatibility" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+The existing <code>Makefile</code> omits <code>-race</code> because the race detector requires CGO.
+If a new <code>make test-race</code> target is added for v2 development (which is valuable
+for catching concurrency bugs in <code>BeatsWriter</code>, <code>SyslogWriter</code>), developers on
+Linux will need to temporarily enable CGO for that target only. If the Makefile
+silently succeeds with <code>CGO_ENABLED=0 go test -race ./...</code>, the race detector
+reports nothing (it is disabled) but the command exits 0, creating a false sense
+of safety.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Add a <code>test-race</code> target with <code>CGO_ENABLED=1 go test -race ./...</code>.</li>
+<li>Document in the Makefile comment that <code>-race</code> requires CGO and cannot be used
+  for the production cross-compiled binary.</li>
+<li>The production binary (<code>make build</code>) stays <code>CGO_ENABLED=0</code>.</li>
+</ul>
+<p><strong>Phase:</strong> All writer phases (run race tests during writer development).</p>
+<hr />
+<h3 id="pitfall-22-multiwriter-error-aggregation-masks-individual-writer-failures">Pitfall 22: MultiWriter error aggregation masks individual writer failures<a class="headerlink" href="#pitfall-22-multiwriter-error-aggregation-masks-individual-writer-failures" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+<code>MultiWriter.WriteEvent</code> calls all writers and joins errors. If <code>BeatsWriter</code>
+fails (connection refused, ACK timeout), the error is joined and returned to the
+queue worker, which increments <code>WriterErrorsTotal</code> and logs it. However, the
+event is still written to other writers (GELF, syslog). The log shows a generic
+"writer_error" with a joined error string that includes all writer names — making
+it hard to distinguish "GELF OK, Beats failed" from "Beats OK, GELF failed."</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Extend the error type to carry per-writer status: a <code>WriterError</code> struct with
+  <code>WriterName string</code> and <code>Err error</code>.</li>
+<li>Or add per-writer error counters to <code>pkg/metrics</code> (e.g.,
+  <code>cee_writer_errors_total{writer="beats"}</code>).</li>
+<li>At minimum, log the writer name alongside each error in the queue worker's
+  error path.</li>
+</ul>
+<p><strong>Phase:</strong> BeatsWriter and SyslogWriter phases.</p>
+<hr />
+<h3 id="pitfall-23-prometheus-metric-name-conflicts-with-existing-metricsstore-field-names">Pitfall 23: Prometheus metric name conflicts with existing metrics.Store field names<a class="headerlink" href="#pitfall-23-prometheus-metric-name-conflicts-with-existing-metricsstore-field-names" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+<code>pkg/metrics/Store</code> exposes <code>EventsReceivedTotal</code>, <code>EventsWrittenTotal</code>,
+<code>EventsDroppedTotal</code>, <code>WriterErrorsTotal</code> as public <code>atomic.Int64</code> fields.
+When adding Prometheus counters, developers may introduce a separate
+<code>prometheus.Counter</code> named <code>cee_events_received_total</code> that is incremented
+independently — resulting in two parallel counters that drift apart (e.g., one
+counts only parsed events, the other counts raw HTTP bodies).</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>The Prometheus Collector should <strong>read from</strong> <code>metrics.M</code> atomics, not
+  maintain a separate counter. This ensures a single source of truth.</li>
+<li>Implement a custom <code>Collector</code> that wraps <code>metrics.M.Snapshot()</code> and emits
+  <code>prometheus.NewConstMetric</code> for each field.</li>
+<li>This eliminates drift and avoids double-counting.</li>
+</ul>
+<p><strong>Phase:</strong> Prometheus metrics phase.</p>
+<hr />
+<h3 id="pitfall-24-windows-service-installer-path-nssm-vs-native-svcrun">Pitfall 24: Windows Service installer path — NSSM vs. native svc.Run()<a class="headerlink" href="#pitfall-24-windows-service-installer-path-nssm-vs-native-svcrun" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+NSSM (Non-Sucking Service Manager) wraps any executable as a Windows service.
+It is popular but introduces an extra binary dependency, requires the NSSM binary
+to be present on the target machine, and does not integrate with Go's <code>svc.Run()</code>
+for proper SCM protocol (status reporting, service control handler). The service
+appears as a generic NSSM service, not a native Go service, and SCM-based
+management tools may show incorrect state.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Use native <code>golang.org/x/sys/windows/svc</code> with <code>svc.Run()</code> for proper SCM
+  integration. This is already a dependency in <code>writer_windows.go</code>.</li>
+<li>Ship a self-install/uninstall subcommand: <code>cee-exporter install</code> / <code>cee-exporter
+  uninstall</code> using <code>svc/mgr</code> to register the service.</li>
+<li>Avoid NSSM for production deployments; document it only as a dev convenience.</li>
+</ul>
+<p><strong>Phase:</strong> Windows Service phase.</p>
+<hr />
+<h2 id="minor-pitfalls">Minor Pitfalls<a class="headerlink" href="#minor-pitfalls" title="Permanent link">&para;</a></h2>
+<hr />
+<h3 id="pitfall-25-evtx-file-size-64-kb-chunk-boundary-not-aligned">Pitfall 25: EVTX file size — 64 KB chunk boundary not aligned<a class="headerlink" href="#pitfall-25-evtx-file-size-64-kb-chunk-boundary-not-aligned" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+EVTX chunks are exactly 65536 bytes (0x10000). If the writer appends records to
+a chunk without checking whether the next record fits, a record can span a chunk
+boundary. This is invalid — records must be entirely within one chunk.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Track <code>bytesUsed</code> per chunk. Before appending a record, check if
+  <code>bytesUsed + recordSize &gt; 65536 - 512</code> (reserving the 512-byte header).
+  If so, finalize the current chunk and start a new one.</li>
+<li>Unit test: write 100 events with 500-byte BinXML payloads and verify all chunk
+  sizes are exactly 65536 bytes.</li>
+</ul>
+<p><strong>Phase:</strong> BinaryEvtxWriter phase.</p>
+<hr />
+<h3 id="pitfall-26-beats-connection-missing-read-timeout-causes-goroutine-leak">Pitfall 26: Beats connection — missing read timeout causes goroutine leak<a class="headerlink" href="#pitfall-26-beats-connection-missing-read-timeout-causes-goroutine-leak" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+<code>go-lumber</code> <code>SyncClient.Send()</code> waits for an ACK from the server. If the server
+stalls (e.g., Logstash GC pause, Graylog Beats input overload), the <code>Send</code> call
+blocks indefinitely. The queue worker goroutine holding the write lock (or mutex)
+is stuck, preventing any other events from being written.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Always set <code>go-lumber</code>'s <code>Timeout</code> option to a value shorter than the CEPA
+  heartbeat timeout (e.g., 5 seconds): <code>v2.Timeout(5 * time.Second)</code>.</li>
+<li>The queue channel will back up if <code>WriteEvent</code> stalls, but at least the mutex
+  is released within 5 seconds and other writers in <code>MultiWriter</code> continue.</li>
+</ul>
+<p><strong>Phase:</strong> BeatsWriter phase.</p>
+<hr />
+<h3 id="pitfall-27-systemd-unit-running-as-root">Pitfall 27: Systemd unit — running as root<a class="headerlink" href="#pitfall-27-systemd-unit-running-as-root" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong>
+Without a <code>User=</code> directive, systemd runs the service as root. A bug in the HTTP
+handler or writer code that leads to arbitrary file writes would have
+unrestricted filesystem access.</p>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Add <code>User=cee-exporter</code> and <code>Group=cee-exporter</code> with a dedicated system
+  account created by the install script/package.</li>
+<li>Use <code>CapabilityBoundingSet=</code> to drop all unnecessary capabilities.</li>
+<li>Add <code>ProtectSystem=strict</code> and <code>PrivateTmp=true</code> for defense in depth.</li>
+<li>The binary only needs <code>CAP_NET_BIND_SERVICE</code> if listening on port &lt; 1024;
+  port 12228 does not require it.</li>
+</ul>
+<p><strong>Phase:</strong> Systemd unit file phase.</p>
+<hr />
+<h2 id="phase-specific-warnings">Phase-Specific Warnings<a class="headerlink" href="#phase-specific-warnings" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Phase Topic</th>
+<th>Likely Pitfall</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prometheus /metrics</td>
+<td>Mux collision with CEPA listener on same port</td>
+<td>Dedicated port + explicit registry</td>
+</tr>
+<tr>
+<td>Prometheus /metrics</td>
+<td>Blocking Collect()</td>
+<td>Use atomics from metrics.M directly</td>
+</tr>
+<tr>
+<td>Prometheus /metrics</td>
+<td>File path / username labels</td>
+<td>Labels must be bounded: event_id, writer, status only</td>
+</tr>
+<tr>
+<td>Prometheus /metrics</td>
+<td>Separate counter from metrics.Store</td>
+<td>Wrap metrics.M in custom Collector, don't duplicate</td>
+</tr>
+<tr>
+<td>Systemd unit</td>
+<td><code>Type=forking</code> for Go binary</td>
+<td>Use <code>Type=simple</code> or <code>Type=notify</code></td>
+</tr>
+<tr>
+<td>Systemd unit</td>
+<td>Path drift between Makefile install and unit file</td>
+<td>Generate unit from template at <code>make install</code> time</td>
+</tr>
+<tr>
+<td>Systemd unit</td>
+<td>Missing <code>network-online.target</code></td>
+<td>Add <code>After=</code> and <code>Wants=</code> for network-online</td>
+</tr>
+<tr>
+<td>Systemd unit</td>
+<td>Running as root</td>
+<td>Add <code>User=cee-exporter</code>, drop capabilities</td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td>30-second SCM startup timeout</td>
+<td>Send <code>StartPending</code> before any config/network init</td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td>SIGTERM vs SCM conflict</td>
+<td>Gate <code>os/signal.Notify</code> behind <code>!svc.IsWindowsService()</code></td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td>Panic in Execute() kills SCM registration</td>
+<td>Wrap Execute body in <code>defer recover()</code></td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td>NSSM dependency</td>
+<td>Use native <code>svc.Run()</code> with self-install subcommand</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>Dual checksum fields confused</td>
+<td>Compute both CRC32s in correct order, correct range</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>Record trailing size copy missing</td>
+<td>Buffer record, append size copy before writing</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>Offset base confusion (file vs chunk)</td>
+<td>String table offsets always chunk-relative</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>Stub/real type name conflict</td>
+<td>Remove stub file when real implementation added</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>Chunk boundary overflow</td>
+<td>Check <code>bytesUsed</code> before appending each record</td>
+</tr>
+<tr>
+<td>BeatsWriter</td>
+<td>AsyncClient callback deadlock</td>
+<td>Use SyncClient with mutex; never call Send from callback</td>
+</tr>
+<tr>
+<td>BeatsWriter</td>
+<td>SyncClient not thread-safe</td>
+<td>Protect with sync.Mutex; mirrors GELFWriter pattern</td>
+</tr>
+<tr>
+<td>BeatsWriter</td>
+<td>TLS not preserved on reconnect</td>
+<td>Use custom dialFunc for initial + reconnect path</td>
+</tr>
+<tr>
+<td>BeatsWriter</td>
+<td>Missing read timeout goroutine leak</td>
+<td>Set <code>v2.Timeout(5s)</code> option</td>
+</tr>
+<tr>
+<td>SyslogWriter</td>
+<td>log/syslog Windows build failure</td>
+<td>Use third-party RFC 5424 library; add <code>!windows</code> build tag</td>
+</tr>
+<tr>
+<td>SyslogWriter</td>
+<td>stdlib syslog not RFC 5424 compliant</td>
+<td>Use nathanaelle/syslog5424 or leavengood/rfc5424</td>
+</tr>
+<tr>
+<td>SyslogWriter</td>
+<td>Nil pointer on closed UDP conn</td>
+<td>Hold mutex for close-and-nil sequence; mirror GELFWriter</td>
+</tr>
+<tr>
+<td>SyslogWriter</td>
+<td>Unescaped backslash in Windows paths</td>
+<td>Use library with built-in escaping for structured data</td>
+</tr>
+<tr>
+<td>All writers</td>
+<td>CGO_ENABLED=0 + -race incompatibility</td>
+<td>Separate <code>make test-race</code> target with CGO_ENABLED=1</td>
+</tr>
+<tr>
+<td>All writers</td>
+<td>MultiWriter obscures per-writer failures</td>
+<td>Add per-writer error metric label</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/libyal/libevtx/blob/main/documentation/Windows%20XML%20Event%20Log%20(EVTX).asciidoc">libevtx EVTX format specification</a> — chunk header layout, checksums, string tables (HIGH confidence)</li>
+<li><a href="https://github.com/0xrawsec/golang-evtx/blob/master/evtx/chunk.go">golang-evtx chunk.go</a> — Go ChunkHeader struct and validation constraints (HIGH confidence)</li>
+<li><a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus">prometheus/client_golang Collector interface</a> — Describe/Collect contract, blocking behavior, MustRegister (HIGH confidence)</li>
+<li><a href="https://github.com/prometheus/client_golang/discussions/970">prometheus cardinality explosion discussion</a> — cardinality limits, design tradeoffs (HIGH confidence)</li>
+<li><a href="https://pkg.go.dev/github.com/elastic/go-lumber/client/v2">go-lumber v2 client API</a> — SyncClient, AsyncClient, thread safety, TLS, callback deadlock warning (HIGH confidence)</li>
+<li><a href="https://github.com/golang/go/issues/23479">golang/go#23479 Windows service startup timeout</a> — 30-second SCM timeout root cause and workarounds (HIGH confidence)</li>
+<li><a href="https://pkg.go.dev/golang.org/x/sys/windows/svc">golang.org/x/sys/windows/svc package</a> — Execute method, service state machine, SCM protocol (HIGH confidence)</li>
+<li><a href="https://github.com/golang/go/issues/66666">golang/go#66666 log/syslog RFC compliance</a> — missing VERSION field in stdlib syslog (HIGH confidence)</li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc5424">RFC 5424 syslog protocol</a> — STRUCTURED-DATA encoding, escaping rules, SD-ID constraints (HIGH confidence)</li>
+<li><a href="https://pkg.go.dev/github.com/coreos/go-systemd/daemon">coreos/go-systemd sd_notify</a> — READY=1 notification, Type=notify integration (HIGH confidence)</li>
+<li><a href="https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html">systemd.service man page</a> — ExecStart, Type=, After=, network-online.target (HIGH confidence)</li>
+<li><a href="https://github.com/golang/go/issues/40157">golang/go#40157 windows/svc shutdown handling</a> — SCM stop signal handling issues (MEDIUM confidence)</li>
+<li>Codebase inspection: <code>pkg/evtx/writer.go</code>, <code>pkg/evtx/writer_gelf.go</code>, <code>pkg/queue/queue.go</code>, <code>pkg/metrics/metrics.go</code>, <code>pkg/server/server.go</code> — integration-specific pitfalls derived from actual implementation (HIGH confidence)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.sections", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

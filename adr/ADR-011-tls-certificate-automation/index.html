@@ -10,13 +10,9 @@
       
       
       
-        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/adr/ADR-004-binary-evtx-deferred/">
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/adr/ADR-011-tls-certificate-automation/">
       
       
-        <link rel="prev" href="../ADR-003-async-queue/">
-      
-      
-        <link rel="next" href="../ADR-005-cgo-disabled/">
       
       
         
@@ -27,7 +23,7 @@
     
     
       
-        <title>ADR-004 Binary EVTX Deferred - cee-exporter</title>
+        <title>ADR-011: Three-mode TLS certificate management (off / manual / acme / self-signed) - cee-exporter</title>
       
     
     
@@ -76,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-004-defer-binary-evtx-file-generation-to-v2" class="md-skip">
+        <a href="#adr-011-three-mode-tls-certificate-management-off-manual-acme-self-signed" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +108,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-004 Binary EVTX Deferred
+              ADR-011: Three-mode TLS certificate management (off / manual / acme / self-signed)
             
           </span>
         </div>
@@ -312,8 +308,6 @@
       
   
   
-    
-  
   
   
     
@@ -326,11 +320,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
           <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
@@ -351,7 +345,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -450,37 +444,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ADR-004 Binary EVTX Deferred
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../ADR-004-binary-evtx-deferred/" class="md-nav__link">
         
   
   
@@ -496,59 +463,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -748,24 +662,121 @@
   
 
 
-<h1 id="adr-004-defer-binary-evtx-file-generation-to-v2">ADR-004: Defer binary .evtx file generation to v2<a class="headerlink" href="#adr-004-defer-binary-evtx-file-generation-to-v2" title="Permanent link">&para;</a></h1>
+<h1 id="adr-011-three-mode-tls-certificate-management-off-manual-acme-self-signed">ADR-011: Three-mode TLS certificate management (off / manual / acme / self-signed)<a class="headerlink" href="#adr-011-three-mode-tls-certificate-management-off-manual-acme-self-signed" title="Permanent link">&para;</a></h1>
 <p><strong>Status:</strong> accepted</p>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>Windows .evtx files use the BinXML binary format, a complex Microsoft-proprietary
-serialization format (~500-1500 LOC to implement correctly in pure Go). A pure-Go
-BinaryEvtxWriter would allow Linux hosts to produce .evtx files that Winlogbeat or
-Windows Event Viewer can consume directly. However, the primary v1.0 use case is GELF
-to Graylog (see ADR-002), which does not require .evtx files. Implementing BinXML
-correctly requires extensive testing with actual Event Viewer and Winlogbeat versions.</p>
+<p>Phase 8 introduces automated TLS certificate management. The research (2026-03-03)
+uncovered two findings that shape the design:</p>
+<h3 id="finding-1-cepa-uses-http-only-critical-protocol-constraint">Finding 1 — CEPA uses HTTP only (critical protocol constraint)<a class="headerlink" href="#finding-1-cepa-uses-http-only-critical-protocol-constraint" title="Permanent link">&para;</a></h3>
+<p>The Dell PowerStore CEPA client sends events over <strong>plain HTTP only</strong>. All CEPA
+integration documentation specifies <code>http://</code> endpoint URLs; no HTTPS variant exists.
+Dell's own documentation states: "events are forwarded to the CEPA server over an
+HTTP connection."</p>
+<p><strong>Consequence:</strong> TLS on the cee-exporter CEPA listener (port 12228) does <strong>not</strong>
+encrypt the PowerStore-to-exporter event channel. TLS on this port is useful only
+when a TLS-capable reverse proxy terminates CEPA traffic, or if a future PowerStore
+firmware version adds HTTPS receiver support. The existing <code>ListenConfig.TLS</code>
+infrastructure is kept for these cases, but operators must understand the limitation.</p>
+<h3 id="finding-2-manual-certificate-management-is-operationally-brittle">Finding 2 — Manual certificate management is operationally brittle<a class="headerlink" href="#finding-2-manual-certificate-management-is-operationally-brittle" title="Permanent link">&para;</a></h3>
+<p>The v1 TLS model requires operators to hand-manage certificate files and renewals.
+For deployments that <em>do</em> use TLS (e.g., reverse proxy scenarios or future CEPA HTTPS
+support), automated renewal via ACME is the industry standard.</p>
+<h3 id="options-evaluated">Options evaluated<a class="headerlink" href="#options-evaluated" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Summary</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Manual cert files only (v1 approach)</td>
+<td>Operator manages rotation</td>
+<td>KEPT as <code>tls_mode="manual"</code> for backward compat</td>
+</tr>
+<tr>
+<td><code>golang.org/x/crypto/acme/autocert</code></td>
+<td>In-process ACME, HTTP-01 or TLS-ALPN-01</td>
+<td><strong>SELECTED</strong> for <code>tls_mode="acme"</code></td>
+</tr>
+<tr>
+<td><code>go-acme/lego</code> with DNS-01</td>
+<td>Supports air-gapped/private networks</td>
+<td>DEFERRED — adds 160+ DNS provider deps</td>
+</tr>
+<tr>
+<td>External reverse proxy (Caddy/Traefik)</td>
+<td>Proxy handles ACME automatically</td>
+<td>Valid operational pattern; not built into daemon</td>
+</tr>
+<tr>
+<td>Runtime self-signed generation</td>
+<td>stdlib <code>crypto/ecdsa</code> + <code>crypto/x509</code></td>
+<td><strong>SELECTED</strong> for <code>tls_mode="self-signed"</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rejected: DNS-01 via lego</strong> — the dependency weight (~180 DNS provider adapters) is
+disproportionate. Air-gapped deployments are better served by <code>self-signed</code> mode or an
+operator-managed CA.</p>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<p>We will ship a stub BinaryEvtxWriter in v1.0 that satisfies the Writer interface but
-does not produce output. Full BinXML implementation is deferred to v2.</p>
+<p>Extend <code>ListenConfig</code> with a <code>tls_mode</code> field controlling four modes:</p>
+<table>
+<thead>
+<tr>
+<th><code>tls_mode</code></th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"off"</code></td>
+<td>No TLS (default). Suitable for HTTP-only CEPA deployments.</td>
+</tr>
+<tr>
+<td><code>"manual"</code></td>
+<td>Operator supplies <code>cert_file</code> + <code>key_file</code>. Preserves v1 behaviour.</td>
+</tr>
+<tr>
+<td><code>"acme"</code></td>
+<td><code>autocert.Manager</code> with <code>DirCache</code>, <code>HostWhitelist</code>, and a separate port-443 ACME challenge listener. Requires <code>acme_domains</code> and internet access to Let's Encrypt.</td>
+</tr>
+<tr>
+<td><code>"self-signed"</code></td>
+<td>Runtime ECDSA-P256 certificate generated via stdlib. No network needed. Valid for air-gapped or testing.</td>
+</tr>
+</tbody>
+</table>
+<p>Backward compatibility: existing configs with <code>tls = true</code> are migrated to
+<code>tls_mode = "manual"</code> automatically at startup.</p>
+<p><strong>Library:</strong> <code>golang.org/x/crypto/acme/autocert</code> — already an indirect dependency via
+<code>x/sys</code>. Promoting to direct dep. CGO-free. No new C toolchain requirement.</p>
+<p><strong>Self-signed generation:</strong> stdlib only — <code>crypto/ecdsa</code>, <code>crypto/x509</code>, <code>crypto/rand</code>,
+<code>encoding/pem</code>. No external tools or <code>openssl</code> subprocess.</p>
+<p><strong>ACME challenge listener:</strong> TLS-ALPN-01 via a dedicated <code>net.Listen(":443")</code> goroutine,
+separate from the CEPA listener on 12228. Port 443 binding requires <code>AmbientCapabilities=
+CAP_NET_BIND_SERVICE</code> in the systemd unit.</p>
+<p><strong>Cache:</strong> <code>autocert.DirCache("/var/cache/cee-exporter/acme")</code> — operators using Docker
+must mount this path as a persistent volume to avoid hitting Let's Encrypt rate limits
+(5 certs / same identifier set / 7 days) on container restarts.</p>
 <h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
-<p>v1.0 ships on schedule without the complexity of BinXML. The Writer interface and
-MultiWriter fan-out are already designed to support the v2 writer without changes to
-the pipeline. Linux operators who need .evtx output must wait for v2 or use Winlogbeat
-with the GELF output as a bridge. The stub is clearly documented as a placeholder in
-the source code. See ADR-002 for the GELF primary output decision.</p>
+<ul>
+<li><code>golang.org/x/crypto</code> is promoted from indirect to direct dep in <code>go.mod</code>.</li>
+<li><code>tls_mode = "off"</code> is the new default — existing deployments that relied on the
+  implicit no-TLS behaviour are unaffected.</li>
+<li>Operators who relied on the v1 <code>tls = true</code> flag must migrate to <code>tls_mode = "manual"</code>;
+  a deprecation warning is logged when the old field is detected.</li>
+<li>ACME mode requires port 443 to be reachable from Let's Encrypt servers. The systemd
+  unit must include <code>AmbientCapabilities=CAP_NET_BIND_SERVICE</code>.</li>
+<li>The Let's Encrypt staging URL must be used during development (<code>acme_staging = true</code>
+  config option) to avoid the 5-cert-per-7-days rate limit.</li>
+<li>Self-signed mode produces browser-untrusted certificates (expected) — suitable for
+  machine-to-machine scenarios where the CA can be added to the trust store.</li>
+<li>TLS on port 12228 with CEPA source: clearly documented that this does NOT encrypt
+  the PowerStore → cee-exporter path with current CEPA protocol versions.</li>
+</ul>
 
 
 

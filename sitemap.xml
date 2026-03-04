@@ -2,54 +2,118 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/PRD/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/operator-guide/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/v2-research/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-001-language-go/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-002-gelf-primary-linux/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-003-async-queue/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-004-binary-evtx-deferred/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-005-cgo-disabled/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-006-prometheus-separate-port/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-007-windows-svc-x-sys/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-008-rfc5424-crewjam/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
     </url>
     <url>
          <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-009-binary-evtx-scratch/</loc>
-         <lastmod>2026-03-03</lastmod>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-010-kardianos-service-windows-scm/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/adr/ADR-011-tls-certificate-automation/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/architecture/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/features/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/phase-01-quality/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/phase-02-build/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/phase-03-documentation/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/phase-04-observability/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/phase-05-windows-service/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/phase-06-siem-writers/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/phase-07-binary-evtx/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/phase-08-tls-automation/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/pitfalls/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/project-summary/</loc>
+         <lastmod>2026-03-04</lastmod>
+    </url>
+    <url>
+         <loc>https://fjacquet.github.io/cee-exporter/research/technology-stack/</loc>
+         <lastmod>2026-03-04</lastmod>
     </url>
 </urlset>

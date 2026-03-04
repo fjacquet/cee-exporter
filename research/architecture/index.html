@@ -1,0 +1,1566 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Dell PowerStore CEPA audit events → Windows EventLog / GELF">
+      
+      
+      
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/research/architecture/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Architecture Research - cee-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#architecture-research" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="cee-exporter" class="md-header__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cee-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Architecture Research
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="cee-exporter" class="md-nav__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cee-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operator-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operator Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Requirements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-language-go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Language (Go)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-gelf-primary-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 GELF Primary Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-async-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 Async Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-binary-evtx-deferred/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Binary EVTX Deferred
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-cgo-disabled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 CGO Disabled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-prometheus-separate-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Prometheus Port
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-windows-svc-x-sys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 Windows Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-rfc5424-crewjam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 RFC5424 Syslog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-binary-evtx-scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 BinaryEvtx Scratch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../v2-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2 Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="architecture-research">Architecture Research<a class="headerlink" href="#architecture-research" title="Permanent link">&para;</a></h1>
+<p><strong>Domain:</strong> Go daemon — CEPA audit event bridge, v2 feature integration
+<strong>Researched:</strong> 2026-03-03
+<strong>Confidence:</strong> HIGH (existing code read directly; new feature patterns verified via official docs and pkg.go.dev)</p>
+<hr />
+<h2 id="current-v1-architecture-baseline">Current v1 Architecture (Baseline)<a class="headerlink" href="#current-v1-architecture-baseline" title="Permanent link">&para;</a></h2>
+<h3 id="system-overview">System Overview<a class="headerlink" href="#system-overview" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Dell PowerStore
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  CEPA HTTP PUT
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>       │
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>       ▼
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│  pkg/server — HTTP listener (:12228)                         │
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│  ┌─────────────────┐   ┌──────────────────────────────────┐  │
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│  │ Handler (PUT /) │   │ HealthHandler (GET /health) JSON │  │
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│  └────────┬────────┘   └──────────────────────────────────┘  │
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>└───────────┼──────────────────────────────────────────────────┘
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>            │ Enqueue()
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>            ▼
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│  pkg/queue — buffered channel + N worker goroutines          │
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│  ch chan WindowsEvent (capacity 100 000)                     │
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│  workers = 4 (configurable)                                  │
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└───────────┬──────────────────────────────────────────────────┘
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>            │
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    ┌───────┴────────────────────────────────────────┐
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    │  pkg/parser   →   pkg/mapper                    │
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    │  CEE XML           CEPAEvent → WindowsEvent      │
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    └───────┬────────────────────────────────────────┘
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>            │ WriteEvent(ctx, WindowsEvent)
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>            ▼
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>┌─────────────────────────────────────────────────────────────┐
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│  pkg/evtx — Writer interface                                │
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐  │
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│  │  GELFWriter  │  │ Win32Writer  │  │ BinaryEvtxWriter  │  │
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│  │  (all OS)    │  │ (Windows)    │  │  (stub, !windows) │  │
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│  └──────────────┘  └──────────────┘  └───────────────────┘  │
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│  ┌──────────────────────────────────────────┐               │
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│  │  MultiWriter (fan-out to ≥1 of the above)│               │
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│  └──────────────────────────────────────────┘               │
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>└─────────────────────────────────────────────────────────────┘
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>            │
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>            ▼
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>┌─────────────────────────────────────────────────────────────┐
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>│  pkg/metrics — atomic int64 counters                        │
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>│  EventsReceivedTotal  EventsWrittenTotal  EventsDroppedTotal │
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>│  WriterErrorsTotal    QueueDepth          LastEventAt        │
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>└─────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<h3 id="component-responsibilities-v1">Component Responsibilities (v1)<a class="headerlink" href="#component-responsibilities-v1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Responsibility</th>
+<th>File(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cmd/cee-exporter/main.go</code></td>
+<td>Wiring: config, writers, queue, mux, signals</td>
+<td><code>cmd/cee-exporter/main.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/server.Handler</code></td>
+<td>CEPA HTTP PUT handler; ACKs immediately</td>
+<td><code>pkg/server/server.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/server.HealthHandler</code></td>
+<td>GET /health JSON snapshot</td>
+<td><code>pkg/server/health.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/parser</code></td>
+<td>CEE XML → <code>[]CEPAEvent</code></td>
+<td><code>pkg/parser/parser.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/mapper</code></td>
+<td><code>CEPAEvent</code> → <code>WindowsEvent</code></td>
+<td><code>pkg/mapper/mapper.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/queue.Queue</code></td>
+<td>Async worker pool; non-blocking Enqueue</td>
+<td><code>pkg/queue/queue.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/evtx.Writer</code></td>
+<td>Output abstraction interface</td>
+<td><code>pkg/evtx/writer.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/evtx.GELFWriter</code></td>
+<td>GELF 1.1 JSON over UDP/TCP</td>
+<td><code>pkg/evtx/writer_gelf.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/evtx.Win32EventLogWriter</code></td>
+<td>Win32 ReportEvent API</td>
+<td><code>pkg/evtx/writer_windows.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/evtx.BinaryEvtxWriter</code></td>
+<td>Stub; returns error</td>
+<td><code>pkg/evtx/writer_evtx_stub.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/evtx.MultiWriter</code></td>
+<td>Fan-out to multiple backends</td>
+<td><code>pkg/evtx/writer_multi.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/metrics.Store</code></td>
+<td>Atomic counters + Snapshot()</td>
+<td><code>pkg/metrics/metrics.go</code></td>
+</tr>
+<tr>
+<td><code>pkg/log</code></td>
+<td>slog initialisation</td>
+<td><code>pkg/log/log.go</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="v2-feature-integration-plan">v2 Feature Integration Plan<a class="headerlink" href="#v2-feature-integration-plan" title="Permanent link">&para;</a></h2>
+<h3 id="feature-1-prometheus-metrics-endpoint">Feature 1: Prometheus /metrics Endpoint<a class="headerlink" href="#feature-1-prometheus-metrics-endpoint" title="Permanent link">&para;</a></h3>
+<p><strong>Integration point:</strong> <code>cmd/cee-exporter/main.go</code> (modified) + new <code>pkg/metrics</code> bridge.</p>
+<p><strong>Problem:</strong> The CEPA listener already occupies port 12228 and is TLS-optioned. The <code>/metrics</code> endpoint must not share that mux because:</p>
+<ul>
+<li>Prometheus scrapes are typically unauthenticated and on a private network port.</li>
+<li>The CEPA listener may be TLS-only in production; adding <code>/metrics</code> there forces the Prometheus scraper to handle TLS client configuration.</li>
+<li>Industry standard for Go exporters is a <strong>separate port</strong> in the <code>9xxx</code> range.</li>
+</ul>
+<p><strong>Solution: separate HTTP server on a dedicated port (default 9228).</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Prometheus scraper ──► :9228/metrics
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                           │
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>                    ┌──────┴──────────────────────────────────────┐
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>                    │  pkg/prometheus — PrometheusHandler          │
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>                    │  Reads pkg/metrics.M.Snapshot() atomically  │
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>                    │  Wraps existing counters as Prometheus       │
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>                    │  CounterVec / Gauge descriptors              │
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>                    └─────────────────────────────────────────────┘
+</code></pre></div>
+<p><strong>New file:</strong> <code>pkg/prometheus/handler.go</code> (all platforms, no build tag)</p>
+<p>The handler creates a <code>prometheus.NewRegistry()</code> (not the default registry, to avoid Go runtime metrics pollution) and registers:</p>
+<table>
+<thead>
+<tr>
+<th>Prometheus Metric</th>
+<th>Source in pkg/metrics</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cee_events_received_total</code></td>
+<td><code>M.EventsReceivedTotal.Load()</code></td>
+<td>Counter</td>
+</tr>
+<tr>
+<td><code>cee_events_written_total</code></td>
+<td><code>M.EventsWrittenTotal.Load()</code></td>
+<td>Counter</td>
+</tr>
+<tr>
+<td><code>cee_events_dropped_total</code></td>
+<td><code>M.EventsDroppedTotal.Load()</code></td>
+<td>Counter</td>
+</tr>
+<tr>
+<td><code>cee_writer_errors_total</code></td>
+<td><code>M.WriterErrorsTotal.Load()</code></td>
+<td>Counter</td>
+</tr>
+<tr>
+<td><code>cee_queue_depth</code></td>
+<td><code>M.QueueDepth()</code></td>
+<td>Gauge</td>
+</tr>
+</tbody>
+</table>
+<p>Because <code>pkg/metrics.Store</code> uses <code>atomic.Int64</code> values, no mutex is needed; each <code>Collect()</code> call reads with <code>Load()</code>.</p>
+<p><strong>Modified file:</strong> <code>cmd/cee-exporter/main.go</code></p>
+<p>Add <code>MetricsConfig</code> to <code>Config</code> struct:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">MetricsConfig</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="nx">Enabled</span><span class="w"> </span><span class="kt">bool</span><span class="w">   </span><span class="s">`toml:&quot;enabled&quot;`</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nx">Addr</span><span class="w">    </span><span class="kt">string</span><span class="w"> </span><span class="s">`toml:&quot;addr&quot;`</span><span class="w"> </span><span class="c1">// default &quot;0.0.0.0:9228&quot;</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>In <code>main()</code>, after starting the CEPA <code>httpServer</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">if</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Metrics</span><span class="p">.</span><span class="nx">Enabled</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="k">go</span><span class="w"> </span><span class="nx">prometheus</span><span class="p">.</span><span class="nx">Serve</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">Metrics</span><span class="p">.</span><span class="nx">Addr</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>prometheus.Serve()</code> starts its own <code>net/http</code> server on the metrics port, binding a <code>promhttp.HandlerFor(reg, ...)</code> to <code>/metrics</code>. It runs in its own goroutine and is intentionally not TLS (metrics traffic is internal).</p>
+<p><strong>No changes to <code>pkg/server</code>, <code>pkg/queue</code>, <code>pkg/evtx</code>, or <code>pkg/metrics</code>.</strong></p>
+<p><strong>Config additions</strong> (<code>config.toml.example</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[metrics]</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">addr</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:9228&quot;</span>
+</code></pre></div>
+<p><strong>New dependency:</strong> <code>github.com/prometheus/client_golang</code> (verified current on pkg.go.dev, latest <code>v1.x</code>).</p>
+<hr />
+<h3 id="feature-2-systemd-unit-file">Feature 2: Systemd Unit File<a class="headerlink" href="#feature-2-systemd-unit-file" title="Permanent link">&para;</a></h3>
+<p><strong>Integration point:</strong> None — pure deployment artifact.</p>
+<p><strong>New file:</strong> <code>deploy/systemd/cee-exporter.service</code></p>
+<p>This is a static text file committed to the repo. No Go code changes.</p>
+<p>Standard pattern for a Go binary as systemd service:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[Unit]</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="na">Description</span><span class="o">=</span><span class="s">Dell PowerStore CEPA → Windows Event Log bridge</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="na">Documentation</span><span class="o">=</span><span class="s">https://github.com/fjacquet/cee-exporter</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="na">After</span><span class="o">=</span><span class="s">network-online.target</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="na">Wants</span><span class="o">=</span><span class="s">network-online.target</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">[Service]</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="na">Type</span><span class="o">=</span><span class="s">simple</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="na">User</span><span class="o">=</span><span class="s">cee-exporter</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="na">Group</span><span class="o">=</span><span class="s">cee-exporter</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="na">WorkingDirectory</span><span class="o">=</span><span class="s">/etc/cee-exporter</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="na">ExecStart</span><span class="o">=</span><span class="s">/usr/local/bin/cee-exporter -config /etc/cee-exporter/config.toml</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="na">Restart</span><span class="o">=</span><span class="s">on-failure</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="na">RestartSec</span><span class="o">=</span><span class="s">5s</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">30s</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="na">Environment</span><span class="o">=</span><span class="s">CEE_LOG_FORMAT=json</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="na">EnvironmentFile</span><span class="o">=</span><span class="s">-/etc/cee-exporter/env</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="na">LimitNOFILE</span><span class="o">=</span><span class="s">65536</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="na">ProtectSystem</span><span class="o">=</span><span class="s">full</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="na">PrivateTmp</span><span class="o">=</span><span class="s">true</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="na">NoNewPrivileges</span><span class="o">=</span><span class="s">true</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="k">[Install]</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+</code></pre></div>
+<p>Key choices:</p>
+<ul>
+<li><code>Type=simple</code> because Go's <code>net/http</code> goroutine model does not support <code>Type=fork</code>.</li>
+<li><code>TimeoutStopSec=30s</code> matches the 30-second graceful shutdown already coded in <code>main()</code>.</li>
+<li><code>EnvironmentFile=-/etc/cee-exporter/env</code> (the <code>-</code> prefix makes it optional).</li>
+<li><code>ProtectSystem=full</code> + <code>PrivateTmp=true</code> + <code>NoNewPrivileges=true</code> for minimal privilege surface.</li>
+</ul>
+<p><strong>No Go code changes. No new dependencies.</strong></p>
+<hr />
+<h3 id="feature-3-windows-service">Feature 3: Windows Service<a class="headerlink" href="#feature-3-windows-service" title="Permanent link">&para;</a></h3>
+<p><strong>Integration point:</strong> <code>cmd/cee-exporter/main.go</code> (modified) + new platform file.</p>
+<p><strong>Library:</strong> <code>github.com/kardianos/service</code> v1.x (verified: last published July 2025, supports Windows XP+, imported by 1,359 projects).</p>
+<p><strong>Platform architecture:</strong> The Windows service wrapping must not affect Linux builds.</p>
+<p><strong>Pattern:</strong> Split <code>main()</code> into a <code>run()</code> function containing the existing startup logic. Add a <code>serviceRunner</code> struct that satisfies <code>service.Interface</code>. The service wrapper lives in a platform-specific file pair.</p>
+<p><strong>New files:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>cmd/cee-exporter/service_notwindows.go   //go:build !windows
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>cmd/cee-exporter/service_windows.go      //go:build windows
+</code></pre></div>
+<p><code>service_notwindows.go</code> — trivial shim:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">//go:build !windows</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1">// runWithServiceManager runs the program directly (no OS service manager).</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="kd">func</span><span class="w"> </span><span class="nx">runWithServiceManager</span><span class="p">(</span><span class="nx">runFn</span><span class="w"> </span><span class="kd">func</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nx">runFn</span><span class="p">()</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>service_windows.go</code> — wraps via kardianos/service:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">//go:build windows</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="kn">import</span><span class="w"> </span><span class="s">&quot;github.com/kardianos/service&quot;</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="kd">type</span><span class="w"> </span><span class="nx">serviceRunner</span><span class="w"> </span><span class="kd">struct</span><span class="p">{</span><span class="w"> </span><span class="nx">runFn</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">serviceRunner</span><span class="p">)</span><span class="w"> </span><span class="nx">Start</span><span class="p">(</span><span class="nx">_</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">Service</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="k">go</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">runFn</span><span class="p">()</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="p">}</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">serviceRunner</span><span class="p">)</span><span class="w"> </span><span class="nx">Stop</span><span class="p">(</span><span class="nx">_</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">Service</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="kd">func</span><span class="w"> </span><span class="nx">runWithServiceManager</span><span class="p">(</span><span class="nx">runFn</span><span class="w"> </span><span class="kd">func</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">    </span><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">service</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">        </span><span class="nx">Name</span><span class="p">:</span><span class="w">        </span><span class="s">&quot;CeeExporter&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">        </span><span class="nx">DisplayName</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;CEE Exporter (PowerStore CEPA bridge)&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">        </span><span class="nx">Description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Bridges Dell PowerStore CEPA audit events to Windows Event Log / GELF / Beats / Syslog.&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">    </span><span class="nx">prg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">serviceRunner</span><span class="p">{</span><span class="nx">runFn</span><span class="p">:</span><span class="w"> </span><span class="nx">runFn</span><span class="p">}</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">    </span><span class="nx">svc</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">prg</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">)</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">svc</span><span class="p">.</span><span class="nx">Run</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="w">        </span><span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Modified file:</strong> <code>cmd/cee-exporter/main.go</code></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="nx">runWithServiceManager</span><span class="p">(</span><span class="nx">run</span><span class="p">)</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="p">}</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="kd">func</span><span class="w"> </span><span class="nx">run</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="c1">// all existing main() logic moved here verbatim</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">}</span>
+</code></pre></div>
+<p>The signal handling (<code>syscall.SIGTERM</code> / <code>SIGINT</code>) already in <code>run()</code> satisfies the <code>Stop()</code> contract on Windows because SCM sends a stop signal that is translated to SIGTERM by kardianos/service. No additional stop logic is needed.</p>
+<p><strong>Service install/uninstall:</strong> kardianos/service provides <code>svc.Install()</code> / <code>svc.Uninstall()</code>. Expose via <code>-service install|uninstall|start|stop</code> CLI flags (add to <code>main()</code> flag parsing).</p>
+<p><strong>New dependency:</strong> <code>github.com/kardianos/service</code></p>
+<p><strong>Important:</strong> CGO_ENABLED=0 is preserved. kardianos/service uses pure Go on Windows (calls <code>golang.org/x/sys/windows</code> which is already a dependency in <code>go.mod</code>).</p>
+<hr />
+<h3 id="feature-4-binaryevtxwriter-pure-go-evtx-on-linux">Feature 4: BinaryEvtxWriter (Pure Go .evtx on Linux)<a class="headerlink" href="#feature-4-binaryevtxwriter-pure-go-evtx-on-linux" title="Permanent link">&para;</a></h3>
+<p><strong>Integration point:</strong> <code>pkg/evtx/writer_evtx_stub.go</code> (replaced) + new implementation file.</p>
+<p><strong>Context:</strong> No existing Go library writes valid binary .evtx files. All public Go libraries (<code>0xrawsec/golang-evtx</code>, <code>Velocidex/evtx</code>) are read-only parsers. The BinaryEvtxWriter must be implemented from scratch using the EVTX file format specification (documented in <code>libyal/libevtx</code>).</p>
+<p><strong>Complexity:</strong> HIGH. Estimated 500–1500 LOC for a minimal compliant writer covering:</p>
+<ul>
+<li>EVTX file header (magic <code>ElfFile\0</code>, chunk count, CRC32)</li>
+<li>Chunk header (magic <code>ElfChnk\0</code>, string table, CRC32)</li>
+<li>BinXML token stream (template, fragment, element, attribute, value tokens)</li>
+<li>FILETIME encoding (100-nanosecond intervals since 1601-01-01)</li>
+<li>SID encoding for <code>SubjectUserSID</code></li>
+<li>Log rotation: new chunk when current chunk fills (65536 bytes)</li>
+</ul>
+<p><strong>Replacement strategy:</strong></p>
+<p>Replace <code>pkg/evtx/writer_evtx_stub.go</code> (build tag <code>//go:build !windows</code>) with the real implementation once complete. The stub can remain during development and be replaced file by file.</p>
+<p><strong>New files:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pkg/evtx/writer_binary_evtx.go           //go:build !windows
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>pkg/evtx/binxml/                          new sub-package
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>  chunk.go    — chunk header + CRC32
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>  header.go   — file header
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>  token.go    — BinXML token emitter
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>  sid.go      — SID binary encoding
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>  filetime.go — Windows FILETIME encoding
+</code></pre></div>
+<p><strong>Modified file:</strong> <code>pkg/evtx/writer_native_notwindows.go</code></p>
+<p>Currently delegates to <code>NewBinaryEvtxWriter(evtxPath)</code> which returns the stub. After v2, <code>NewBinaryEvtxWriter</code> returns the real implementation. No change to <code>writer_native_notwindows.go</code> itself.</p>
+<p><strong><code>OutputConfig</code> already has <code>EVTXPath</code> field.</strong> No config schema changes needed.</p>
+<p><strong>No new external dependencies.</strong> Pure stdlib: <code>encoding/binary</code>, <code>hash/crc32</code>, <code>os</code>, <code>path/filepath</code>, <code>sync</code>.</p>
+<p><strong>Testing approach:</strong> Generate a test .evtx file, parse it with <code>0xrawsec/golang-evtx</code> (as a test-only dependency) to verify round-trip correctness.</p>
+<hr />
+<h3 id="feature-5-beatswriter-lumberjack-v2">Feature 5: BeatsWriter (Lumberjack v2)<a class="headerlink" href="#feature-5-beatswriter-lumberjack-v2" title="Permanent link">&para;</a></h3>
+<p><strong>Integration point:</strong> New <code>pkg/evtx/writer_beats.go</code> (all platforms) + <code>buildWriter()</code> in <code>main.go</code>.</p>
+<p><strong>Library:</strong> <code>github.com/elastic/go-lumber/client/v2</code> (official Elastic library, verified on pkg.go.dev).</p>
+<p><strong>Client choice:</strong> <code>SyncClient</code> for simplicity (send batch → wait for ACK → proceed). <code>AsyncClient</code> is appropriate if throughput benchmarking shows the ACK round-trip is a bottleneck, but SyncClient is correct for the first implementation.</p>
+<p><strong>Data format:</strong> go-lumber sends <code>[]interface{}</code> where each element is a map. Map the <code>WindowsEvent</code> struct fields to a flat map:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">windowsEventToBeatsMap</span><span class="p">(</span><span class="nx">e</span><span class="w"> </span><span class="nx">evtx</span><span class="p">.</span><span class="nx">WindowsEvent</span><span class="p">)</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{}</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{}{</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">        </span><span class="s">&quot;@timestamp&quot;</span><span class="p">:</span><span class="w">       </span><span class="nx">e</span><span class="p">.</span><span class="nx">TimeCreated</span><span class="p">.</span><span class="nx">UTC</span><span class="p">().</span><span class="nx">Format</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">RFC3339Nano</span><span class="p">),</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">        </span><span class="s">&quot;event_id&quot;</span><span class="p">:</span><span class="w">         </span><span class="nx">e</span><span class="p">.</span><span class="nx">EventID</span><span class="p">,</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">        </span><span class="s">&quot;provider&quot;</span><span class="p">:</span><span class="w">         </span><span class="nx">e</span><span class="p">.</span><span class="nx">ProviderName</span><span class="p">,</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">        </span><span class="s">&quot;computer&quot;</span><span class="p">:</span><span class="w">         </span><span class="nx">e</span><span class="p">.</span><span class="nx">Computer</span><span class="p">,</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">        </span><span class="s">&quot;object_name&quot;</span><span class="p">:</span><span class="w">      </span><span class="nx">e</span><span class="p">.</span><span class="nx">ObjectName</span><span class="p">,</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">        </span><span class="s">&quot;account_name&quot;</span><span class="p">:</span><span class="w">     </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectUsername</span><span class="p">,</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">        </span><span class="s">&quot;account_domain&quot;</span><span class="p">:</span><span class="w">   </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectDomain</span><span class="p">,</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">        </span><span class="s">&quot;account_sid&quot;</span><span class="p">:</span><span class="w">      </span><span class="nx">e</span><span class="p">.</span><span class="nx">SubjectUserSID</span><span class="p">,</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">        </span><span class="s">&quot;client_address&quot;</span><span class="p">:</span><span class="w">   </span><span class="nx">e</span><span class="p">.</span><span class="nx">ClientAddr</span><span class="p">,</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">        </span><span class="s">&quot;access_mask&quot;</span><span class="p">:</span><span class="w">      </span><span class="nx">e</span><span class="p">.</span><span class="nx">AccessMask</span><span class="p">,</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">        </span><span class="s">&quot;cepa_event_type&quot;</span><span class="p">:</span><span class="w">  </span><span class="nx">e</span><span class="p">.</span><span class="nx">CEPAEventType</span><span class="p">,</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">        </span><span class="s">&quot;bytes_read&quot;</span><span class="p">:</span><span class="w">       </span><span class="nx">e</span><span class="p">.</span><span class="nx">BytesRead</span><span class="p">,</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">        </span><span class="s">&quot;bytes_written&quot;</span><span class="p">:</span><span class="w">    </span><span class="nx">e</span><span class="p">.</span><span class="nx">BytesWritten</span><span class="p">,</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>New file:</strong> <code>pkg/evtx/writer_beats.go</code> (no build tag — all platforms)</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">BeatsWriter</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">    </span><span class="nx">client</span><span class="w"> </span><span class="o">*</span><span class="nx">v2</span><span class="p">.</span><span class="nx">SyncClient</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nx">mu</span><span class="w">     </span><span class="nx">sync</span><span class="p">.</span><span class="nx">Mutex</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nx">addr</span><span class="w">   </span><span class="kt">string</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">}</span>
+</code></pre></div>
+<p>The writer holds a <code>SyncClient</code>, reconnects on error (same pattern as <code>GELFWriter</code>). <code>WriteEvent</code> sends a single-event batch: <code>client.Send([]interface{}{eventMap})</code>.</p>
+<p><strong>Config additions</strong> — new fields in <code>OutputConfig</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nx">BeatsHost</span><span class="w">     </span><span class="kt">string</span><span class="w"> </span><span class="s">`toml:&quot;beats_host&quot;`</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nx">BeatsPort</span><span class="w">     </span><span class="kt">int</span><span class="w">    </span><span class="s">`toml:&quot;beats_port&quot;`</span><span class="w"> </span><span class="c1">// default 5044</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nx">BeatsTLS</span><span class="w">      </span><span class="kt">bool</span><span class="w">   </span><span class="s">`toml:&quot;beats_tls&quot;`</span>
+</code></pre></div>
+<p>Output type token: <code>"beats"</code>.</p>
+<p><strong><code>buildWriter()</code> modification:</strong> Add <code>case "beats":</code> branch.</p>
+<p><strong>Config example additions:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Beats/Lumberjack v2 output (Logstash or Graylog Beats Input)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="c1"># beats_host = &quot;logstash.corp.local&quot;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1"># beats_port = 5044</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># beats_tls  = false</span>
+</code></pre></div>
+<p><strong>New dependency:</strong> <code>github.com/elastic/go-lumber</code></p>
+<hr />
+<h3 id="feature-6-syslogwriter-rfc-5424">Feature 6: SyslogWriter (RFC 5424)<a class="headerlink" href="#feature-6-syslogwriter-rfc-5424" title="Permanent link">&para;</a></h3>
+<p><strong>Integration point:</strong> New <code>pkg/evtx/writer_syslog.go</code> (all platforms) + <code>buildWriter()</code> in <code>main.go</code>.</p>
+<p><strong>Standard library consideration:</strong> Go's <code>log/syslog</code> package implements BSD syslog (RFC 3164), not RFC 5424. It also has build constraints that exclude Windows. For RFC 5424 compliance and cross-platform support, a thin wrapper is needed.</p>
+<p><strong>Approach:</strong> Implement <code>SyslogWriter</code> using the stdlib <code>log/syslog</code> package on Linux/macOS and a simple TCP/UDP connection-based RFC 5424 formatter on Windows. Use build tags to split.</p>
+<p><strong>Alternative:</strong> Use <code>github.com/crewjam/rfc5424</code> (pure Go, cross-platform, verified on pkg.go.dev) to build the RFC 5424 message, then send over a raw <code>net.Conn</code>. This avoids all platform split complexity.</p>
+<p><strong>Recommended approach:</strong> Raw <code>net.Conn</code> + <code>crewjam/rfc5424</code> message builder.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>SyslogWriter
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>  ├── net.Conn (UDP or TCP to syslog server)
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  ├── RFC 5424 message built by crewjam/rfc5424
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>  └── reconnect-on-error (same as GELFWriter)
+</code></pre></div>
+<p><strong>RFC 5424 field mapping:</strong></p>
+<table>
+<thead>
+<tr>
+<th>RFC 5424 field</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MSGID</td>
+<td><code>strconv.Itoa(e.EventID)</code></td>
+</tr>
+<tr>
+<td>HOSTNAME</td>
+<td><code>e.Computer</code></td>
+</tr>
+<tr>
+<td>APP-NAME</td>
+<td><code>e.ProviderName</code></td>
+</tr>
+<tr>
+<td>STRUCTURED-DATA <code>[cepa@0]</code></td>
+<td><code>CEPAEventType</code>, <code>ObjectName</code>, <code>SubjectUsername</code>, <code>ClientAddr</code></td>
+</tr>
+<tr>
+<td>MSG</td>
+<td><code>"EventID=&lt;n&gt; &lt;CEPAEventType&gt; on &lt;ObjectName&gt;"</code></td>
+</tr>
+<tr>
+<td>FACILITY</td>
+<td><code>LOG_AUDIT</code> (13) or <code>LOG_LOCAL0</code> (16) if audit unavailable</td>
+</tr>
+<tr>
+<td>SEVERITY</td>
+<td><code>LOG_INFO</code> (6)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>New file:</strong> <code>pkg/evtx/writer_syslog.go</code> (no build tag — all platforms)</p>
+<p><strong>Config additions:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nx">SyslogHost</span><span class="w">     </span><span class="kt">string</span><span class="w"> </span><span class="s">`toml:&quot;syslog_host&quot;`</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="nx">SyslogPort</span><span class="w">     </span><span class="kt">int</span><span class="w">    </span><span class="s">`toml:&quot;syslog_port&quot;`</span><span class="w">   </span><span class="c1">// default 514</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="nx">SyslogProtocol</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="s">`toml:&quot;syslog_protocol&quot;`</span><span class="w"> </span><span class="c1">// &quot;udp&quot; | &quot;tcp&quot;</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="nx">SyslogTLS</span><span class="w">      </span><span class="kt">bool</span><span class="w">   </span><span class="s">`toml:&quot;syslog_tls&quot;`</span>
+</code></pre></div>
+<p>Output type token: <code>"syslog"</code>.</p>
+<p><strong>New dependency:</strong> <code>github.com/crewjam/rfc5424</code></p>
+<hr />
+<h2 id="complete-v2-architecture">Complete v2 Architecture<a class="headerlink" href="#complete-v2-architecture" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>Dell PowerStore
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  CEPA HTTP PUT
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>       │
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>       ▼
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>┌──────────────────────────────────────────────────────────────────┐
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>│  pkg/server — HTTP listener (:12228, optional TLS)               │
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>│  ┌──────────────────┐   ┌────────────────────────────────────┐   │
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>│  │ Handler (PUT /)  │   │ HealthHandler (GET /health) JSON   │   │
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>│  └─────────┬────────┘   └────────────────────────────────────┘   │
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>└────────────┼─────────────────────────────────────────────────────┘
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>             │ Enqueue()
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>             ▼
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>┌──────────────────────────────────────────────────────────────────┐
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>│  pkg/queue — buffered channel + N worker goroutines              │
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>└────────────┬─────────────────────────────────────────────────────┘
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>             │ WriteEvent(ctx, WindowsEvent)
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>             ▼
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>┌──────────────────────────────────────────────────────────────────┐
+<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>│  pkg/evtx — Writer interface                                     │
+<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>│  ┌────────────┐  ┌──────────┐  ┌────────────┐  ┌─────────────┐  │
+<a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>│  │ GELFWriter │  │ Win32Writer│  │BeatsWriter │  │SyslogWriter │  │
+<a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>│  │ (all)      │  │ (windows)│  │ (all)      │  │ (all)       │  │
+<a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>│  └────────────┘  └──────────┘  └────────────┘  └─────────────┘  │
+<a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>│  ┌────────────────────────────────────────────────────────────┐  │
+<a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a>│  │  BinaryEvtxWriter  (!windows — real impl replaces stub)   │  │
+<a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a>│  └────────────────────────────────────────────────────────────┘  │
+<a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a>│  ┌────────────────────────────────────────────────────────────┐  │
+<a id="__codelineno-17-28" name="__codelineno-17-28" href="#__codelineno-17-28"></a>│  │  MultiWriter (fan-out)                                     │  │
+<a id="__codelineno-17-29" name="__codelineno-17-29" href="#__codelineno-17-29"></a>│  └────────────────────────────────────────────────────────────┘  │
+<a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a>└──────────────────────────────────────────────────────────────────┘
+<a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>             │
+<a id="__codelineno-17-32" name="__codelineno-17-32" href="#__codelineno-17-32"></a>             ▼
+<a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a>┌──────────────────────────────────────────────────────────────────┐
+<a id="__codelineno-17-34" name="__codelineno-17-34" href="#__codelineno-17-34"></a>│  pkg/metrics — atomic counters (unchanged)                       │
+<a id="__codelineno-17-35" name="__codelineno-17-35" href="#__codelineno-17-35"></a>└──────────────────────────────────────────────────────────────────┘
+<a id="__codelineno-17-36" name="__codelineno-17-36" href="#__codelineno-17-36"></a>
+<a id="__codelineno-17-37" name="__codelineno-17-37" href="#__codelineno-17-37"></a>Prometheus scraper ──► :9228/metrics
+<a id="__codelineno-17-38" name="__codelineno-17-38" href="#__codelineno-17-38"></a>                              │
+<a id="__codelineno-17-39" name="__codelineno-17-39" href="#__codelineno-17-39"></a>                    ┌─────────┴──────────────────────────────────┐
+<a id="__codelineno-17-40" name="__codelineno-17-40" href="#__codelineno-17-40"></a>                    │  pkg/prometheus — separate HTTP mux         │
+<a id="__codelineno-17-41" name="__codelineno-17-41" href="#__codelineno-17-41"></a>                    │  Reads pkg/metrics.M.Snapshot()            │
+<a id="__codelineno-17-42" name="__codelineno-17-42" href="#__codelineno-17-42"></a>                    └────────────────────────────────────────────┘
+<a id="__codelineno-17-43" name="__codelineno-17-43" href="#__codelineno-17-43"></a>
+<a id="__codelineno-17-44" name="__codelineno-17-44" href="#__codelineno-17-44"></a>[Windows only]
+<a id="__codelineno-17-45" name="__codelineno-17-45" href="#__codelineno-17-45"></a>SCM / Service Manager
+<a id="__codelineno-17-46" name="__codelineno-17-46" href="#__codelineno-17-46"></a>  Start/Stop signals
+<a id="__codelineno-17-47" name="__codelineno-17-47" href="#__codelineno-17-47"></a>       │
+<a id="__codelineno-17-48" name="__codelineno-17-48" href="#__codelineno-17-48"></a>       ▼
+<a id="__codelineno-17-49" name="__codelineno-17-49" href="#__codelineno-17-49"></a>cmd/cee-exporter/service_windows.go
+<a id="__codelineno-17-50" name="__codelineno-17-50" href="#__codelineno-17-50"></a>  kardianos/service wraps run()
+</code></pre></div>
+<hr />
+<h2 id="new-files-created-in-v2">New Files Created in v2<a class="headerlink" href="#new-files-created-in-v2" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Build Tag</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pkg/prometheus/handler.go</code></td>
+<td>none (all)</td>
+<td>Prometheus HTTP handler; reads pkg/metrics</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/writer_beats.go</code></td>
+<td>none (all)</td>
+<td>BeatsWriter implementation</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/writer_syslog.go</code></td>
+<td>none (all)</td>
+<td>SyslogWriter implementation</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/writer_binary_evtx.go</code></td>
+<td><code>!windows</code></td>
+<td>Real BinaryEvtxWriter (replaces stub)</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/binxml/chunk.go</code></td>
+<td>none (all)</td>
+<td>BinXML chunk builder</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/binxml/header.go</code></td>
+<td>none (all)</td>
+<td>EVTX file header builder</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/binxml/token.go</code></td>
+<td>none (all)</td>
+<td>BinXML token stream emitter</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/binxml/sid.go</code></td>
+<td>none (all)</td>
+<td>Windows SID binary encoder</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/binxml/filetime.go</code></td>
+<td>none (all)</td>
+<td>Windows FILETIME encoder</td>
+</tr>
+<tr>
+<td><code>cmd/cee-exporter/service_windows.go</code></td>
+<td><code>windows</code></td>
+<td>kardianos/service wrapper</td>
+</tr>
+<tr>
+<td><code>cmd/cee-exporter/service_notwindows.go</code></td>
+<td><code>!windows</code></td>
+<td>No-op service shim</td>
+</tr>
+<tr>
+<td><code>deploy/systemd/cee-exporter.service</code></td>
+<td>n/a</td>
+<td>Systemd unit file (not Go)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="existing-files-modified-in-v2">Existing Files Modified in v2<a class="headerlink" href="#existing-files-modified-in-v2" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+<th>Scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cmd/cee-exporter/main.go</code></td>
+<td>Add <code>MetricsConfig</code> struct; add <code>runWithServiceManager()</code> call; rename existing <code>main()</code> body to <code>run()</code>; add <code>-service</code> flag; extend <code>buildWriter()</code> with <code>beats</code>/<code>syslog</code> cases</td>
+<td>Moderate</td>
+</tr>
+<tr>
+<td><code>pkg/evtx/writer_evtx_stub.go</code></td>
+<td>Remove or demote to development fallback once <code>writer_binary_evtx.go</code> is complete</td>
+<td>Moderate</td>
+</tr>
+<tr>
+<td><code>config.toml.example</code></td>
+<td>Add <code>[metrics]</code>, <code>beats_*</code>, <code>syslog_*</code> fields</td>
+<td>Trivial</td>
+</tr>
+<tr>
+<td><code>go.mod</code> / <code>go.sum</code></td>
+<td>Add <code>client_golang</code>, <code>go-lumber</code>, <code>rfc5424</code>, <code>kardianos/service</code></td>
+<td>Trivial</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="build-order-dependency-driven">Build Order (Dependency-Driven)<a class="headerlink" href="#build-order-dependency-driven" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>Phase 1 — Independent: no dependency on other new components
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>  1a. Prometheus endpoint
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>      Depends on: pkg/metrics (exists), main.go (minor changes)
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>      New dep:    github.com/prometheus/client_golang
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>  1b. Systemd unit file
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>      Depends on: nothing (text file)
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>Phase 2 — Windows Service (depends on main() refactor from Phase 1 changes)
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>  2.  Windows Service
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>      Depends on: run() function extracted in Phase 1 changes to main.go
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>      New dep:    github.com/kardianos/service
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>Phase 3 — New Writers (independent of each other; both depend on Writer interface)
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>  3a. BeatsWriter
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>      Depends on: pkg/evtx.Writer (exists), OutputConfig (minor changes)
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>      New dep:    github.com/elastic/go-lumber
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a>  3b. SyslogWriter
+<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a>      Depends on: pkg/evtx.Writer (exists), OutputConfig (minor changes)
+<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a>      New dep:    github.com/crewjam/rfc5424
+<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a>
+<a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a>Phase 4 — BinaryEvtxWriter (highest complexity; independent of phases 2, 3)
+<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a>  4.  BinaryEvtxWriter
+<a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a>      Depends on: pkg/evtx.Writer (exists), pkg/evtx/binxml sub-package
+<a id="__codelineno-18-26" name="__codelineno-18-26" href="#__codelineno-18-26"></a>      New dep:    none (stdlib only)
+<a id="__codelineno-18-27" name="__codelineno-18-27" href="#__codelineno-18-27"></a>      Test dep:   github.com/0xrawsec/golang-evtx (test-only, verify round-trip)
+</code></pre></div>
+<p><strong>Recommended build sequence:</strong> 1b → 1a → 3a → 3b → 2 → 4</p>
+<p>Rationale: Systemd first (zero risk). Prometheus second (validates metrics are correct before adding more writers). Beats and Syslog next (parallel development possible; same Writer interface). Windows Service after Prometheus because it requires the <code>run()</code> extraction refactor. BinaryEvtxWriter last because it is the highest complexity and can be developed independently without blocking any other feature.</p>
+<hr />
+<h2 id="data-flow-changes">Data Flow Changes<a class="headerlink" href="#data-flow-changes" title="Permanent link">&para;</a></h2>
+<h3 id="prometheus-data-flow">Prometheus Data Flow<a class="headerlink" href="#prometheus-data-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>[Prometheus scraper GET :9228/metrics]
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>  ↓
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>pkg/prometheus.handler.Collect()
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>  → metrics.M.Snapshot()   // single atomic read, no lock
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>  → prometheus.Desc values populated
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>  ↓
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>promhttp.HandlerFor(reg) serialises to text/plain
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>  ↓
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>HTTP 200 response
+</code></pre></div>
+<p>No event pipeline touched. Zero latency impact on CEPA path.</p>
+<h3 id="beatswriter-data-flow">BeatsWriter Data Flow<a class="headerlink" href="#beatswriter-data-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>pkg/queue worker
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>  → WriteEvent(ctx, WindowsEvent)
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>  → BeatsWriter.WriteEvent()
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    → windowsEventToBeatsMap(e)   // struct → map[string]interface{}
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    → SyncClient.Send([]interface{}{m})
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    → wait for Lumberjack ACK
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    → return nil or error
+</code></pre></div>
+<p>The SyncClient.Send() blocks until server ACK. This is acceptable because the queue worker pool decouples this from the CEPA HTTP handler. If ACK latency becomes an issue, switch to AsyncClient in a later iteration.</p>
+<h3 id="syslogwriter-data-flow">SyslogWriter Data Flow<a class="headerlink" href="#syslogwriter-data-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>pkg/queue worker
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>  → WriteEvent(ctx, WindowsEvent)
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>  → SyslogWriter.WriteEvent()
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    → rfc5424.Message{...}.String()   // format RFC 5424 message
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    → conn.Write(msg)
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    → reconnect on error (UDP: best-effort, no error; TCP: reconnect)
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    → return nil or error
+</code></pre></div>
+<h3 id="binaryevtxwriter-data-flow">BinaryEvtxWriter Data Flow<a class="headerlink" href="#binaryevtxwriter-data-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>pkg/queue worker
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>  → WriteEvent(ctx, WindowsEvent)
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>  → BinaryEvtxWriter.WriteEvent()
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    → binxml.NewFragment(e)   // BinXML token stream
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    → chunk.Append(fragment)  // accumulate in current chunk
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>    → if chunk full: flush chunk to file, open new chunk
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    → return nil or error
+</code></pre></div>
+<p>File rotation: one <code>.evtx</code> file per run (opened at <code>NewBinaryEvtxWriter</code> time), chunks accumulated in memory until full then flushed. On <code>Close()</code>, write final partial chunk and update file header chunk count and CRC32.</p>
+<hr />
+<h2 id="platform-specific-file-naming-rules">Platform-Specific File Naming Rules<a class="headerlink" href="#platform-specific-file-naming-rules" title="Permanent link">&para;</a></h2>
+<p>Following the rule established in v1 (<code>IMPORTANT: DO NOT use _linux suffix</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Platform scope</th>
+<th>File suffix</th>
+<th>Build tag</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows only</td>
+<td><code>_windows.go</code></td>
+<td><code>//go:build windows</code></td>
+</tr>
+<tr>
+<td>Non-Windows</td>
+<td><code>_notwindows.go</code></td>
+<td><code>//go:build !windows</code></td>
+</tr>
+<tr>
+<td>All platforms</td>
+<td>(no suffix)</td>
+<td>none required</td>
+</tr>
+</tbody>
+</table>
+<p>New files for v2 follow this convention:</p>
+<ul>
+<li><code>service_windows.go</code> / <code>service_notwindows.go</code> — correct</li>
+<li><code>writer_binary_evtx.go</code> with <code>//go:build !windows</code> — correct (replaces <code>writer_evtx_stub.go</code> which also uses <code>!windows</code>)</li>
+<li>All other new writers and pkg/prometheus — no suffix needed</li>
+</ul>
+<hr />
+<h2 id="config-schema-additions-v2">Config Schema Additions (v2)<a class="headerlink" href="#config-schema-additions-v2" title="Permanent link">&para;</a></h2>
+<p>New sections/fields in <code>config.toml</code> and <code>Config</code> struct:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">[metrics]</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="n">enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="n">addr</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:9228&quot;</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="k">[output]</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="c1"># existing fields unchanged, add:</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="n">beats_host</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;logstash.corp.local&quot;</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="n">beats_port</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">5044</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="n">beats_tls</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="n">syslog_host</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;syslog.corp.local&quot;</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="n">syslog_port</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">514</span>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="n">syslog_protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;udp&quot;</span><span class="w">   </span><span class="c1"># or &quot;tcp&quot;</span>
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="n">syslog_tls</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+</code></pre></div>
+<p><code>type</code> field new valid values: <code>"beats"</code>, <code>"syslog"</code> (adds to existing <code>"gelf"</code>, <code>"evtx"</code>, <code>"multi"</code>).</p>
+<p><code>HealthConfig.WriterType</code> string in <code>pkg/server/health.go</code> should be extended to accept new type names — this is purely a display concern, no logic change.</p>
+<hr />
+<h2 id="scalability-considerations">Scalability Considerations<a class="headerlink" href="#scalability-considerations" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Scale</th>
+<th>Architecture</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Current (1 PowerStore NAS)</td>
+<td>Single instance, 4 workers, 100k queue</td>
+<td>Sufficient</td>
+</tr>
+<tr>
+<td>5-10 NAS nodes</td>
+<td>Same binary, increase <code>workers</code></td>
+<td>Queue depth metric via Prometheus tells when</td>
+</tr>
+<tr>
+<td>10+ NAS nodes</td>
+<td>Run one instance per NAS or use MultiWriter</td>
+<td>Prometheus scrape identifies bottleneck writer</td>
+</tr>
+</tbody>
+</table>
+<p>The async queue architecture means throughput is bounded by the slowest writer. With <code>MultiWriter</code>, all backends receive every event; the slowest one determines effective throughput. Prometheus <code>/metrics</code> exposes <code>cee_queue_depth</code> which is the primary scaling signal.</p>
+<hr />
+<h2 id="anti-patterns">Anti-Patterns<a class="headerlink" href="#anti-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="anti-pattern-1-adding-metrics-to-the-cepa-mux">Anti-Pattern 1: Adding /metrics to the CEPA mux<a class="headerlink" href="#anti-pattern-1-adding-metrics-to-the-cepa-mux" title="Permanent link">&para;</a></h3>
+<p><strong>What people do:</strong> Register <code>promhttp.Handler()</code> on the existing CEPA HTTP mux at <code>"/metrics"</code>.</p>
+<p><strong>Why it's wrong:</strong> The CEPA mux may be TLS-only (forcing Prometheus scraper to handle certs). More importantly, the CEPA handler logs every request — Prometheus scrapes every 15s would pollute CEPA logs. The <code>RegisterRequest</code> path check (<code>parser.IsRegisterRequest</code>) runs on every PUT; accidental GET to <code>/</code> returns 405 with a CEPA-format error.</p>
+<p><strong>Do this instead:</strong> Separate goroutine, separate <code>http.ServeMux</code>, separate port (9228). Two servers, zero conflicts.</p>
+<h3 id="anti-pattern-2-blocking-writeevent-in-beatswriter-with-unbounded-retry">Anti-Pattern 2: Blocking WriteEvent in BeatsWriter with unbounded retry<a class="headerlink" href="#anti-pattern-2-blocking-writeevent-in-beatswriter-with-unbounded-retry" title="Permanent link">&para;</a></h3>
+<p><strong>What people do:</strong> Retry failed <code>Send()</code> calls in a loop inside <code>WriteEvent()</code>.</p>
+<p><strong>Why it's wrong:</strong> A blocked worker goroutine stops draining the queue. With 4 workers, a Logstash outage causes the queue to fill in seconds and events get dropped.</p>
+<p><strong>Do this instead:</strong> One reconnect attempt (same as GELFWriter). If reconnect fails, return the error. The <code>pkg/queue</code> worker logs the error and increments <code>WriterErrorsTotal</code>. The Prometheus counter surfaces this to alerting.</p>
+<h3 id="anti-pattern-3-sharing-kardianosservice-stop-with-cepa-signal-handling">Anti-Pattern 3: Sharing kardianos/service Stop() with CEPA signal handling<a class="headerlink" href="#anti-pattern-3-sharing-kardianosservice-stop-with-cepa-signal-handling" title="Permanent link">&para;</a></h3>
+<p><strong>What people do:</strong> Call <code>os.Exit()</code> inside <code>Stop()</code>.</p>
+<p><strong>Why it's wrong:</strong> kardianos/service documentation explicitly says Stop must not call <code>os.Exit()</code>. Doing so bypasses queue drain and writer Close.</p>
+<p><strong>Do this instead:</strong> In <code>Stop()</code>, send a signal to the existing <code>sig</code> channel (or cancel the context). The existing shutdown path in <code>run()</code> handles draining and close.</p>
+<h3 id="anti-pattern-4-binaryevtxwriter-without-chunk-crc32">Anti-Pattern 4: BinaryEvtxWriter without chunk CRC32<a class="headerlink" href="#anti-pattern-4-binaryevtxwriter-without-chunk-crc32" title="Permanent link">&para;</a></h3>
+<p><strong>What people do:</strong> Write BinXML content without computing the chunk CRC32 at finalisation.</p>
+<p><strong>Why it's wrong:</strong> Windows Event Viewer and all parsers (including <code>0xrawsec/golang-evtx</code>) validate chunk CRC32. A missing or wrong CRC causes the file to be rejected as corrupt.</p>
+<p><strong>Do this instead:</strong> Accumulate the chunk bytes in a buffer, compute CRC32 over bytes 8–127 (with the CRC field zeroed) using CRC32 polynomial 0xEDB88320, write the CRC back at offset 120.</p>
+<hr />
+<h2 id="integration-points-summary">Integration Points Summary<a class="headerlink" href="#integration-points-summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>New Files</th>
+<th>Modified Files</th>
+<th>New Dependencies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prometheus /metrics</td>
+<td><code>pkg/prometheus/handler.go</code></td>
+<td><code>main.go</code>, <code>config.toml.example</code>, <code>go.mod</code></td>
+<td><code>github.com/prometheus/client_golang</code></td>
+</tr>
+<tr>
+<td>Systemd unit</td>
+<td><code>deploy/systemd/cee-exporter.service</code></td>
+<td>none</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td><code>cmd/cee-exporter/service_windows.go</code>, <code>service_notwindows.go</code></td>
+<td><code>main.go</code>, <code>go.mod</code></td>
+<td><code>github.com/kardianos/service</code></td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td><code>pkg/evtx/writer_binary_evtx.go</code>, <code>pkg/evtx/binxml/*.go</code></td>
+<td><code>writer_evtx_stub.go</code> (replaced), <code>go.mod</code></td>
+<td>none (stdlib only)</td>
+</tr>
+<tr>
+<td>BeatsWriter</td>
+<td><code>pkg/evtx/writer_beats.go</code></td>
+<td><code>main.go</code> (<code>buildWriter</code>), <code>config.toml.example</code>, <code>go.mod</code></td>
+<td><code>github.com/elastic/go-lumber</code></td>
+</tr>
+<tr>
+<td>SyslogWriter</td>
+<td><code>pkg/evtx/writer_syslog.go</code></td>
+<td><code>main.go</code> (<code>buildWriter</code>), <code>config.toml.example</code>, <code>go.mod</code></td>
+<td><code>github.com/crewjam/rfc5424</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://pkg.go.dev/github.com/kardianos/service">kardianos/service pkg.go.dev</a> — Interface, Start/Stop signatures, Run() lifecycle (HIGH confidence, official)</li>
+<li><a href="https://pkg.go.dev/github.com/elastic/go-lumber/client/v2">elastic/go-lumber client/v2 pkg.go.dev</a> — SyncClient.Send(), AsyncClient API (HIGH confidence, official)</li>
+<li><a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus">prometheus/client_golang pkg.go.dev</a> — NewRegistry(), CounterVec, GaugeVec (HIGH confidence, official)</li>
+<li><a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus/promhttp">promhttp pkg.go.dev</a> — HandlerFor(), Handler() (HIGH confidence, official)</li>
+<li><a href="https://pkg.go.dev/github.com/crewjam/rfc5424">crewjam/rfc5424 pkg.go.dev</a> — RFC 5424 message writer (MEDIUM confidence, verified pkg.go.dev)</li>
+<li><a href="https://github.com/0xrawsec/golang-evtx">0xrawsec/golang-evtx GitHub</a> — Confirmed read-only parser; no write capability (HIGH confidence, source code reviewed)</li>
+<li><a href="https://github.com/libyal/libevtx/blob/main/documentation/Windows%20XML%20Event%20Log%20(EVTX).asciidoc">libyal/libevtx EVTX format spec</a> — BinXML binary format documentation (HIGH confidence, authoritative spec)</li>
+<li>Existing codebase read directly: <code>main.go</code>, <code>writer.go</code>, <code>writer_gelf.go</code>, <code>writer_windows.go</code>, <code>writer_multi.go</code>, <code>writer_evtx_stub.go</code>, <code>metrics.go</code>, <code>server.go</code>, <code>health.go</code>, <code>queue.go</code></li>
+</ul>
+<hr />
+<p><em>Architecture research for: cee-exporter v2 feature integration</em>
+<em>Researched: 2026-03-03</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.sections", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

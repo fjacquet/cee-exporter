@@ -1,0 +1,1128 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Dell PowerStore CEPA audit events → Windows EventLog / GELF">
+      
+      
+      
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/research/technology-stack/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Technology Stack - cee-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#technology-stack" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="cee-exporter" class="md-header__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cee-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Technology Stack
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="cee-exporter" class="md-nav__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cee-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operator-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operator Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Requirements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-language-go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Language (Go)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-gelf-primary-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 GELF Primary Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-async-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 Async Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-binary-evtx-deferred/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Binary EVTX Deferred
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-cgo-disabled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 CGO Disabled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-prometheus-separate-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Prometheus Port
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-windows-svc-x-sys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 Windows Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-rfc5424-crewjam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 RFC5424 Syslog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-binary-evtx-scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 BinaryEvtx Scratch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../v2-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2 Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h1>
+<p><strong>Project:</strong> cee-exporter v2.0
+<strong>Researched:</strong> 2026-03-03
+<strong>Milestone:</strong> v2.0 — Operations &amp; Output Expansion (6 new capabilities)
+<strong>Constraint:</strong> CGO_ENABLED=0 (fully static binary, cross-compile from Linux)</p>
+<hr />
+<h2 id="existing-stack-v10-do-not-re-research">Existing Stack (v1.0 — DO NOT re-research)<a class="headerlink" href="#existing-stack-v10-do-not-re-research" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Technology</th>
+<th>Version</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Go</td>
+<td>1.24.0</td>
+<td>Runtime</td>
+</tr>
+<tr>
+<td><code>net/http</code></td>
+<td>stdlib</td>
+<td>CEPA HTTP listener, TLS</td>
+</tr>
+<tr>
+<td><code>encoding/xml</code></td>
+<td>stdlib</td>
+<td>CEPA XML parsing</td>
+</tr>
+<tr>
+<td><code>log/slog</code></td>
+<td>stdlib</td>
+<td>Structured logging</td>
+</tr>
+<tr>
+<td><code>github.com/BurntSushi/toml</code></td>
+<td>v1.6.0</td>
+<td>Config file parsing</td>
+</tr>
+<tr>
+<td><code>golang.org/x/sys</code></td>
+<td>v0.31.0</td>
+<td>Win32 EventLog API</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="recommended-stack-for-v20-new-features">Recommended Stack for v2.0 New Features<a class="headerlink" href="#recommended-stack-for-v20-new-features" title="Permanent link">&para;</a></h2>
+<h3 id="feature-1-prometheus-metrics-endpoint">Feature 1: Prometheus /metrics Endpoint<a class="headerlink" href="#feature-1-prometheus-metrics-endpoint" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Technology</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/prometheus/client_golang/prometheus</code></td>
+<td>v1.23.2</td>
+<td>Counter/gauge registration</td>
+<td>Industry standard; only Go Prometheus library with official backing</td>
+</tr>
+<tr>
+<td><code>github.com/prometheus/client_golang/prometheus/promhttp</code></td>
+<td>v1.23.2 (same module)</td>
+<td>HTTP handler for <code>/metrics</code></td>
+<td>Produces correct OpenMetrics/text exposition format</td>
+</tr>
+</tbody>
+</table>
+<p><strong>CGO compatibility:</strong> Confirmed pure Go. No CGO dependencies anywhere in the dependency graph (prometheus/common v0.66.1+ dropped <code>go.uber.org/atomic</code> and <code>grafana/regexp</code>). Compatible with <code>CGO_ENABLED=0</code>.</p>
+<p><strong>Integration with existing code:</strong> <code>pkg/metrics/metrics.go</code> already maintains atomic counters (<code>EventsReceivedTotal</code>, <code>EventsDroppedTotal</code>, <code>queueDepth</code>). The v2 implementation wraps those atomics in <code>prometheus.NewCounterFunc</code> / <code>prometheus.NewGaugeFunc</code> callbacks, or registers them as <code>prometheus.Counter</code> / <code>prometheus.Gauge</code> directly. No rewrite of the <code>metrics.Store</code> is needed; the existing atomic values are the source of truth. The <code>/metrics</code> route is registered on the existing <code>net/http</code> server mux — no second port required unless isolation is desired.</p>
+<p><strong>Packages to import:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="s">&quot;github.com/prometheus/client_golang/prometheus&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="s">&quot;github.com/prometheus/client_golang/prometheus/promauto&quot;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="s">&quot;github.com/prometheus/client_golang/prometheus/promhttp&quot;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+</code></pre></div>
+<p><strong>What NOT to do:</strong> Do not register on the default <code>prometheus.DefaultRegisterer</code> if the binary is embedded; use a custom registry for testability. Do not add the full <code>prometheus/prometheus</code> server module — only <code>client_golang</code> is needed.</p>
+<hr />
+<h3 id="feature-2-systemd-unit-file-linux-service-deployment">Feature 2: Systemd Unit File (Linux Service Deployment)<a class="headerlink" href="#feature-2-systemd-unit-file-linux-service-deployment" title="Permanent link">&para;</a></h3>
+<p><strong>No library required.</strong> A systemd unit file is a static text file shipped alongside the binary; it is not generated at runtime.</p>
+<p><strong>Decision:</strong> Ship a hardened unit file as <code>packaging/linux/cee-exporter.service</code>. Install instructions go in the README / <code>make install</code> target.</p>
+<p><strong>Recommended unit file template:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[Unit]</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="na">Description</span><span class="o">=</span><span class="s">Dell CEPA / CEE to EVTX/GELF exporter</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="na">Documentation</span><span class="o">=</span><span class="s">https://github.com/fjacquet/cee-exporter</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="na">After</span><span class="o">=</span><span class="s">network.target</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="na">Wants</span><span class="o">=</span><span class="s">network.target</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">[Service]</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="na">Type</span><span class="o">=</span><span class="s">simple</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="na">User</span><span class="o">=</span><span class="s">cee-exporter</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="na">Group</span><span class="o">=</span><span class="s">cee-exporter</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="na">WorkingDirectory</span><span class="o">=</span><span class="s">/etc/cee-exporter</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="na">ExecStart</span><span class="o">=</span><span class="s">/usr/local/bin/cee-exporter -config /etc/cee-exporter/config.toml</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="na">Restart</span><span class="o">=</span><span class="s">on-failure</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="na">RestartSec</span><span class="o">=</span><span class="s">5s</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="c1"># Hardening</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="na">NoNewPrivileges</span><span class="o">=</span><span class="s">true</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="na">PrivateTmp</span><span class="o">=</span><span class="s">true</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="na">ProtectSystem</span><span class="o">=</span><span class="s">strict</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="na">ReadWritePaths</span><span class="o">=</span><span class="s">/var/log/cee-exporter</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="k">[Install]</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+</code></pre></div>
+<p><strong>Key decisions:</strong></p>
+<ul>
+<li><code>Type=simple</code> is correct for Go daemons (no fork). Use <code>Type=notify</code> only if systemd sd_notify integration is added (not needed for v2).</li>
+<li><code>Restart=on-failure</code> preferred over <code>Restart=always</code> — prevents restart loops on config errors.</li>
+<li><code>NoNewPrivileges</code>, <code>PrivateTmp</code>, <code>ProtectSystem=strict</code> are baseline hardening with zero code cost.</li>
+</ul>
+<p><strong>Optional sd_notify integration:</strong> <code>github.com/coreos/go-systemd/daemon</code> can send the <code>READY=1</code> notification to enable <code>Type=notify</code>. This is a LOW priority enhancement for v2; omit unless systemd-managed startup ordering is required.</p>
+<hr />
+<h3 id="feature-3-windows-native-service-registration">Feature 3: Windows Native Service Registration<a class="headerlink" href="#feature-3-windows-native-service-registration" title="Permanent link">&para;</a></h3>
+<p><strong>No new external library required.</strong> <code>golang.org/x/sys</code> is already a v1 dependency (v0.31.0). The <code>windows/svc</code> and <code>windows/svc/mgr</code> subpackages ship inside it.</p>
+<table>
+<thead>
+<tr>
+<th>Technology</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>golang.org/x/sys/windows/svc</code></td>
+<td>already in go.mod (update to v0.31.0+)</td>
+<td>Implement <code>svc.Handler</code> interface — run as service</td>
+<td>Official Go Windows service API; no CGO; builds with <code>CGO_ENABLED=0</code></td>
+</tr>
+<tr>
+<td><code>golang.org/x/sys/windows/svc/mgr</code></td>
+<td>same module</td>
+<td><code>mgr.CreateService</code> / <code>Delete</code> — install/uninstall</td>
+<td>Same module; provides <code>Mgr.CreateService(name, exepath, config)</code></td>
+</tr>
+<tr>
+<td><code>golang.org/x/sys/windows/svc/eventlog</code></td>
+<td>same module</td>
+<td>Register event source, write service events to Windows EventLog</td>
+<td>Already used by v1 Win32 writer path</td>
+</tr>
+</tbody>
+</table>
+<p><strong>CGO compatibility:</strong> Confirmed. <code>golang.org/x/sys/windows</code> uses Go's <code>syscall</code> and <code>unsafe</code> packages only. Builds without CGO. Windows cross-compile from Linux is supported (<code>GOOS=windows GOARCH=amd64 CGO_ENABLED=0</code>).</p>
+<p><strong>Integration pattern:</strong> Add <code>-install</code> and <code>-uninstall</code> flags to <code>cmd/cee-exporter/main.go</code>. When running under the SCM, the <code>main</code> function delegates to <code>svc.Run(serviceName, &amp;handler{})</code>. Build tag <code>//go:build windows</code> on the service-specific file to avoid Linux compilation issues.</p>
+<p><strong>What NOT to do:</strong> Do not use NSSM (external executable dependency), WiX installer, or PowerShell wrapper scripts. The <code>x/sys/windows/svc/mgr</code> API does everything needed from pure Go.</p>
+<hr />
+<h3 id="feature-4-binaryevtxwriter-pure-go-evtx-on-linux">Feature 4: BinaryEvtxWriter — Pure-Go EVTX on Linux<a class="headerlink" href="#feature-4-binaryevtxwriter-pure-go-evtx-on-linux" title="Permanent link">&para;</a></h3>
+<p><strong>Verdict: No adequate library exists. This is a custom implementation milestone.</strong></p>
+<p>Research findings:</p>
+<ul>
+<li><code>github.com/0xrawsec/golang-evtx</code> — parser only, no write capability confirmed</li>
+<li><code>www.velocidex.com/golang/evtx</code> — parser only</li>
+<li><code>github.com/Velocidex/evtx</code> — parser only</li>
+<li>No pure-Go EVTX writer library exists in the Go ecosystem as of 2026-03</li>
+</ul>
+<p><strong>Why it is hard:</strong> The BinXML binary format requires: chunk headers with CRC32 checksums, fragment/template token encoding, attribute value type tables, string tables, and offset-relative binary structure — estimated 500–1,500 lines of carefully tested Go. The format specification is documented in <code>libyal/libevtx</code> (ASCIIDOC format) and Microsoft's MS-EVEN6 specification.</p>
+<p><strong>Decision:</strong> Implement from scratch in <code>pkg/evtx/writer_binary_evtx.go</code> with build tag <code>//go:build !windows</code>. The implementation:</p>
+<ol>
+<li>Writes a valid EVTX file header (magic bytes <code>ElfFile\x00</code>, chunk count, etc.)</li>
+<li>Writes one chunk per flush or per N events</li>
+<li>Encodes each <code>WindowsEvent</code> struct as a BinXML fragment with a fixed schema (System + EventData elements matching Windows Security event layout)</li>
+<li>Computes CRC32 checksums for each chunk</li>
+</ol>
+<p><strong>Libraries needed for the implementation (all stdlib):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>encoding/binary</code></td>
+<td>Little-endian binary struct serialization</td>
+</tr>
+<tr>
+<td><code>hash/crc32</code></td>
+<td>Chunk checksum calculation (CRC32 with ANSI poly)</td>
+</tr>
+<tr>
+<td><code>bytes</code></td>
+<td>In-memory buffer for chunk assembly before flush</td>
+</tr>
+<tr>
+<td><code>os</code> / <code>io</code></td>
+<td>File write handle</td>
+</tr>
+<tr>
+<td><code>unicode/utf16</code></td>
+<td>BinXML stores strings as UTF-16LE</td>
+</tr>
+</tbody>
+</table>
+<p><strong>No external dependencies required.</strong> The BinaryEvtxWriter must implement the existing <code>evtx.Writer</code> interface (<code>WriteEvent(ctx, WindowsEvent) error</code> + <code>Close() error</code>).</p>
+<p><strong>Risk flag:</strong> This is the highest-complexity feature in v2.0. Recommend writing a dedicated test fixture that opens the generated file with <code>golang-evtx</code> parser to validate correctness. Budget 3-5x more time than a typical writer.</p>
+<hr />
+<h3 id="feature-5-beatswriter-lumberjack-v2-protocol">Feature 5: BeatsWriter — Lumberjack v2 Protocol<a class="headerlink" href="#feature-5-beatswriter-lumberjack-v2-protocol" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Technology</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/elastic/go-lumber</code></td>
+<td>v0.1.1</td>
+<td>Lumberjack v2 client — send events to Logstash/Graylog Beats Input</td>
+<td>Official Elastic library; only production-grade Go Beats protocol client</td>
+</tr>
+</tbody>
+</table>
+<p><strong>CGO compatibility:</strong> Pure Go. Uses only stdlib packages (<code>net</code>, <code>crypto/tls</code>, <code>encoding/json</code>, <code>compress/zlib</code>). Confirmed compatible with <code>CGO_ENABLED=0</code>.</p>
+<p><strong>Maintenance status:</strong> Last released January 2021. Stable but not actively developed. The Lumberjack v2 protocol is frozen (Elastic has not changed the wire format since Beats 6.x), so library staleness does not indicate risk. The repository has 56 stars / 38 forks and CI passes. MEDIUM confidence.</p>
+<p><strong>Client package path:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="nx">lumberjack</span><span class="w"> </span><span class="s">&quot;github.com/elastic/go-lumber/client/v2&quot;</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">)</span>
+</code></pre></div>
+<p><strong>Integration pattern:</strong> <code>BeatsWriter</code> in <code>pkg/evtx/writer_beats.go</code> implements <code>evtx.Writer</code>. <code>WriteEvent</code> converts <code>WindowsEvent</code> to a <code>map[string]interface{}</code> (the field format Logstash/Graylog expects), then calls <code>client.Send([]interface{}{event})</code>. Use <code>lumberjack.SyncClient</code> for simplicity (async is not needed since the queue in <code>pkg/queue</code> already decouples ingestion from writing).</p>
+<p><strong>TLS support:</strong> <code>go-lumber</code> accepts a <code>*tls.Config</code> in its dial options. The existing TLS configuration in <code>config.toml</code> can be reused.</p>
+<p><strong>Alternative considered:</strong> Implementing the Lumberjack v2 wire protocol from scratch using <code>encoding/binary</code> + <code>compress/zlib</code>. Rejected because <code>elastic/go-lumber</code> already exists, is correct, and handles acknowledgement/windowing correctly. Hand-rolling the protocol would reproduce Elastic's work without benefit.</p>
+<hr />
+<h3 id="feature-6-syslogwriter-rfc-5424-over-udptcp">Feature 6: SyslogWriter — RFC 5424 over UDP/TCP<a class="headerlink" href="#feature-6-syslogwriter-rfc-5424-over-udptcp" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Technology</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/crewjam/rfc5424</code></td>
+<td>v0.1.0</td>
+<td>RFC 5424 message construction and serialization</td>
+<td>Minimal, pure Go, correct RFC 5424 formatter; writes to any <code>io.Writer</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>CGO compatibility:</strong> Pure Go, stdlib only. Confirmed compatible with <code>CGO_ENABLED=0</code>.</p>
+<p><strong>Design decision — transport handled by stdlib <code>net.Dial</code>:</strong> <code>crewjam/rfc5424</code> produces correctly formatted RFC 5424 byte payloads and writes them to any <code>io.Writer</code>. The transport (UDP socket or TCP connection) is provided by <code>net.Conn</code> from the Go stdlib. This keeps the dependency minimal.</p>
+<p><strong>Why NOT <code>log/syslog</code> stdlib:</strong> The standard library's <code>log/syslog</code> package:</p>
+<ol>
+<li>Does not compile on Windows (build constraint <code>//go:build !windows</code> is embedded). Since cee-exporter must cross-compile to Windows, importing <code>log/syslog</code> breaks the build.</li>
+<li>Produces RFC 3164-style messages, not RFC 5424. RFC 5424 structured data (SD-Elements) cannot be expressed with it.</li>
+</ol>
+<p><strong>Why NOT <code>nathanaelle/syslog5424</code>:</strong> Explicitly refuses UDP (by design — library author opposes UDP for audit logs). cee-exporter must support UDP for compatibility with legacy syslog daemons (rsyslog, syslog-ng over UDP). Rejected.</p>
+<p><strong>Why NOT <code>juju/rfc/rfc5424</code>:</strong> Heavy dependency (pulls in full juju infrastructure). Overkill for a writer.</p>
+<p><strong>Integration pattern:</strong> <code>SyslogWriter</code> in <code>pkg/evtx/writer_syslog.go</code>. No build tags needed — <code>crewjam/rfc5424</code> and <code>net.Dial</code> compile on all platforms. The writer holds a <code>net.Conn</code> (UDP or TCP depending on config), constructs an <code>rfc5424.Message</code> per event, and calls <code>msg.WriteTo(conn)</code>.</p>
+<p><strong>Config additions needed:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[syslog]</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;192.168.1.1:514&quot;</span><span class="w">   </span><span class="c1"># host:port</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">network</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;udp&quot;</span><span class="w">               </span><span class="c1"># &quot;udp&quot; or &quot;tcp&quot;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">app_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cee-exporter&quot;</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">hostname</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w">                  </span><span class="c1"># empty = os.Hostname()</span>
+</code></pre></div>
+<hr />
+<h2 id="dependency-summary-what-changes-in-gomod">Dependency Summary — What Changes in go.mod<a class="headerlink" href="#dependency-summary-what-changes-in-gomod" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a># ADD (new for v2.0)
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>github.com/prometheus/client_golang v1.23.2
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>github.com/elastic/go-lumber v0.1.1
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>github.com/crewjam/rfc5424 v0.1.0
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a># ALREADY PRESENT (no change needed, just use more subpackages)
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>golang.org/x/sys   # windows/svc, windows/svc/mgr already included
+</code></pre></div>
+<p><strong>Features requiring ZERO new external dependencies:</strong></p>
+<ul>
+<li>Systemd unit file — static text artifact</li>
+<li>BinaryEvtxWriter — stdlib only (<code>encoding/binary</code>, <code>hash/crc32</code>, <code>unicode/utf16</code>)</li>
+</ul>
+<hr />
+<h2 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Recommended</th>
+<th>Alternative</th>
+<th>Why Not</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prometheus</td>
+<td><code>prometheus/client_golang</code> v1.23.2</td>
+<td>VictoriaMetrics metrics, custom text-format writer</td>
+<td><code>client_golang</code> is the only officially supported Go Prometheus library; alternatives lack tooling integration</td>
+</tr>
+<tr>
+<td>Windows service</td>
+<td><code>golang.org/x/sys/windows/svc</code></td>
+<td>NSSM, WiX installer, kardianos/service</td>
+<td><code>x/sys</code> already in go.mod; pure Go; no external tools; kardianos/service is a wrapper around <code>x/sys</code> with no benefit for this use case</td>
+</tr>
+<tr>
+<td>Beats protocol</td>
+<td><code>elastic/go-lumber</code></td>
+<td>Custom Lumberjack v2 implementation</td>
+<td>Elastic's library handles ACKs, windowing, gzip, TLS correctly; no benefit to reimplementing</td>
+</tr>
+<tr>
+<td>Syslog RFC 5424</td>
+<td><code>crewjam/rfc5424</code> + stdlib <code>net</code></td>
+<td><code>nathanaelle/syslog5424</code>, <code>juju/rfc/rfc5424</code>, <code>log/syslog</code> stdlib</td>
+<td><code>crewjam/rfc5424</code>: minimal, correct, cross-platform. Others: UDP exclusion, heavy deps, or Windows build failure</td>
+</tr>
+<tr>
+<td>EVTX writer</td>
+<td>Custom from scratch</td>
+<td><code>0xrawsec/golang-evtx</code>, <code>Velocidex/evtx</code></td>
+<td>No Go EVTX writer exists; all libraries are parse-only; must implement from format specification</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Add new dependencies</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>go<span class="w"> </span>get<span class="w"> </span>github.com/prometheus/client_golang@v1.23.2
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>go<span class="w"> </span>get<span class="w"> </span>github.com/elastic/go-lumber@v0.1.1
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>go<span class="w"> </span>get<span class="w"> </span>github.com/crewjam/rfc5424@v0.1.0
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>go<span class="w"> </span>mod<span class="w"> </span>tidy
+</code></pre></div>
+<hr />
+<h2 id="confidence-assessment">Confidence Assessment<a class="headerlink" href="#confidence-assessment" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Library</th>
+<th>Confidence</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prometheus /metrics</td>
+<td><code>prometheus/client_golang</code> v1.23.2</td>
+<td>HIGH</td>
+<td>Latest version confirmed via GitHub releases page (2025-09-05); pure Go confirmed by promhttp documentation</td>
+</tr>
+<tr>
+<td>Systemd unit file</td>
+<td>No library</td>
+<td>HIGH</td>
+<td>Static file; no library risk</td>
+</tr>
+<tr>
+<td>Windows service</td>
+<td><code>golang.org/x/sys/windows/svc</code></td>
+<td>HIGH</td>
+<td>Already in go.mod; official Go extended stdlib; CGO_ENABLED=0 confirmed in issue reports</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>Custom (stdlib only)</td>
+<td>MEDIUM</td>
+<td>No writer library exists — confirmed by exhaustive search; complexity estimate based on format spec review</td>
+</tr>
+<tr>
+<td>BeatsWriter</td>
+<td><code>elastic/go-lumber</code> v0.1.1</td>
+<td>MEDIUM</td>
+<td>Only suitable library; stable but unmaintained since 2021; protocol is frozen</td>
+</tr>
+<tr>
+<td>SyslogWriter</td>
+<td><code>crewjam/rfc5424</code> + stdlib</td>
+<td>MEDIUM</td>
+<td>Library is minimal and correct; last released 2020 but RFC 5424 format is stable</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/prometheus/client_golang/releases">prometheus/client_golang GitHub releases</a> — v1.23.2 confirmed 2025-09-05</li>
+<li><a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus/promhttp">promhttp package documentation</a> — pure Go, no CGO confirmed</li>
+<li><a href="https://github.com/elastic/go-lumber">elastic/go-lumber GitHub</a> — Lumberjack v2 client/server, v0.1.1</li>
+<li><a href="https://pkg.go.dev/github.com/elastic/go-lumber/client/v2">go-lumber client/v2 package</a> — pure Go, TLS via stdlib crypto/tls</li>
+<li><a href="https://github.com/crewjam/rfc5424">crewjam/rfc5424 GitHub</a> — RFC 5424 read/write library</li>
+<li><a href="https://pkg.go.dev/github.com/crewjam/rfc5424">crewjam/rfc5424 pkg.go.dev</a> — v0.1.0, pure Go</li>
+<li><a href="https://pkg.go.dev/golang.org/x/sys/windows/svc/mgr">golang.org/x/sys/windows/svc/mgr</a> — v0.31.0, CreateService/Delete confirmed; pure Go</li>
+<li><a href="https://github.com/libyal/libevtx/blob/main/documentation/Windows%20XML%20Event%20Log%20(EVTX).asciidoc">libyal/libevtx EVTX format specification</a> — BinXML format complexity confirmed</li>
+<li><a href="https://github.com/golang/go/issues/66666">log/syslog Windows issue golang/go#66666</a> — stdlib syslog not RFC 5424 compliant, does not build on Windows</li>
+<li><a href="https://pkg.go.dev/github.com/nathanaelle/syslog5424/v2">nathanaelle/syslog5424 pkg.go.dev</a> — explicitly no UDP support confirmed</li>
+<li><a href="https://github.com/hashicorp/go-syslog">hashicorp/go-syslog</a> — wrapper only, not RFC 5424, rejected</li>
+<li><a href="https://github.com/coreos/go-systemd">coreos/go-systemd GitHub</a> — optional sd_notify, LOW priority for v2</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.sections", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

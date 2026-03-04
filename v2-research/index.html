@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -695,6 +695,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#critical-protocol-finding-cepa-uses-http-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Critical Protocol Finding: CEPA Uses HTTP Only
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#architecture-overview-v2" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -768,10 +779,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#windows-service-xsyswindowssvc-not-kardianosservice" class="md-nav__link">
+  <a href="#windows-service-kardianosservice-v124-not-xsys-direct" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Windows Service: x/sys/windows/svc (not kardianos/service)
+        Windows Service: kardianos/service v1.2.4 (not x/sys direct)
       
     </span>
   </a>
@@ -790,10 +801,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#beatswriter-go-lumber-syncclient-with-tls-dialer-injection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BeatsWriter: go-lumber SyncClient with TLS dialer injection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#binaryevtxwriter-implement-from-scratch" class="md-nav__link">
     <span class="md-ellipsis">
       
         BinaryEvtxWriter: Implement from scratch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tls-certificate-automation-autocert-not-lego-not-manual-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLS Certificate Automation: autocert (not lego, not manual-only)
       
     </span>
   </a>
@@ -821,6 +854,17 @@
     <span class="md-ellipsis">
       
         BinaryEvtxWriter — Format Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tls-automation-configuration-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLS Automation — Configuration Modes
       
     </span>
   </a>
@@ -880,7 +924,7 @@
 <h1 id="v20-research-notes">v2.0 Research Notes<a class="headerlink" href="#v20-research-notes" title="Permanent link">&para;</a></h1>
 <p>Research conducted 2026-03-03 before milestone planning. Covers technology stack
 selection, feature design, architecture integration, and known pitfalls for the six
-new capabilities added in v2.0.</p>
+new capabilities added in v2.0, plus Phase 8 TLS automation.</p>
 <hr />
 <h2 id="v20-feature-overview">v2.0 Feature Overview<a class="headerlink" href="#v20-feature-overview" title="Permanent link">&para;</a></h2>
 <table>
@@ -909,7 +953,7 @@ new capabilities added in v2.0.</p>
 <td>Windows Service registration</td>
 <td>Table stakes</td>
 <td>Medium</td>
-<td>none (x/sys already present)</td>
+<td><code>kardianos/service</code> v1.2.4</td>
 </tr>
 <tr>
 <td>SyslogWriter (RFC 5424)</td>
@@ -929,12 +973,40 @@ new capabilities added in v2.0.</p>
 <td>High</td>
 <td>none (stdlib only)</td>
 </tr>
+<tr>
+<td>TLS certificate automation (ACME)</td>
+<td>Operations</td>
+<td>Low-Medium</td>
+<td><code>x/crypto/acme/autocert</code> (promoted)</td>
+</tr>
 </tbody>
 </table>
 <hr />
+<h2 id="critical-protocol-finding-cepa-uses-http-only">Critical Protocol Finding: CEPA Uses HTTP Only<a class="headerlink" href="#critical-protocol-finding-cepa-uses-http-only" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Confidence: MEDIUM</strong> (multiple third-party guides confirm; Dell official docs blocked)</p>
+</blockquote>
+<p>The Dell PowerStore CEPA client sends events over <strong>plain HTTP only</strong>. The canonical
+CEPA endpoint format is <code>ApplicationName@http://&lt;IP&gt;:&lt;Port&gt;</code>. No HTTPS variant exists
+in CEPA configuration documentation. Dell's own documentation states:</p>
+<blockquote>
+<p>"When a host generates an event on the file system over SMB or NFS, the information
+is forwarded to the CEPA server over an <strong>HTTP connection</strong>."</p>
+</blockquote>
+<p><strong>Impact for TLS configuration:</strong></p>
+<p>Enabling TLS on the cee-exporter CEPA listener (port 12228) does NOT encrypt the
+PowerStore-to-exporter connection — the PowerStore will fail to complete TLS handshake
+because it only issues plain HTTP. TLS on port 12228 is useful <strong>only</strong> if:</p>
+<ul>
+<li>A TLS-capable reverse proxy sits in front of cee-exporter</li>
+<li>A future PowerStore firmware version adds HTTPS receiver support</li>
+</ul>
+<p>The existing <code>ListenConfig.TLS</code> infrastructure is preserved for these cases. Phase 8
+adds ACME automation (see below), but operators must understand the protocol limitation.</p>
+<hr />
 <h2 id="architecture-overview-v2">Architecture Overview (v2)<a class="headerlink" href="#architecture-overview-v2" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
-    PS["Dell PowerStore\n(CEPA HTTP PUT)"]
+    PS["Dell PowerStore\n(CEPA HTTP PUT — plain HTTP only)"]
     Prom["Prometheus\n(scrape /metrics)"]
 
     subgraph server["pkg/server — :12228"]
@@ -957,21 +1029,21 @@ new capabilities added in v2.0.</p>
         GW["GELFWriter\nUDP/TCP"]
         WW["Win32Writer\nWindows only"]
         MW["MultiWriter\nfan-out"]
-        BW["BeatsWriter\nLumberjack v2"]
+        BW["BeatsWriter\nLumberjack v2 ± TLS"]
         SW["SyslogWriter\nRFC 5424 UDP/TCP"]
-        EW["BinaryEvtxWriter\npure-Go .evtx"]
+        EW["BinaryEvtxWriter\npure-Go .evtx (non-Windows)"]
     end
 
     subgraph service["Platform Service"]
         SVC_L["systemd unit\nlinux"]
-        SVC_W["Windows SCM\nwindows"]
+        SVC_W["Windows SCM\nkardianos/service v1.2.4"]
     end
 
     subgraph atomic["pkg/metrics"]
-        CNT["Atomic Counters\nreceived / dropped / depth"]
+        CNT["Atomic Counters\nreceived / dropped / written / depth"]
     end
 
-    PS --&gt; H
+    PS --&gt;|HTTP only| H
     H --&gt; P
     P --&gt; M
     M --&gt; Q
@@ -1049,10 +1121,21 @@ new capabilities added in v2.0.</p>
 <td>SyslogWriter</td>
 <td>Yes</td>
 </tr>
+<tr>
+<td><code>github.com/kardianos/service</code></td>
+<td>v1.2.4</td>
+<td>Windows SCM service</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>golang.org/x/crypto</code> (promoted)</td>
+<td>v0.48.0</td>
+<td>ACME autocert</td>
+<td>Yes</td>
+</tr>
 </tbody>
 </table>
-<p><strong>No new dependencies for:</strong> Systemd unit file (text artifact), Windows Service
-(<code>x/sys</code> already present), BinaryEvtxWriter (stdlib only).</p>
+<p><strong>No new dependencies for:</strong> Systemd unit file (text artifact), BinaryEvtxWriter (stdlib only).</p>
 <hr />
 <h2 id="key-architectural-decisions">Key Architectural Decisions<a class="headerlink" href="#key-architectural-decisions" title="Permanent link">&para;</a></h2>
 <h3 id="prometheus-separate-port-9228">Prometheus: Separate Port 9228<a class="headerlink" href="#prometheus-separate-port-9228" title="Permanent link">&para;</a></h3>
@@ -1060,20 +1143,39 @@ new capabilities added in v2.0.</p>
 same mux would require every Prometheus scraper to handle TLS. Industry practice for Go
 exporters is a dedicated port in the <code>9xxx</code> range. <strong>Port 9228</strong> follows from <code>12228</code>
 by convention. See <a href="../adr/ADR-006-prometheus-separate-port/">ADR-006</a>.</p>
-<h3 id="windows-service-xsyswindowssvc-not-kardianosservice">Windows Service: x/sys/windows/svc (not kardianos/service)<a class="headerlink" href="#windows-service-xsyswindowssvc-not-kardianosservice" title="Permanent link">&para;</a></h3>
-<p><code>golang.org/x/sys/windows/svc</code> is already in <code>go.mod</code> for the Win32 EventLog writer.
-<code>kardianos/service</code> is a wrapper that adds no functionality over <code>x/sys</code> for this
-use case. See <a href="../adr/ADR-007-windows-svc-x-sys/">ADR-007</a>.</p>
+<h3 id="windows-service-kardianosservice-v124-not-xsys-direct">Windows Service: kardianos/service v1.2.4 (not x/sys direct)<a class="headerlink" href="#windows-service-kardianosservice-v124-not-xsys-direct" title="Permanent link">&para;</a></h3>
+<p>Phase 5 research revised the initial ADR-007 decision. Direct use of <code>x/sys/windows/svc</code>
+misses three critical features that <code>kardianos/service</code> provides:</p>
+<ol>
+<li><code>SetRecoveryActionsOnNonCrashFailures(true)</code> — ensures restart fires on <code>os.Exit(1)</code>,
+   not only on true crashes. Without it, Go processes that exit cleanly with an error
+   code are NOT restarted by SCM.</li>
+<li><code>DelayedAutoStart: true</code> — prevents Event ID 7009 (30-second SCM startup timeout)
+   during system boot when disk/CPU are contended.</li>
+<li>Edge-case handling in <code>Install()</code>/<code>Uninstall()</code> for common SCM error codes.</li>
+</ol>
+<p>See <a href="../adr/ADR-010-kardianos-service-windows-scm/">ADR-010</a> (supersedes ADR-007).</p>
 <h3 id="syslog-crewjamrfc5424-not-stdlib-logsyslog">Syslog: crewjam/rfc5424 (not stdlib log/syslog)<a class="headerlink" href="#syslog-crewjamrfc5424-not-stdlib-logsyslog" title="Permanent link">&para;</a></h3>
 <p>stdlib <code>log/syslog</code> has the build constraint <code>//go:build !windows</code> and does not compile
 on Windows. It also produces RFC 3164 format (no structured data). <code>crewjam/rfc5424</code>
-is pure Go, cross-platform, and produces correct RFC 5424 SD-ELEMENTs.
-See <a href="../adr/ADR-008-rfc5424-crewjam/">ADR-008</a>.</p>
+is pure Go, cross-platform, and produces correct RFC 5424 SD-ELEMENTs with automatic
+SD-PARAM escaping (<code>"</code>, <code>\</code>, <code>]</code>). See <a href="../adr/ADR-008-rfc5424-crewjam/">ADR-008</a>.</p>
+<h3 id="beatswriter-go-lumber-syncclient-with-tls-dialer-injection">BeatsWriter: go-lumber SyncClient with TLS dialer injection<a class="headerlink" href="#beatswriter-go-lumber-syncclient-with-tls-dialer-injection" title="Permanent link">&para;</a></h3>
+<p><code>github.com/elastic/go-lumber/client/v2</code> exposes <code>SyncDialWith(dialFn, addr, opts...)</code> —
+the only way to add TLS is to inject a <code>tls.Dialer</code>-backed dial function. There is no
+built-in TLS option. <code>SyncClient</code> is <strong>not thread-safe</strong> — every <code>Send</code> call must be
+serialized with <code>sync.Mutex</code>. After any <code>Send</code> error, the client cannot be reused —
+close and recreate. Lumberjack v2 ACK semantics guarantee no data loss on network
+failure when using <code>SyncClient.Send</code> (blocks until ACK received).</p>
 <h3 id="binaryevtxwriter-implement-from-scratch">BinaryEvtxWriter: Implement from scratch<a class="headerlink" href="#binaryevtxwriter-implement-from-scratch" title="Permanent link">&para;</a></h3>
-<p>No pure-Go EVTX <em>writer</em> library exists — all known Go EVTX projects are parsers only.
-The implementation uses only stdlib (<code>encoding/binary</code>, <code>hash/crc32</code>, <code>unicode/utf16</code>).
-Estimated at 600–1 200 LOC; assigned its own roadmap phase.
-See <a href="../adr/ADR-009-binary-evtx-scratch/">ADR-009</a>.</p>
+<p>No pure-Go EVTX <em>writer</em> library exists as of 2026-03. All Go EVTX projects are
+parsers only. The implementation uses only stdlib. See <a href="../adr/ADR-009-binary-evtx-scratch/">ADR-009</a>.</p>
+<h3 id="tls-certificate-automation-autocert-not-lego-not-manual-only">TLS Certificate Automation: autocert (not lego, not manual-only)<a class="headerlink" href="#tls-certificate-automation-autocert-not-lego-not-manual-only" title="Permanent link">&para;</a></h3>
+<p><code>golang.org/x/crypto/acme/autocert</code> provides HTTP-01 and TLS-ALPN-01 challenge support
+with automatic renewal. A separate port-443 listener goroutine handles TLS-ALPN-01
+challenges independent of the CEPA listener on 12228. Self-signed mode uses stdlib
+<code>crypto/ecdsa</code> + <code>crypto/x509</code> — no network, no external tools.</p>
+<p>See <a href="../adr/ADR-011-tls-certificate-automation/">ADR-011</a>.</p>
 <hr />
 <h2 id="prometheus-metric-definitions">Prometheus Metric Definitions<a class="headerlink" href="#prometheus-metric-definitions" title="Permanent link">&para;</a></h2>
 <p>The existing <code>pkg/metrics</code> atomic counters map directly to Prometheus metrics:</p>
@@ -1122,16 +1224,62 @@ duplication. Queue depth uses <code>prometheus.NewGaugeFunc</code>.</p>
     FH["File Header\n4 096 bytes\nmagic ElfFile\\0\nCRC32 of first 120 B"] --&gt; CH
     CH["Chunk Header\n512 bytes\nmagic ElfChnk\\0\nstring table\nCRC32"] --&gt; ER
     ER["Event Records\nvariable length\nBinXML fragment\nFILETIME timestamp\nCRC32 of records"]</code></pre>
-<p>Key constraints:
-- Chunks are exactly 65 536 bytes; new chunk on overflow.
-- Each record carries a globally-monotonic <code>EventRecordID</code>.
-- Timestamps are Windows FILETIME (100 ns intervals since 1601-01-01).
-- BinXML strings are UTF-16LE encoded.
-- v2 implementation: self-contained BinXML fragments per event (no cross-event
-  template sharing). Larger files, simpler implementation, 100% spec-compliant.</p>
+<p>Key constraints:</p>
+<ul>
+<li>Chunks are exactly 65 536 bytes; new chunk on overflow.</li>
+<li>Each record carries a globally-monotonic <code>EventRecordID</code>.</li>
+<li>Timestamps are Windows FILETIME (100 ns intervals since 1601-01-01 UTC).
+  Conversion: <code>uint64(t.UTC().UnixNano()/100 + 116444736000000000)</code></li>
+<li>BinXML strings are UTF-16LE encoded (use <code>unicode/utf16</code> stdlib).</li>
+<li>v2 implementation: self-contained BinXML fragments per event (no cross-event
+  template sharing — OUT-F01 deferred). Larger files, simpler implementation.</li>
+<li>Chunk header CRC32 covers bytes 0-119 <strong>and</strong> 128-511 (NOT bytes 120-127).
+  The CRC field itself (bytes 124-127) must be zeroed before computing.</li>
+<li>Test oracle: <code>github.com/0xrawsec/golang-evtx</code> (test-only dep, not runtime).</li>
+</ul>
+<hr />
+<h2 id="tls-automation-configuration-modes">TLS Automation — Configuration Modes<a class="headerlink" href="#tls-automation-configuration-modes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th><code>tls_mode</code></th>
+<th>When to use</th>
+<th>Network requirements</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"off"</code></td>
+<td>CEPA deployments (HTTP-only protocol)</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>"manual"</code></td>
+<td>Operator-managed certs (v1 compat)</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>"acme"</code></td>
+<td>Internet-reachable hosts, automated renewal</td>
+<td>Port 443 reachable by Let's Encrypt</td>
+</tr>
+<tr>
+<td><code>"self-signed"</code></td>
+<td>Air-gapped, private networks, testing</td>
+<td>None</td>
+</tr>
+</tbody>
+</table>
+<p>Key ACME operational constraints:</p>
+<ul>
+<li>Let's Encrypt rate limit: 5 duplicate certificates per 7 days — use <code>acme_staging = true</code> during development.</li>
+<li><code>DirCache</code> must be on persistent storage (mount a volume in Docker).</li>
+<li>Port 443 binding requires <code>AmbientCapabilities=CAP_NET_BIND_SERVICE</code> in the systemd unit.</li>
+<li>Windows services binding to 443 require SYSTEM account or <code>netsh http add urlacl</code>.</li>
+</ul>
 <hr />
 <h2 id="known-pitfalls">Known Pitfalls<a class="headerlink" href="#known-pitfalls" title="Permanent link">&para;</a></h2>
-<p>Critical issues identified during research:</p>
+<p>Critical issues identified during research across all phases:</p>
 <table>
 <thead>
 <tr>
@@ -1142,39 +1290,84 @@ duplication. Queue depth uses <code>prometheus.NewGaugeFunc</code>.</p>
 </thead>
 <tbody>
 <tr>
+<td><strong>CEPA protocol</strong></td>
+<td>Registering <code>https://</code> in PowerStore CEPA config — CEPA only sends HTTP</td>
+<td>Always use <code>http://</code> in PowerStore CEPA endpoint URL</td>
+</tr>
+<tr>
 <td>BinaryEvtxWriter</td>
-<td>CRC32 must use the ANSI polynomial, not IEEE</td>
-<td>Use <code>crc32.ChecksumIEEE</code> — Go's default IS the ANSI poly</td>
+<td>CRC32 must cover bytes 0-119 AND 128-511 of chunk header (not the CRC field)</td>
+<td>Zero bytes 124-127 before computing; patch after</td>
 </tr>
 <tr>
 <td>BinaryEvtxWriter</td>
 <td>FILETIME epoch is 1601-01-01, not Unix 1970</td>
-<td>Add 116 444 736 000 000 000 to Unix nanoseconds / 100</td>
+<td>Add 116 444 736 000 000 000 to <code>UnixNano()/100</code></td>
 </tr>
 <tr>
 <td>BinaryEvtxWriter</td>
-<td>String table offsets are relative to chunk start</td>
-<td>All offsets computed from chunk base, not file base</td>
+<td>Event record size field appears at offset 4 AND as a copy at the end</td>
+<td>Assemble in <code>bytes.Buffer</code>, patch both size fields after final length is known</td>
+</tr>
+<tr>
+<td>BinaryEvtxWriter</td>
+<td>EVTX strings are UTF-16LE, not UTF-8</td>
+<td>Use <code>unicode/utf16.Encode</code> + <code>encoding/binary.LittleEndian</code></td>
 </tr>
 <tr>
 <td>Prometheus</td>
-<td>Registering on <code>prometheus.DefaultRegisterer</code> breaks tests</td>
-<td>Use a custom <code>prometheus.NewRegistry()</code></td>
+<td>Registering on <code>prometheus.DefaultRegisterer</code> breaks parallel tests</td>
+<td>Use a custom <code>prometheus.NewRegistry()</code> per test</td>
 </tr>
 <tr>
 <td>Windows Service</td>
-<td><code>svc.IsWindowsService()</code> must be called before any log output</td>
-<td>Detect SCM context as the first action in <code>main()</code></td>
+<td><code>os.Exit(1)</code> without <code>FailureActionsOnNonCrashFailures</code> → no SCM restart</td>
+<td>Use <code>kardianos/service</code> which sets this flag automatically</td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td>SCM 30-second startup timeout at boot for large Go binaries</td>
+<td><code>DelayedAutoStart: true</code> in service config</td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td><code>Arguments</code> captured at install must not include "install" subcommand</td>
+<td>Strip subcommand before storing SCM arguments</td>
+</tr>
+<tr>
+<td>Windows Service</td>
+<td>SCM <code>Stop()</code> does not send POSIX signals — run() won't exit</td>
+<td>Bridge <code>Stop()</code> to a <code>context.CancelFunc</code> passed into <code>run()</code></td>
 </tr>
 <tr>
 <td>SyslogWriter</td>
 <td>SD-PARAM values must escape <code>"</code>, <code>\</code>, <code>]</code></td>
-<td><code>crewjam/rfc5424</code> handles this; do not pre-escape</td>
+<td><code>crewjam/rfc5424.AddDatum</code> handles this; never pre-escape</td>
+</tr>
+<tr>
+<td>SyslogWriter</td>
+<td>TCP syslog requires RFC 6587 octet-counting framing</td>
+<td><code>fmt.Fprintf(conn, "%d ", len(payload))</code> before write; UDP needs no framing</td>
 </tr>
 <tr>
 <td>BeatsWriter</td>
-<td>go-lumber <code>SyncClient</code> blocks until ACK</td>
-<td>Use the existing <code>pkg/queue</code> async layer; never call from handler goroutine</td>
+<td><code>SyncClient</code> is not thread-safe</td>
+<td>Serialize all <code>Send</code> calls with <code>sync.Mutex</code></td>
+</tr>
+<tr>
+<td>BeatsWriter</td>
+<td><code>SyncClient</code> cannot be reused after send error</td>
+<td>On error: <code>client.Close()</code>, recreate via <code>dial()</code>, retry once</td>
+</tr>
+<tr>
+<td>ACME/TLS</td>
+<td>Let's Encrypt rate limits hit on repeated restarts without <code>DirCache</code></td>
+<td>Always configure persistent <code>DirCache</code>; use staging for dev</td>
+</tr>
+<tr>
+<td>ACME/TLS</td>
+<td>ACME challenge cannot run on port 12228 (CEPA port)</td>
+<td>TLS-ALPN-01 challenge listener must bind to port 443 separately</td>
 </tr>
 </tbody>
 </table>
@@ -1184,10 +1377,15 @@ duplication. Queue depth uses <code>prometheus.NewGaugeFunc</code>.</p>
 <li><a href="https://github.com/prometheus/client_golang">prometheus/client_golang GitHub</a> — v1.23.2, 2025-09-05</li>
 <li><a href="https://github.com/elastic/go-lumber">elastic/go-lumber GitHub</a> — v0.1.1, Lumberjack v2</li>
 <li><a href="https://github.com/crewjam/rfc5424">crewjam/rfc5424 GitHub</a> — v0.1.0, RFC 5424 read/write</li>
+<li><a href="https://github.com/kardianos/service">kardianos/service GitHub</a> — v1.2.4, July 2025</li>
+<li><a href="https://pkg.go.dev/golang.org/x/crypto/acme/autocert">golang.org/x/crypto/acme/autocert</a> — ACME Manager API</li>
 <li><a href="https://pkg.go.dev/golang.org/x/sys/windows/svc">golang.org/x/sys/windows/svc</a> — Windows Service API</li>
 <li><a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-even6/e6fc7c72-b8c0-475b-aef7-25eaf1a64530">MS-EVEN6 BinXML spec</a></li>
 <li><a href="https://github.com/libyal/libevtx/blob/main/documentation/Windows%20XML%20Event%20Log%20(EVTX).asciidoc">libyal/libevtx format docs</a></li>
 <li><a href="https://www.rfc-editor.org/rfc/rfc5424">RFC 5424</a> — The Syslog Protocol</li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc6587">RFC 6587</a> — TCP Syslog transport (octet-counting)</li>
+<li><a href="https://letsencrypt.org/docs/rate-limits/">Let's Encrypt rate limits</a> — 5 certs/same-set/7 days; ARI exempt</li>
+<li>golang/go issue #23479 — SCM 30-second startup timeout root cause for Go services</li>
 </ul>
 
 

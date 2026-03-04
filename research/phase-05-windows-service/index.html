@@ -1,0 +1,1332 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Dell PowerStore CEPA audit events → Windows EventLog / GELF">
+      
+      
+      
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/research/phase-05-windows-service/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Phase 5: Windows Service - Research - cee-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#phase-5-windows-service-research" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="cee-exporter" class="md-header__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cee-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Phase 5: Windows Service - Research
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="cee-exporter" class="md-nav__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cee-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operator-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operator Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Requirements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-language-go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Language (Go)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-gelf-primary-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 GELF Primary Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-async-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 Async Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-binary-evtx-deferred/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Binary EVTX Deferred
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-cgo-disabled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 CGO Disabled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-prometheus-separate-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Prometheus Port
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-windows-svc-x-sys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 Windows Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-rfc5424-crewjam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 RFC5424 Syslog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-binary-evtx-scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 BinaryEvtx Scratch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../v2-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2 Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="phase-5-windows-service-research">Phase 5: Windows Service - Research<a class="headerlink" href="#phase-5-windows-service-research" title="Permanent link">&para;</a></h1>
+<p><strong>Researched:</strong> 2026-03-03
+<strong>Domain:</strong> Windows Service Control Manager (SCM) integration in Go — CGO_ENABLED=0
+<strong>Confidence:</strong> HIGH</p>
+<p><phase_requirements></p>
+<h2 id="phase-requirements">Phase Requirements<a class="headerlink" href="#phase-requirements" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Description</th>
+<th>Research Support</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DEPLOY-03</td>
+<td>Windows operator can run <code>cee-exporter.exe install</code> to register daemon with Service Control Manager</td>
+<td>kardianos/service <code>Control(s, "install")</code> + Config{DelayedAutoStart: true} covers full registration workflow</td>
+</tr>
+<tr>
+<td>DEPLOY-04</td>
+<td>Windows operator can run <code>cee-exporter.exe uninstall</code> to remove daemon from Service Control Manager</td>
+<td>kardianos/service <code>Control(s, "uninstall")</code> uses <code>mgr.DeleteService()</code> which removes SCM entry and registry key under <code>HKLM\SYSTEM\CurrentControlSet\Services</code></td>
+</tr>
+<tr>
+<td>DEPLOY-05</td>
+<td>Windows Service auto-restarts after unexpected crash (recovery actions configured)</td>
+<td>kardianos/service <code>Option{"OnFailure": "restart", "OnFailureDelayDuration": "5s", "OnFailureResetPeriod": 86400}</code> — calls <code>SetRecoveryActions</code> + <code>SetRecoveryActionsOnNonCrashFailures(true)</code> at install time</td>
+</tr>
+<tr>
+<td></phase_requirements></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>Phase 5 implements native Windows SCM service management using <code>github.com/kardianos/service</code> v1.2.4 (July 2025). This library wraps <code>golang.org/x/sys/windows/svc</code> and <code>golang.org/x/sys/windows/svc/mgr</code> behind a portable interface, requiring no CGO and no C toolchain. The project already has <code>golang.org/x/sys v0.41.0</code> as a direct dependency, so <code>kardianos/service</code> can be added without dependency conflicts.</p>
+<p>The existing code already established the scaffolding for this phase: <code>main()</code> calls <code>runWithServiceManager(run)</code>, and <code>service_windows.go</code> currently contains a no-op stub that Phase 5 replaces. The <code>service_notwindows.go</code> shim must remain unchanged. The subcommand pattern (<code>cee-exporter.exe install</code> / <code>cee-exporter.exe uninstall</code>) requires parsing <code>os.Args[1]</code> before <code>flag.Parse()</code> is called in <code>run()</code>, which means the dispatch must happen in <code>runWithServiceManager</code>.</p>
+<p>The critical SCM startup-timeout pitfall (Go runtime init can exceed the 30-second SCM window during boot under resource contention) is mitigated by configuring <code>DelayedAutoStart: true</code>, which starts the service 120 seconds after the "Automatic" services. Recovery actions must be set with <code>SetRecoveryActionsOnNonCrashFailures(true)</code> so that a non-zero exit code also triggers restart, not only crashes that terminate without <code>SERVICE_STOPPED</code>.</p>
+<p><strong>Primary recommendation:</strong> Use <code>github.com/kardianos/service</code> v1.2.4. It handles StartPending signaling, the Execute loop, SetRecoveryActions, and DelayedAutoStart. Replace the stub in <code>service_windows.go</code> with a full implementation; do not touch <code>service_notwindows.go</code>.</p>
+<hr />
+<h2 id="standard-stack">Standard Stack<a class="headerlink" href="#standard-stack" title="Permanent link">&para;</a></h2>
+<h3 id="core">Core<a class="headerlink" href="#core" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>Why Standard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/kardianos/service</code></td>
+<td>v1.2.4 (Jul 2025)</td>
+<td>SCM registration, service lifecycle, recovery actions</td>
+<td>Only maintained Go library for cross-platform service management; wraps <code>x/sys/windows/svc</code> cleanly; CGO-free; used by production projects (k0s, Datadog forks)</td>
+</tr>
+<tr>
+<td><code>golang.org/x/sys</code></td>
+<td>v0.41.0 (already in go.mod)</td>
+<td>Underlying Win32 API calls via syscall</td>
+<td>Already present; kardianos/service uses it internally</td>
+</tr>
+</tbody>
+</table>
+<h3 id="supporting">Supporting<a class="headerlink" href="#supporting" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Version</th>
+<th>Purpose</th>
+<th>When to Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>golang.org/x/sys/windows/svc/mgr</code></td>
+<td>included in x/sys v0.41.0</td>
+<td>Direct SCM mgr API if bypassing kardianos</td>
+<td>Only needed if kardianos/service proves insufficient for a specific edge case</td>
+</tr>
+<tr>
+<td><code>golang.org/x/sys/windows/svc</code></td>
+<td>included in x/sys v0.41.0</td>
+<td>Low-level service handler interface</td>
+<td>Used internally by kardianos/service; no direct use needed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Instead of</th>
+<th>Could Use</th>
+<th>Tradeoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kardianos/service</code></td>
+<td>Direct <code>x/sys/windows/svc</code> + <code>svc/mgr</code></td>
+<td>Lower abstraction: must hand-write Execute loop, StartPending signaling, SetRecoveryActions calls, and uninstall cleanup. Saves one dependency but adds ~150 lines of Windows-specific boilerplate. Not worth it given the project already avoids external test dependencies — this is a runtime dependency justified by platform complexity.</td>
+</tr>
+<tr>
+<td><code>kardianos/service</code></td>
+<td>NSSM</td>
+<td>Explicitly out of scope (REQUIREMENTS.md: "External binary dependency; breaks single-artifact deploy contract")</td>
+</tr>
+<tr>
+<td><code>kardianos/service</code></td>
+<td>MSI/WiX installer</td>
+<td>Explicitly out of scope (REQUIREMENTS.md: "Scope explosion")</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Installation:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go<span class="w"> </span>get<span class="w"> </span>github.com/kardianos/service@v1.2.4
+</code></pre></div>
+<hr />
+<h2 id="architecture-patterns">Architecture Patterns<a class="headerlink" href="#architecture-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="recommended-project-structure">Recommended Project Structure<a class="headerlink" href="#recommended-project-structure" title="Permanent link">&para;</a></h3>
+<p>The phase touches exactly two files:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cmd/cee-exporter/
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── main.go                    # unchanged — calls runWithServiceManager(run)
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├── service_windows.go         # REPLACE stub with full SCM implementation
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>└── service_notwindows.go      # DO NOT TOUCH — keeps non-Windows compile working
+</code></pre></div>
+<p>No new packages are needed. The SCM wrapper lives entirely in <code>service_windows.go</code> (build-tagged <code>//go:build windows</code>).</p>
+<h3 id="pattern-1-runwithservicemanager-the-integration-seam">Pattern 1: runWithServiceManager — the integration seam<a class="headerlink" href="#pattern-1-runwithservicemanager-the-integration-seam" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> <code>runWithServiceManager</code> in <code>service_windows.go</code> is the single entry point that either runs as a Windows service (when invoked by SCM) or handles the <code>install</code>/<code>uninstall</code> subcommands (when run interactively).</p>
+<p><strong>When to use:</strong> Always — <code>main()</code> already calls it. This is the pattern established by Phase 4.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">//go:build windows</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="s">&quot;log/slog&quot;</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="s">&quot;os&quot;</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="s">&quot;github.com/kardianos/service&quot;</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="nx">svcName</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;cee-exporter&quot;</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="nx">svcDisplayName</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;CEE Exporter&quot;</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">    </span><span class="nx">svcDescription</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;Dell PowerStore CEPA audit event bridge to GELF / Windows Event Log&quot;</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">)</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="kd">type</span><span class="w"> </span><span class="nx">svcProgram</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="nx">runFn</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">    </span><span class="nx">stop</span><span class="w">  </span><span class="kd">chan</span><span class="w"> </span><span class="kd">struct</span><span class="p">{}</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="p">}</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="o">*</span><span class="nx">svcProgram</span><span class="p">)</span><span class="w"> </span><span class="nx">Start</span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">Service</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">    </span><span class="nx">p</span><span class="p">.</span><span class="nx">stop</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">make</span><span class="p">(</span><span class="kd">chan</span><span class="w"> </span><span class="kd">struct</span><span class="p">{})</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">    </span><span class="k">go</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">runFn</span><span class="p">()</span><span class="w"> </span><span class="c1">// must not block</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="p">}</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="o">*</span><span class="nx">svcProgram</span><span class="p">)</span><span class="w"> </span><span class="nx">Stop</span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">Service</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="w">    </span><span class="c1">// Signal run() to exit by sending SIGTERM equivalent.</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">    </span><span class="c1">// run() already listens on os/signal — nothing extra needed if</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">    </span><span class="c1">// it uses os.Interrupt / syscall.SIGTERM. For Windows service,</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="w">    </span><span class="c1">// the SCM sends a stop control, kardianos translates to Stop().</span>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="p">}</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="kd">func</span><span class="w"> </span><span class="nx">buildSvcConfig</span><span class="p">()</span><span class="w"> </span><span class="o">*</span><span class="nx">service</span><span class="p">.</span><span class="nx">Config</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">service</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
+<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="w">        </span><span class="nx">Name</span><span class="p">:</span><span class="w">        </span><span class="nx">svcName</span><span class="p">,</span>
+<a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a><span class="w">        </span><span class="nx">DisplayName</span><span class="p">:</span><span class="w"> </span><span class="nx">svcDisplayName</span><span class="p">,</span>
+<a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a><span class="w">        </span><span class="nx">Description</span><span class="p">:</span><span class="w"> </span><span class="nx">svcDescription</span><span class="p">,</span>
+<a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a><span class="w">        </span><span class="c1">// Pass -config flag value through to the service process arguments</span>
+<a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a><span class="w">        </span><span class="c1">// so SCM starts with the same config path used at install time.</span>
+<a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a><span class="w">        </span><span class="nx">Arguments</span><span class="p">:</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span><span class="w"> </span><span class="c1">// captured at install; SCM replays on start</span>
+<a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a><span class="w">        </span><span class="nx">Option</span><span class="p">:</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">KeyValue</span><span class="p">{</span>
+<a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a><span class="w">            </span><span class="s">&quot;DelayedAutoStart&quot;</span><span class="p">:</span><span class="w">     </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a><span class="w">            </span><span class="s">&quot;StartType&quot;</span><span class="p">:</span><span class="w">            </span><span class="s">&quot;automatic&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a><span class="w">            </span><span class="s">&quot;OnFailure&quot;</span><span class="p">:</span><span class="w">            </span><span class="s">&quot;restart&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a><span class="w">            </span><span class="s">&quot;OnFailureDelayDuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;5s&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a><span class="w">            </span><span class="s">&quot;OnFailureResetPeriod&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">86400</span><span class="p">,</span><span class="w"> </span><span class="c1">// 24 hours</span>
+<a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a><span class="w">        </span><span class="p">},</span>
+<a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-54" name="__codelineno-2-54" href="#__codelineno-2-54"></a><span class="p">}</span>
+<a id="__codelineno-2-55" name="__codelineno-2-55" href="#__codelineno-2-55"></a>
+<a id="__codelineno-2-56" name="__codelineno-2-56" href="#__codelineno-2-56"></a><span class="kd">func</span><span class="w"> </span><span class="nx">runWithServiceManager</span><span class="p">(</span><span class="nx">runFn</span><span class="w"> </span><span class="kd">func</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-57" name="__codelineno-2-57" href="#__codelineno-2-57"></a><span class="w">    </span><span class="nx">prg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">svcProgram</span><span class="p">{</span><span class="nx">runFn</span><span class="p">:</span><span class="w"> </span><span class="nx">runFn</span><span class="p">}</span>
+<a id="__codelineno-2-58" name="__codelineno-2-58" href="#__codelineno-2-58"></a><span class="w">    </span><span class="nx">cfg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">buildSvcConfig</span><span class="p">()</span>
+<a id="__codelineno-2-59" name="__codelineno-2-59" href="#__codelineno-2-59"></a>
+<a id="__codelineno-2-60" name="__codelineno-2-60" href="#__codelineno-2-60"></a><span class="w">    </span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">prg</span><span class="p">,</span><span class="w"> </span><span class="nx">cfg</span><span class="p">)</span>
+<a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-62" name="__codelineno-2-62" href="#__codelineno-2-62"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Fprintf</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;service.New: %v\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a><span class="w">        </span><span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a>
+<a id="__codelineno-2-66" name="__codelineno-2-66" href="#__codelineno-2-66"></a><span class="w">    </span><span class="c1">// Subcommand dispatch: if first arg is install/uninstall, handle it.</span>
+<a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">)</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-68" name="__codelineno-2-68" href="#__codelineno-2-68"></a><span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-69" name="__codelineno-2-69" href="#__codelineno-2-69"></a><span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;install&quot;</span><span class="p">:</span>
+<a id="__codelineno-2-70" name="__codelineno-2-70" href="#__codelineno-2-70"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">Install</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-71" name="__codelineno-2-71" href="#__codelineno-2-71"></a><span class="w">                </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Fprintf</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;install: %v\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-2-72" name="__codelineno-2-72" href="#__codelineno-2-72"></a><span class="w">                </span><span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-73" name="__codelineno-2-73" href="#__codelineno-2-73"></a><span class="w">            </span><span class="p">}</span>
+<a id="__codelineno-2-74" name="__codelineno-2-74" href="#__codelineno-2-74"></a><span class="w">            </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Service installed successfully.&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-75" name="__codelineno-2-75" href="#__codelineno-2-75"></a><span class="w">            </span><span class="k">return</span>
+<a id="__codelineno-2-76" name="__codelineno-2-76" href="#__codelineno-2-76"></a><span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;uninstall&quot;</span><span class="p">:</span>
+<a id="__codelineno-2-77" name="__codelineno-2-77" href="#__codelineno-2-77"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">Uninstall</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-78" name="__codelineno-2-78" href="#__codelineno-2-78"></a><span class="w">                </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Fprintf</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;uninstall: %v\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-2-79" name="__codelineno-2-79" href="#__codelineno-2-79"></a><span class="w">                </span><span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-80" name="__codelineno-2-80" href="#__codelineno-2-80"></a><span class="w">            </span><span class="p">}</span>
+<a id="__codelineno-2-81" name="__codelineno-2-81" href="#__codelineno-2-81"></a><span class="w">            </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;Service uninstalled successfully.&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-82" name="__codelineno-2-82" href="#__codelineno-2-82"></a><span class="w">            </span><span class="k">return</span>
+<a id="__codelineno-2-83" name="__codelineno-2-83" href="#__codelineno-2-83"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-2-84" name="__codelineno-2-84" href="#__codelineno-2-84"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-85" name="__codelineno-2-85" href="#__codelineno-2-85"></a>
+<a id="__codelineno-2-86" name="__codelineno-2-86" href="#__codelineno-2-86"></a><span class="w">    </span><span class="c1">// Either running as SCM service or directly from console.</span>
+<a id="__codelineno-2-87" name="__codelineno-2-87" href="#__codelineno-2-87"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">Run</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-88" name="__codelineno-2-88" href="#__codelineno-2-88"></a><span class="w">        </span><span class="nx">slog</span><span class="p">.</span><span class="nx">Error</span><span class="p">(</span><span class="s">&quot;service_run_error&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;error&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-2-89" name="__codelineno-2-89" href="#__codelineno-2-89"></a><span class="w">        </span><span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Source:</strong> Synthesized from kardianos/service v1.2.4 API (pkg.go.dev/github.com/kardianos/service) and service_windows.go internal source.</p>
+<h3 id="pattern-2-arguments-passthrough-for-config-flag">Pattern 2: Arguments passthrough for -config flag<a class="headerlink" href="#pattern-2-arguments-passthrough-for-config-flag" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> When SCM starts the service on boot, it replays the binary path and arguments recorded at install time. The <code>Arguments</code> field in <code>service.Config</code> must capture the <code>-config</code> path so the service finds its config on boot.</p>
+<p><strong>When to use:</strong> Whenever the service has required flags that differ from defaults.</p>
+<p><strong>Critical detail:</strong> <code>kardianos/service</code> stores <code>Arguments</code> in the registry under <code>HKLM\SYSTEM\CurrentControlSet\Services\&lt;name&gt;\ImagePath</code>. The SCM passes these to the process on start. Pass <code>os.Args[1:]</code> at install time (minus the "install" subcommand), or use a dedicated flag <code>--config</code> that the operator specifies at install time.</p>
+<p><strong>Recommended approach:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// Parse -config before dispatching subcommand</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nx">cfgPath</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;config.toml&quot;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">a</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;-config&quot;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--config&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">i</span><span class="o">+</span><span class="mi">1</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">        </span><span class="nx">cfgPath</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="nx">i</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">}</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="nx">cfg</span><span class="p">.</span><span class="nx">Arguments</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;-config&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfgPath</span><span class="p">}</span>
+</code></pre></div>
+<h3 id="pattern-3-scm-recovery-actions-via-kardianosservice-options">Pattern 3: SCM recovery actions via kardianos/service Options<a class="headerlink" href="#pattern-3-scm-recovery-actions-via-kardianosservice-options" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> Recovery actions (restart on crash) are configured at install time through <code>service.Config.Option</code> KeyValues. <code>kardianos/service</code> internally calls <code>mgr.SetRecoveryActions</code> and (in v1.2.4) <code>SetRecoveryActionsOnNonCrashFailures</code>.</p>
+<p><strong>Example (already captured in buildSvcConfig above):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nx">Option</span><span class="p">:</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">KeyValue</span><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="s">&quot;OnFailure&quot;</span><span class="p">:</span><span class="w">              </span><span class="s">&quot;restart&quot;</span><span class="p">,</span><span class="w">  </span><span class="c1">// ServiceRestart action</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="s">&quot;OnFailureDelayDuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;5s&quot;</span><span class="p">,</span><span class="w">       </span><span class="c1">// 5-second delay before restart</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="s">&quot;OnFailureResetPeriod&quot;</span><span class="p">:</span><span class="w">   </span><span class="mi">86400</span><span class="p">,</span><span class="w">      </span><span class="c1">// Reset failure count after 24h</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">},</span>
+</code></pre></div>
+<p>This corresponds to the Windows "Recovery" tab in services.msc: "First failure: Restart the Service (after 5s)", and reset after 24 hours. The <code>FailureActionsOnNonCrashFailures</code> flag (equivalent of <code>SetRecoveryActionsOnNonCrashFailures(true)</code>) is set automatically by <code>kardianos/service</code> when <code>OnFailure</code> is configured.</p>
+<h3 id="pattern-4-stop-signal-bridging">Pattern 4: Stop signal bridging<a class="headerlink" href="#pattern-4-stop-signal-bridging" title="Permanent link">&para;</a></h3>
+<p><strong>What:</strong> <code>run()</code> currently blocks on <code>signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)</code>. When SCM calls <code>Stop()</code>, kardianos does NOT send a signal — it calls the <code>Stop(s Service) error</code> method. The <code>Stop</code> method must trigger the same shutdown path.</p>
+<p><strong>Options:</strong></p>
+<p>Option A — channel bridge (recommended for this codebase):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// In svcProgram, hold a reference to the signal channel</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kd">type</span><span class="w"> </span><span class="nx">svcProgram</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nx">runFn</span><span class="w">  </span><span class="kd">func</span><span class="p">()</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nx">stopCh</span><span class="w"> </span><span class="kd">chan</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Signal</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="o">*</span><span class="nx">svcProgram</span><span class="p">)</span><span class="w"> </span><span class="nx">Start</span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">Service</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nx">p</span><span class="p">.</span><span class="nx">stopCh</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nb">make</span><span class="p">(</span><span class="kd">chan</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Signal</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="c1">// Register our channel with signal.Notify before starting run</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="k">go</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">runFn</span><span class="p">()</span><span class="w"> </span><span class="c1">// run() reads from stopCh</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">}</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="o">*</span><span class="nx">svcProgram</span><span class="p">)</span><span class="w"> </span><span class="nx">Stop</span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">Service</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="nx">p</span><span class="p">.</span><span class="nx">stopCh</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGTERM</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="p">}</span>
+</code></pre></div>
+<p>Option B — refactor <code>run()</code> to accept a context (cleanest long-term):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">run</span><span class="p">(</span><span class="nx">ctx</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">...</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1">// svcProgram.Start creates a cancel context and stores cancel</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1">// svcProgram.Stop calls cancel()</span>
+</code></pre></div>
+<p>Option B is architecturally cleaner but requires changing the <code>run()</code> signature. Since <code>run()</code> was refactored in Phase 4 to be a no-arg function, Option A adds less churn. Choose based on Phase 4 implementation.</p>
+<h3 id="anti-patterns-to-avoid">Anti-Patterns to Avoid<a class="headerlink" href="#anti-patterns-to-avoid" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Calling <code>os.Exit()</code> in Stop():</strong> SCM gives a limited time for Stop to return. Calling <code>os.Exit()</code> bypasses SCM cleanup. Use channel signaling instead.</li>
+<li><strong>Blocking in Start():</strong> <code>Start(s service.Service)</code> must return quickly. Long initialization must happen in a goroutine.</li>
+<li><strong>Registering with SCM in the wrong tier:</strong> Never use <code>sc.exe</code> or PowerShell for install in code. Use the library API only.</li>
+<li><strong>Ignoring <code>FailureActionsOnNonCrashFailures</code>:</strong> Without this flag, SCM only restarts on crashes (SERVICE_STOPPED not reported). A Go process that calls <code>os.Exit(1)</code> reports SERVICE_STOPPED and does NOT trigger recovery without this flag.</li>
+<li><strong>Setting <code>Arguments</code> to <code>os.Args[1:]</code> literally at install time:</strong> This captures "install" as an argument, which causes infinite install loop on SCM start. Filter out the subcommand before storing arguments.</li>
+</ul>
+<hr />
+<h2 id="dont-hand-roll">Don't Hand-Roll<a class="headerlink" href="#dont-hand-roll" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Don't Build</th>
+<th>Use Instead</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SCM StartPending signaling</td>
+<td>Custom goroutine sending STATUS_START_PENDING</td>
+<td><code>kardianos/service</code> handles this in Execute loop</td>
+<td>Wrong WaitHint values cause SCM timeout; library uses correct defaults</td>
+</tr>
+<tr>
+<td>Recovery action setup</td>
+<td>Direct <code>mgr.SetRecoveryActions</code> calls in custom install</td>
+<td><code>kardianos/service</code> Option KeyValues</td>
+<td>Library also handles <code>FailureActionsOnNonCrashFailures</code> and <code>DelayedAutoStart</code> in one Install() call</td>
+</tr>
+<tr>
+<td>Service detection (service vs console)</td>
+<td>Custom IsWindowsService logic</td>
+<td><code>service.Interactive()</code> from kardianos</td>
+<td><code>svc.IsWindowsService()</code> logic has subtle edge cases in interactive admin sessions</td>
+</tr>
+<tr>
+<td>Install/uninstall registry cleanup</td>
+<td>Manual <code>regedit</code> or <code>reg delete</code></td>
+<td><code>s.Uninstall()</code></td>
+<td>Library calls <code>DeleteService()</code> which atomically removes SCM entry and registry subtree</td>
+</tr>
+<tr>
+<td>Cross-platform service daemon</td>
+<td>Two separate binaries (one Linux, one Windows)</td>
+<td><code>runWithServiceManager</code> + build tags</td>
+<td>Single binary pattern already established by Phase 4 scaffolding</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key insight:</strong> The Windows SCM API has many edge cases (service marked for deletion, service already running on install, insufficient privilege error codes) that <code>kardianos/service</code> handles. Do not replace it with direct Win32 calls.</p>
+<hr />
+<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<h3 id="pitfall-1-30-second-scm-startup-timeout-during-boot">Pitfall 1: 30-Second SCM Startup Timeout During Boot<a class="headerlink" href="#pitfall-1-30-second-scm-startup-timeout-during-boot" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> The SCM starts the service process and waits up to 30 seconds for <code>StartServiceCtrlDispatcher</code> to be called. Go programs with large init chains can exceed this during boot when disk I/O and CPU are contended (documented in golang/go issue #23479).</p>
+<p><strong>Why it happens:</strong> Go initializes all packages sequentially before <code>main()</code> runs. Large binaries with many imports (net/http, prometheus, TLS) have significant init time on slow boot disks. SCM kills the process and logs Event ID 7009.</p>
+<p><strong>How to avoid:</strong> Configure <code>DelayedAutoStart: true</code>. The SCM starts delayed services 120 seconds after auto-start services, when the system is idle. This is the correct fix for Go services — not a workaround.</p>
+<p><strong>Warning signs:</strong> Event Viewer shows Event ID 7009 ("Timeout (30000 milliseconds) waiting for service to connect") on first boot after install.</p>
+<h3 id="pitfall-2-recovery-actions-only-fire-on-crash-not-clean-exit">Pitfall 2: Recovery Actions Only Fire on Crash, Not Clean Exit<a class="headerlink" href="#pitfall-2-recovery-actions-only-fire-on-crash-not-clean-exit" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Operator configures restart on failure, but when the Go process exits with <code>os.Exit(1)</code> (config error, listener bind failure), SCM does NOT restart it.</p>
+<p><strong>Why it happens:</strong> <code>os.Exit(1)</code> causes the process to exit cleanly from the SCM perspective — it reports <code>SERVICE_STOPPED</code> before dying. Recovery actions only fire when the service terminates without reporting <code>SERVICE_STOPPED</code> (true crash), unless <code>FailureActionsOnNonCrashFailures</code> is enabled.</p>
+<p><strong>How to avoid:</strong> Set <code>FailureActionsOnNonCrashFailures = true</code> (done automatically by kardianos/service v1.2.4 when <code>OnFailure</code> is set). Verify with: open services.msc → service Properties → Recovery tab → check "Enable actions for stops with errors" checkbox is ticked.</p>
+<p><strong>Warning signs:</strong> Service exits with error but SCM shows "Stopped" with no automatic restart attempt.</p>
+<h3 id="pitfall-3-arguments-captured-at-install-include-the-subcommand">Pitfall 3: Arguments Captured at Install Include the Subcommand<a class="headerlink" href="#pitfall-3-arguments-captured-at-install-include-the-subcommand" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Operator runs <code>cee-exporter.exe install</code> and the service gets registered with <code>Arguments: ["install"]</code>. On boot SCM runs <code>cee-exporter.exe install</code>, which tries to install again, fails with "already installed" error, and the daemon never starts.</p>
+<p><strong>Why it happens:</strong> Naively passing <code>os.Args[1:]</code> to <code>service.Config.Arguments</code> includes the "install" string.</p>
+<p><strong>How to avoid:</strong> Strip the subcommand from arguments before passing to <code>service.Config.Arguments</code>. Only pass the <code>-config</code> path and any other runtime flags.</p>
+<p><strong>Warning signs:</strong> Service installed correctly but shows "Error 1053: The service did not respond" on start; Event Log shows repeated install attempts.</p>
+<h3 id="pitfall-4-stop-not-bridging-to-run-shutdown">Pitfall 4: Stop() Not Bridging to run() Shutdown<a class="headerlink" href="#pitfall-4-stop-not-bridging-to-run-shutdown" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> SCM sends stop control, kardianos calls <code>Stop()</code>, but <code>run()</code> is still blocking on the signal channel waiting for SIGTERM/SIGINT which never arrives on Windows service stop. Service hangs in StopPending until SCM force-kills after timeout.</p>
+<p><strong>Why it happens:</strong> Windows SCM stop control does not generate a POSIX signal. The <code>signal.Notify</code> channel in <code>run()</code> never receives anything.</p>
+<p><strong>How to avoid:</strong> Implement <code>Stop()</code> to bridge the shutdown signal to whatever mechanism <code>run()</code> uses to exit. Either inject a stop channel into <code>run()</code>, or use a context with cancel.</p>
+<p><strong>Warning signs:</strong> <code>services.msc</code> shows service stuck in "Stopping" state; Event Log shows "The service did not stop in a timely fashion."</p>
+<h3 id="pitfall-5-_windowsgo-vs-_notwindowsgo-build-tag-confusion">Pitfall 5: <code>_windows.go</code> vs <code>_notwindows.go</code> Build Tag Confusion<a class="headerlink" href="#pitfall-5-_windowsgo-vs-_notwindowsgo-build-tag-confusion" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Developer creates <code>service_linux.go</code> instead of <code>service_notwindows.go</code>, breaking Linux builds.</p>
+<p><strong>Why it happens:</strong> <code>_linux.go</code> suffix is treated by Go toolchain as Linux-only build tag. CLAUDE.md explicitly prohibits this pattern.</p>
+<p><strong>How to avoid:</strong> The existing files are correctly named. Phase 5 only modifies <code>service_windows.go</code>. Never rename or add files with <code>_linux.go</code> suffix.</p>
+<p><strong>Warning signs:</strong> <code>GOOS=linux go build ./...</code> fails with duplicate symbol or missing symbol errors.</p>
+<h3 id="pitfall-6-insufficient-privileges-at-install-time">Pitfall 6: Insufficient Privileges at Install Time<a class="headerlink" href="#pitfall-6-insufficient-privileges-at-install-time" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> <code>s.Install()</code> returns "Access is denied" error.</p>
+<p><strong>Why it happens:</strong> SCM registration requires Administrator privileges. The operator must run the install command from an elevated (Administrator) command prompt.</p>
+<p><strong>How to avoid:</strong> Document the requirement in help output. Optionally detect insufficient privilege and print a helpful error message rather than the raw Win32 error.</p>
+<p><strong>Warning signs:</strong> <code>install: Access is denied.</code></p>
+<hr />
+<h2 id="code-examples">Code Examples<a class="headerlink" href="#code-examples" title="Permanent link">&para;</a></h2>
+<p>Verified patterns from official sources:</p>
+<h3 id="full-service_windowsgo-implementation-skeleton">Full service_windows.go Implementation Skeleton<a class="headerlink" href="#full-service_windowsgo-implementation-skeleton" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">//go:build windows</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">package</span><span class="w"> </span><span class="nx">main</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="s">&quot;context&quot;</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="s">&quot;fmt&quot;</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="s">&quot;log/slog&quot;</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="s">&quot;os&quot;</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="s">&quot;syscall&quot;</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="s">&quot;github.com/kardianos/service&quot;</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="p">)</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="nx">svcName</span><span class="w">        </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;cee-exporter&quot;</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="nx">svcDisplayName</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;CEE Exporter&quot;</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="nx">svcDescription</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;Dell PowerStore CEPA audit event bridge to GELF / Windows Event Log&quot;</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="p">)</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="c1">// svcProgram implements service.Interface for kardianos/service.</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="kd">type</span><span class="w"> </span><span class="nx">svcProgram</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="nx">cancel</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">CancelFunc</span><span class="w"> </span><span class="c1">// set in Start(), called by Stop()</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">    </span><span class="nx">runFn</span><span class="w">  </span><span class="kd">func</span><span class="p">(</span><span class="nx">ctx</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="p">}</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="o">*</span><span class="nx">svcProgram</span><span class="p">)</span><span class="w"> </span><span class="nx">Start</span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">Service</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="w">    </span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="nx">cancel</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">WithCancel</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nx">Background</span><span class="p">())</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="w">    </span><span class="nx">p</span><span class="p">.</span><span class="nx">cancel</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">cancel</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="w">    </span><span class="k">go</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">runFn</span><span class="p">(</span><span class="nx">ctx</span><span class="p">)</span><span class="w"> </span><span class="c1">// must not block</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="p">}</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="o">*</span><span class="nx">svcProgram</span><span class="p">)</span><span class="w"> </span><span class="nx">Stop</span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">Service</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">p</span><span class="p">.</span><span class="nx">cancel</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a><span class="w">        </span><span class="nx">p</span><span class="p">.</span><span class="nx">cancel</span><span class="p">()</span>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a><span class="p">}</span>
+<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a>
+<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a><span class="c1">// svcConfig builds the kardianos/service Config with correct Windows options.</span>
+<a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a><span class="kd">func</span><span class="w"> </span><span class="nx">svcConfig</span><span class="p">(</span><span class="nx">cfgPath</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="nx">service</span><span class="p">.</span><span class="nx">Config</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">service</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span>
+<a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a><span class="w">        </span><span class="nx">Name</span><span class="p">:</span><span class="w">        </span><span class="nx">svcName</span><span class="p">,</span>
+<a id="__codelineno-7-45" name="__codelineno-7-45" href="#__codelineno-7-45"></a><span class="w">        </span><span class="nx">DisplayName</span><span class="p">:</span><span class="w"> </span><span class="nx">svcDisplayName</span><span class="p">,</span>
+<a id="__codelineno-7-46" name="__codelineno-7-46" href="#__codelineno-7-46"></a><span class="w">        </span><span class="nx">Description</span><span class="p">:</span><span class="w"> </span><span class="nx">svcDescription</span><span class="p">,</span>
+<a id="__codelineno-7-47" name="__codelineno-7-47" href="#__codelineno-7-47"></a><span class="w">        </span><span class="nx">Arguments</span><span class="p">:</span><span class="w">   </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;-config&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">cfgPath</span><span class="p">},</span>
+<a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a><span class="w">        </span><span class="nx">Option</span><span class="p">:</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">KeyValue</span><span class="p">{</span>
+<a id="__codelineno-7-49" name="__codelineno-7-49" href="#__codelineno-7-49"></a><span class="w">            </span><span class="c1">// Use Automatic (Delayed Start) to avoid SCM 30-second boot timeout</span>
+<a id="__codelineno-7-50" name="__codelineno-7-50" href="#__codelineno-7-50"></a><span class="w">            </span><span class="s">&quot;StartType&quot;</span><span class="p">:</span><span class="w">            </span><span class="s">&quot;automatic&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-51" name="__codelineno-7-51" href="#__codelineno-7-51"></a><span class="w">            </span><span class="s">&quot;DelayedAutoStart&quot;</span><span class="p">:</span><span class="w">     </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-7-52" name="__codelineno-7-52" href="#__codelineno-7-52"></a><span class="w">            </span><span class="c1">// Recovery: restart 5s after failure; reset count after 24h</span>
+<a id="__codelineno-7-53" name="__codelineno-7-53" href="#__codelineno-7-53"></a><span class="w">            </span><span class="s">&quot;OnFailure&quot;</span><span class="p">:</span><span class="w">            </span><span class="s">&quot;restart&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-54" name="__codelineno-7-54" href="#__codelineno-7-54"></a><span class="w">            </span><span class="s">&quot;OnFailureDelayDuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;5s&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-55" name="__codelineno-7-55" href="#__codelineno-7-55"></a><span class="w">            </span><span class="s">&quot;OnFailureResetPeriod&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">86400</span><span class="p">,</span>
+<a id="__codelineno-7-56" name="__codelineno-7-56" href="#__codelineno-7-56"></a><span class="w">        </span><span class="p">},</span>
+<a id="__codelineno-7-57" name="__codelineno-7-57" href="#__codelineno-7-57"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-7-58" name="__codelineno-7-58" href="#__codelineno-7-58"></a><span class="p">}</span>
+<a id="__codelineno-7-59" name="__codelineno-7-59" href="#__codelineno-7-59"></a>
+<a id="__codelineno-7-60" name="__codelineno-7-60" href="#__codelineno-7-60"></a><span class="c1">// runWithServiceManager is the single entry point called by main().</span>
+<a id="__codelineno-7-61" name="__codelineno-7-61" href="#__codelineno-7-61"></a><span class="c1">// It handles install/uninstall subcommands and otherwise runs the service.</span>
+<a id="__codelineno-7-62" name="__codelineno-7-62" href="#__codelineno-7-62"></a><span class="kd">func</span><span class="w"> </span><span class="nx">runWithServiceManager</span><span class="p">(</span><span class="nx">runFn</span><span class="w"> </span><span class="kd">func</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-63" name="__codelineno-7-63" href="#__codelineno-7-63"></a><span class="w">    </span><span class="c1">// Parse -config path early so we can store it in service arguments.</span>
+<a id="__codelineno-7-64" name="__codelineno-7-64" href="#__codelineno-7-64"></a><span class="w">    </span><span class="nx">cfgPath</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">parseCfgPath</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+<a id="__codelineno-7-65" name="__codelineno-7-65" href="#__codelineno-7-65"></a>
+<a id="__codelineno-7-66" name="__codelineno-7-66" href="#__codelineno-7-66"></a><span class="w">    </span><span class="c1">// Adapt the no-arg runFn to accept a context for SCM stop bridging.</span>
+<a id="__codelineno-7-67" name="__codelineno-7-67" href="#__codelineno-7-67"></a><span class="w">    </span><span class="c1">// NOTE: if Phase 4 refactored run() to accept a context, use that directly.</span>
+<a id="__codelineno-7-68" name="__codelineno-7-68" href="#__codelineno-7-68"></a><span class="w">    </span><span class="nx">prg</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">svcProgram</span><span class="p">{</span>
+<a id="__codelineno-7-69" name="__codelineno-7-69" href="#__codelineno-7-69"></a><span class="w">        </span><span class="nx">runFn</span><span class="p">:</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">ctx</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-70" name="__codelineno-7-70" href="#__codelineno-7-70"></a><span class="w">            </span><span class="nx">runFn</span><span class="p">()</span><span class="w"> </span><span class="c1">// run() must respect context or signal channel</span>
+<a id="__codelineno-7-71" name="__codelineno-7-71" href="#__codelineno-7-71"></a><span class="w">        </span><span class="p">},</span>
+<a id="__codelineno-7-72" name="__codelineno-7-72" href="#__codelineno-7-72"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-7-73" name="__codelineno-7-73" href="#__codelineno-7-73"></a>
+<a id="__codelineno-7-74" name="__codelineno-7-74" href="#__codelineno-7-74"></a><span class="w">    </span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">prg</span><span class="p">,</span><span class="w"> </span><span class="nx">svcConfig</span><span class="p">(</span><span class="nx">cfgPath</span><span class="p">))</span>
+<a id="__codelineno-7-75" name="__codelineno-7-75" href="#__codelineno-7-75"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-76" name="__codelineno-7-76" href="#__codelineno-7-76"></a><span class="w">        </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Fprintf</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;service.New: %v\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-7-77" name="__codelineno-7-77" href="#__codelineno-7-77"></a><span class="w">        </span><span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-7-78" name="__codelineno-7-78" href="#__codelineno-7-78"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-7-79" name="__codelineno-7-79" href="#__codelineno-7-79"></a>
+<a id="__codelineno-7-80" name="__codelineno-7-80" href="#__codelineno-7-80"></a><span class="w">    </span><span class="c1">// Subcommand dispatch before flag.Parse() runs in run()</span>
+<a id="__codelineno-7-81" name="__codelineno-7-81" href="#__codelineno-7-81"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">)</span><span class="w"> </span><span class="p">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-82" name="__codelineno-7-82" href="#__codelineno-7-82"></a><span class="w">        </span><span class="k">switch</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-83" name="__codelineno-7-83" href="#__codelineno-7-83"></a><span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;install&quot;</span><span class="p">:</span>
+<a id="__codelineno-7-84" name="__codelineno-7-84" href="#__codelineno-7-84"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">Install</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-85" name="__codelineno-7-85" href="#__codelineno-7-85"></a><span class="w">                </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Fprintf</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;install failed: %v\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-7-86" name="__codelineno-7-86" href="#__codelineno-7-86"></a><span class="w">                </span><span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-7-87" name="__codelineno-7-87" href="#__codelineno-7-87"></a><span class="w">            </span><span class="p">}</span>
+<a id="__codelineno-7-88" name="__codelineno-7-88" href="#__codelineno-7-88"></a><span class="w">            </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Service %q installed. Start with: sc start %s\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">svcName</span><span class="p">,</span><span class="w"> </span><span class="nx">svcName</span><span class="p">)</span>
+<a id="__codelineno-7-89" name="__codelineno-7-89" href="#__codelineno-7-89"></a><span class="w">            </span><span class="k">return</span>
+<a id="__codelineno-7-90" name="__codelineno-7-90" href="#__codelineno-7-90"></a><span class="w">        </span><span class="k">case</span><span class="w"> </span><span class="s">&quot;uninstall&quot;</span><span class="p">:</span>
+<a id="__codelineno-7-91" name="__codelineno-7-91" href="#__codelineno-7-91"></a><span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">Uninstall</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-92" name="__codelineno-7-92" href="#__codelineno-7-92"></a><span class="w">                </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Fprintf</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;uninstall failed: %v\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-7-93" name="__codelineno-7-93" href="#__codelineno-7-93"></a><span class="w">                </span><span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-7-94" name="__codelineno-7-94" href="#__codelineno-7-94"></a><span class="w">            </span><span class="p">}</span>
+<a id="__codelineno-7-95" name="__codelineno-7-95" href="#__codelineno-7-95"></a><span class="w">            </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;Service %q uninstalled.\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">svcName</span><span class="p">)</span>
+<a id="__codelineno-7-96" name="__codelineno-7-96" href="#__codelineno-7-96"></a><span class="w">            </span><span class="k">return</span>
+<a id="__codelineno-7-97" name="__codelineno-7-97" href="#__codelineno-7-97"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-7-98" name="__codelineno-7-98" href="#__codelineno-7-98"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-7-99" name="__codelineno-7-99" href="#__codelineno-7-99"></a>
+<a id="__codelineno-7-100" name="__codelineno-7-100" href="#__codelineno-7-100"></a><span class="w">    </span><span class="c1">// Not install/uninstall — run as service or interactive console.</span>
+<a id="__codelineno-7-101" name="__codelineno-7-101" href="#__codelineno-7-101"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">Run</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-102" name="__codelineno-7-102" href="#__codelineno-7-102"></a><span class="w">        </span><span class="nx">slog</span><span class="p">.</span><span class="nx">Error</span><span class="p">(</span><span class="s">&quot;service_run_error&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;error&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-7-103" name="__codelineno-7-103" href="#__codelineno-7-103"></a><span class="w">        </span><span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-7-104" name="__codelineno-7-104" href="#__codelineno-7-104"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-7-105" name="__codelineno-7-105" href="#__codelineno-7-105"></a><span class="p">}</span>
+<a id="__codelineno-7-106" name="__codelineno-7-106" href="#__codelineno-7-106"></a>
+<a id="__codelineno-7-107" name="__codelineno-7-107" href="#__codelineno-7-107"></a><span class="c1">// parseCfgPath extracts the value of -config flag from args without calling flag.Parse().</span>
+<a id="__codelineno-7-108" name="__codelineno-7-108" href="#__codelineno-7-108"></a><span class="kd">func</span><span class="w"> </span><span class="nx">parseCfgPath</span><span class="p">(</span><span class="nx">args</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-109" name="__codelineno-7-109" href="#__codelineno-7-109"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">i</span><span class="p">,</span><span class="w"> </span><span class="nx">a</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="k">range</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-110" name="__codelineno-7-110" href="#__codelineno-7-110"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;-config&quot;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--config&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">i</span><span class="o">+</span><span class="mi">1</span><span class="w"> </span><span class="p">&lt;</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-111" name="__codelineno-7-111" href="#__codelineno-7-111"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">args</span><span class="p">[</span><span class="nx">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-7-112" name="__codelineno-7-112" href="#__codelineno-7-112"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-7-113" name="__codelineno-7-113" href="#__codelineno-7-113"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-7-114" name="__codelineno-7-114" href="#__codelineno-7-114"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;config.toml&quot;</span><span class="w"> </span><span class="c1">// default matches flag default in run()</span>
+<a id="__codelineno-7-115" name="__codelineno-7-115" href="#__codelineno-7-115"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Note on Stop bridging:</strong> The example above calls <code>runFn()</code> which currently uses <code>signal.Notify</code> for shutdown. The <code>cancel()</code> call in <code>Stop()</code> does nothing without context propagation into <code>run()</code>. The plan must either (a) refactor <code>run()</code> to accept a <code>context.Context</code> and check <code>ctx.Done()</code> in addition to signals, or (b) have <code>Stop()</code> send a synthetic signal via <code>syscall.Kill(os.Getpid(), syscall.SIGTERM)</code> — but SIGTERM does not exist on Windows. The correct solution is option (a): refactor <code>run()</code> signature.</p>
+<h3 id="recovery-actions-direct-xsyswindowssvcmgr-for-reference-only">Recovery Actions (direct x/sys/windows/svc/mgr — for reference only)<a class="headerlink" href="#recovery-actions-direct-xsyswindowssvcmgr-for-reference-only" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// Source: pkg.go.dev/golang.org/x/sys/windows/svc/mgr</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1">// This is what kardianos/service calls internally.</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nx">actions</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="nx">mgr</span><span class="p">.</span><span class="nx">RecoveryAction</span><span class="p">{</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="p">{</span><span class="nx">Type</span><span class="p">:</span><span class="w"> </span><span class="nx">mgr</span><span class="p">.</span><span class="nx">ServiceRestart</span><span class="p">,</span><span class="w"> </span><span class="nx">Delay</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">},</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="p">{</span><span class="nx">Type</span><span class="p">:</span><span class="w"> </span><span class="nx">mgr</span><span class="p">.</span><span class="nx">ServiceRestart</span><span class="p">,</span><span class="w"> </span><span class="nx">Delay</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">},</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="p">{</span><span class="nx">Type</span><span class="p">:</span><span class="w"> </span><span class="nx">mgr</span><span class="p">.</span><span class="nx">ServiceRestart</span><span class="p">,</span><span class="w"> </span><span class="nx">Delay</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">},</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">}</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="nx">resetPeriod</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">uint32</span><span class="p">(</span><span class="mi">86400</span><span class="p">)</span><span class="w"> </span><span class="c1">// 24 hours</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">svc</span><span class="p">.</span><span class="nx">SetRecoveryActions</span><span class="p">(</span><span class="nx">actions</span><span class="p">,</span><span class="w"> </span><span class="nx">resetPeriod</span><span class="p">)</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="c1">// Enable restart on non-crash exits (non-zero exit code)</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="nx">err</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">svc</span><span class="p">.</span><span class="nx">SetRecoveryActionsOnNonCrashFailures</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="verify-installation-powershell">Verify Installation (PowerShell)<a class="headerlink" href="#verify-installation-powershell" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">Get-Service</span> <span class="n">-Name</span> <span class="s2">&quot;cee-exporter&quot;</span> <span class="p">|</span> <span class="nb">Select-Object</span> <span class="n">Name</span><span class="p">,</span> <span class="n">Status</span><span class="p">,</span> <span class="n">StartType</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">sc</span><span class="p">.</span><span class="n">exe</span> <span class="n">qfailure</span> <span class="n">cee-exporter</span>       <span class="c"># shows recovery actions</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">sc</span><span class="p">.</span><span class="n">exe</span> <span class="n">qc</span> <span class="n">cee-exporter</span>              <span class="c"># shows config including delayed auto start</span>
+</code></pre></div>
+<hr />
+<h2 id="state-of-the-art">State of the Art<a class="headerlink" href="#state-of-the-art" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Old Approach</th>
+<th>Current Approach</th>
+<th>When Changed</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IsAnInteractiveSession()</code></td>
+<td><code>IsWindowsService()</code></td>
+<td>Go 1.13 era</td>
+<td>Old function deprecated; new one is correct</td>
+</tr>
+<tr>
+<td>Manual <code>sc.exe</code> calls in install script</td>
+<td>Library API (<code>s.Install()</code>)</td>
+<td>Established pattern</td>
+<td>No external tools needed; single binary</td>
+</tr>
+<tr>
+<td>No delayed start for Go services</td>
+<td><code>DelayedAutoStart: true</code></td>
+<td>golang/go #23479 (2018, ongoing)</td>
+<td>Prevents SCM 30-second timeout at boot</td>
+</tr>
+<tr>
+<td>Recovery actions via manual <code>sc.exe failure</code></td>
+<td><code>kardianos/service</code> Options</td>
+<td>v1.2.1 (2021)</td>
+<td>Declarative; no post-install scripting</td>
+</tr>
+<tr>
+<td><code>kardianos/service</code> v1.1.x</td>
+<td>v1.2.4 (July 2025)</td>
+<td>2021-2025</td>
+<td>Added <code>OnFailureDelayDuration</code>, OpenRC, proper Windows options</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Deprecated/outdated:</strong></p>
+<ul>
+<li>NSSM: External dependency, explicitly out of scope per REQUIREMENTS.md</li>
+<li><code>sc.exe</code> for install/uninstall: Works but requires admin shell and no rollback; library approach is superior</li>
+</ul>
+<hr />
+<h2 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Stop() bridging into run()</strong></li>
+<li>What we know: <code>run()</code> currently blocks on <code>signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)</code>. Windows SCM stop does not generate signals.</li>
+<li>What's unclear: Whether Phase 4's <code>run()</code> refactor left any hook for context cancellation or if it remains signal-only.</li>
+<li>
+<p>Recommendation: The plan's first task should refactor <code>run()</code> to accept <code>ctx context.Context</code> and exit on <code>ctx.Done()</code> in addition to signals. This is the minimal correct fix and benefits Linux service management too.</p>
+</li>
+<li>
+<p><strong>Service arguments vs -config flag interaction</strong></p>
+</li>
+<li>What we know: <code>service.Config.Arguments</code> stores the args SCM passes on boot. The operator specifies <code>-config</code> at install time.</li>
+<li>What's unclear: Whether to require the operator to pass <code>-config</code> explicitly at install, or detect and store automatically.</li>
+<li>
+<p>Recommendation: Parse <code>-config</code> from <code>os.Args</code> in <code>runWithServiceManager</code> and always store it in <code>Arguments</code>. Default to <code>config.toml</code>. Document this in help text.</p>
+</li>
+<li>
+<p><strong>Event Log source registration</strong></p>
+</li>
+<li>What we know: Windows services can register an Event Log source so their messages appear in <code>System</code> or <code>Application</code> Event Viewer logs. kardianos/service has a Logger that writes to the Windows Event Log.</li>
+<li>What's unclear: Whether to use <code>s.Logger()</code> for structured logging or keep slog and not register an Event Log source (Phase 5 scope).</li>
+<li>Recommendation: Keep slog for Phase 5. Event Log source registration is a separate concern (not in DEPLOY-03/04/05). Log to file or stderr; let the operator redirect via SCM configuration.</li>
+</ol>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<h3 id="primary-high-confidence">Primary (HIGH confidence)<a class="headerlink" href="#primary-high-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>pkg.go.dev/github.com/kardianos/service</code> — version, Config struct, KeyValue options, Interface, Control(), Install(), Uninstall()</li>
+<li><code>pkg.go.dev/golang.org/x/sys/windows/svc/mgr</code> — RecoveryAction struct, SetRecoveryActions, SetRecoveryActionsOnNonCrashFailures, Config.DelayedAutoStart</li>
+<li><code>pkg.go.dev/golang.org/x/sys/windows/svc</code> — Handler interface, IsWindowsService(), StartPending, WaitHint signaling</li>
+<li><code>github.com/kardianos/service/blob/master/service_windows.go</code> — internal Install() showing DelayedAutoStart, SetRecoveryActions call pattern</li>
+</ul>
+<h3 id="secondary-medium-confidence">Secondary (MEDIUM confidence)<a class="headerlink" href="#secondary-medium-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>github.com/golang/go/issues/23479</code> — SCM 30-second timeout root cause and <code>DelayedAutoStart</code> as recommended mitigation</li>
+<li><code>github.com/golang/go/issues/59016</code> — <code>SetRecoveryActionsOnNonCrashFailures</code> API addition background</li>
+<li><code>github.com/golang/sys/blob/master/windows/svc/example/main.go</code> — <code>IsWindowsService()</code> dispatch pattern confirmed</li>
+</ul>
+<h3 id="tertiary-low-confidence">Tertiary (LOW confidence)<a class="headerlink" href="#tertiary-low-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li>levin405.neocities.org/blog/2022-07-25-writing-a-windows-service-in-go-2/ — os.Args dispatch pattern (single blog post, not official)</li>
+</ul>
+<hr />
+<h2 id="metadata">Metadata<a class="headerlink" href="#metadata" title="Permanent link">&para;</a></h2>
+<p><strong>Confidence breakdown:</strong></p>
+<ul>
+<li>Standard stack: HIGH — kardianos/service v1.2.4 confirmed on pkg.go.dev; x/sys already in go.mod</li>
+<li>Architecture: HIGH — build tag pattern from CLAUDE.md; service_windows.go stub already in place; kardianos API verified</li>
+<li>Pitfalls: HIGH — SCM timeout confirmed in golang/go #23479; recovery action gotcha confirmed in x/sys mgr docs; argument capture pitfall derived from library API semantics</li>
+</ul>
+<p><strong>Research date:</strong> 2026-03-03
+<strong>Valid until:</strong> 2026-06-03 (kardianos/service stable; x/sys stable; Win32 SCM API does not change)</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.sections", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

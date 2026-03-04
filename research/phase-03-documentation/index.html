@@ -1,0 +1,1375 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Dell PowerStore CEPA audit events → Windows EventLog / GELF">
+      
+      
+      
+        <link rel="canonical" href="https://fjacquet.github.io/cee-exporter/research/phase-03-documentation/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Phase 3: Documentation - Research - cee-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#phase-3-documentation-research" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="cee-exporter" class="md-header__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cee-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Phase 3: Documentation - Research
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="cee-exporter" class="md-nav__button md-logo" aria-label="cee-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cee-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fjacquet/cee-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fjacquet/cee-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operator-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operator Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PRD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Requirements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-001-language-go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Language (Go)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-002-gelf-primary-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-002 GELF Primary Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-003-async-queue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-003 Async Queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-004-binary-evtx-deferred/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-004 Binary EVTX Deferred
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-005-cgo-disabled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-005 CGO Disabled
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-006-prometheus-separate-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-006 Prometheus Port
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-007-windows-svc-x-sys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-007 Windows Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-008-rfc5424-crewjam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-008 RFC5424 Syslog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/ADR-009-binary-evtx-scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-009 BinaryEvtx Scratch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../v2-research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2 Research
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="phase-3-documentation-research">Phase 3: Documentation - Research<a class="headerlink" href="#phase-3-documentation-research" title="Permanent link">&para;</a></h1>
+<p><strong>Researched:</strong> 2026-03-03
+<strong>Domain:</strong> Technical documentation for a Go daemon (README, ADR, PRD, CHANGELOG)
+<strong>Confidence:</strong> HIGH</p>
+<p><phase_requirements></p>
+<h2 id="phase-requirements">Phase Requirements<a class="headerlink" href="#phase-requirements" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Description</th>
+<th>Research Support</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DOC-01</td>
+<td>README covers installation, prerequisites, quick-start (GELF to Graylog)</td>
+<td>Quickstart pattern, Graylog GELF input steps, binary installation patterns documented below</td>
+</tr>
+<tr>
+<td>DOC-02</td>
+<td>README documents all config.toml fields with examples</td>
+<td>Full config struct extracted from main.go; every field, type, default, and example verified</td>
+</tr>
+<tr>
+<td>DOC-03</td>
+<td>README covers TLS setup (self-signed cert generation example)</td>
+<td>openssl one-liner verified with SAN support; Go built-in generate_cert.go also documented</td>
+</tr>
+<tr>
+<td>DOC-04</td>
+<td>README covers CEPA registration (Dell PowerStore Event Publishing Pool configuration)</td>
+<td>Step-by-step PowerStore UI navigation extracted from Dell documentation and PeerSoftware KB</td>
+</tr>
+<tr>
+<td></phase_requirements></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>Phase 3 is a pure documentation phase. No new Go code is written. The deliverables are: (1) a README.md at project root that satisfies all four DOC requirements, (2) ADR files documenting the key architectural decisions already made, (3) a PRD describing what cee-exporter is and does, and (4) a CHANGELOG.md initializing the v1.0 release history.</p>
+<p>The README is the primary artefact. Its four sections — quickstart, config reference, TLS setup, CEPA registration — map directly to DOC-01 through DOC-04. The additional artefacts (ADR, PRD, CHANGELOG) are standard open-source project hygiene that aid future contributors and operators in understanding the project's history and scope.</p>
+<p>The technical content for all sections is already fully known: the <code>config.toml.example</code> file and <code>main.go</code> <code>Config</code> struct define every field; the CEPA protocol quirks are documented in <code>docs/PowerStore_CEPA_CEE vers EVTX.txt</code> and the project memory; and the standard openssl commands for self-signed certs with SAN are well-established.</p>
+<p><strong>Primary recommendation:</strong> Write README.md in a single plan, then write the supplementary artefacts (ADR, PRD, CHANGELOG) in a second plan. Treat the README as the canonical operator guide; keep ADR files concise (one page each per the Nygard format).</p>
+<hr />
+<h2 id="standard-stack">Standard Stack<a class="headerlink" href="#standard-stack" title="Permanent link">&para;</a></h2>
+<h3 id="core">Core<a class="headerlink" href="#core" title="Permanent link">&para;</a></h3>
+<p>This is a documentation phase. There are no library dependencies to add. The tools used are:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+<th>Why Standard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Markdown</td>
+<td>Format for README, ADR, PRD, CHANGELOG</td>
+<td>Universal, renders on GitHub, consumed by all editors</td>
+</tr>
+<tr>
+<td>openssl (system CLI)</td>
+<td>Generate self-signed TLS certificate</td>
+<td>Universally available on Linux/macOS; Go <code>generate_cert.go</code> is the alternative</td>
+</tr>
+<tr>
+<td><code>go run crypto/tls/generate_cert.go</code></td>
+<td>Alternative TLS cert generator</td>
+<td>Built into Go stdlib, no openssl dependency</td>
+</tr>
+</tbody>
+</table>
+<h3 id="document-artefacts-to-produce">Document Artefacts to Produce<a class="headerlink" href="#document-artefacts-to-produce" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Location</th>
+<th>Format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>README.md</td>
+<td>Project root</td>
+<td>Markdown, operator-facing</td>
+</tr>
+<tr>
+<td>CHANGELOG.md</td>
+<td>Project root</td>
+<td>Keep a Changelog 1.0.0 format</td>
+</tr>
+<tr>
+<td>docs/adr/ADR-001-language-go.md</td>
+<td>docs/adr/</td>
+<td>Nygard ADR format</td>
+</tr>
+<tr>
+<td>docs/adr/ADR-002-gelf-primary-linux.md</td>
+<td>docs/adr/</td>
+<td>Nygard ADR format</td>
+</tr>
+<tr>
+<td>docs/adr/ADR-003-async-queue.md</td>
+<td>docs/adr/</td>
+<td>Nygard ADR format</td>
+</tr>
+<tr>
+<td>docs/adr/ADR-004-binary-evtx-deferred.md</td>
+<td>docs/adr/</td>
+<td>Nygard ADR format</td>
+</tr>
+<tr>
+<td>docs/PRD.md</td>
+<td>docs/</td>
+<td>PRD format</td>
+</tr>
+</tbody>
+</table>
+<h3 id="alternatives-considered">Alternatives Considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Instead of</th>
+<th>Could Use</th>
+<th>Tradeoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Single README.md</td>
+<td>Separate docs/ site</td>
+<td>README is sufficient for v1; a docs site adds tooling complexity with no benefit at this scale</td>
+</tr>
+<tr>
+<td>openssl one-liner</td>
+<td><code>go run generate_cert.go</code></td>
+<td>openssl is more familiar to Linux ops; Go tool requires Go installed but avoids openssl dependency</td>
+</tr>
+<tr>
+<td>Nygard ADR format</td>
+<td>MADR (Markdown ADR)</td>
+<td>Nygard is the original, simplest format; MADR adds more fields than needed here</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="architecture-patterns">Architecture Patterns<a class="headerlink" href="#architecture-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="recommended-document-structure">Recommended Document Structure<a class="headerlink" href="#recommended-document-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>/ (project root)
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── README.md                   # Primary operator guide (DOC-01..DOC-04)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── CHANGELOG.md                # Version history (Keep a Changelog format)
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── config.toml.example         # Already exists — referenced by README
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── docs/
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├── PRD.md                  # Product Requirements Document
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   └── adr/
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│       ├── ADR-001-language-go.md
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│       ├── ADR-002-gelf-primary-linux.md
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│       ├── ADR-003-async-queue.md
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│       └── ADR-004-binary-evtx-deferred.md
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>└── .planning/                  # Already exists — internal planning only
+</code></pre></div>
+<h3 id="pattern-1-readme-structure-for-operator-daemon">Pattern 1: README Structure for Operator Daemon<a class="headerlink" href="#pattern-1-readme-structure-for-operator-daemon" title="Permanent link">&para;</a></h3>
+<p>The canonical Go operator README structure for a daemon/service:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gh"># project-name</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>One-sentence description of what it does and who it&#39;s for.
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="gu">## Overview</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="gu">## Prerequisites</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="gu">## Quick Start              ← DOC-01</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="gu">## Configuration Reference  ← DOC-02</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="gu">## TLS Setup               ← DOC-03</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="gu">## Dell PowerStore CEPA Registration  ← DOC-04</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="gu">## Troubleshooting</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="gu">## Building from Source</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="gu">## License</span>
+</code></pre></div>
+<p><strong>What:</strong> Sections ordered from "I just downloaded this" to "I need to configure advanced features."
+<strong>When to use:</strong> Always for operator-facing daemons. Operators read top-to-bottom; put the quickstart before the deep config.</p>
+<h3 id="pattern-2-nygard-adr-format">Pattern 2: Nygard ADR Format<a class="headerlink" href="#pattern-2-nygard-adr-format" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gh"># ADR-NNN: [Short noun phrase]</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="gs">**Status:**</span> accepted | proposed | deprecated | superseded by ADR-XXX
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="gu">## Context</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>Forces at play. State facts neutrally. Include tensions.
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="gu">## Decision</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>We will [active voice statement of the decision].
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="gu">## Consequences</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>All consequences — positive, negative, and neutral. One to three paragraphs.
+</code></pre></div>
+<p><strong>What:</strong> Lightweight, one-to-two page decision log stored in version control.
+<strong>When to use:</strong> For every significant architectural decision that has trade-offs a future developer would need to understand.</p>
+<h3 id="pattern-3-keep-a-changelog-format">Pattern 3: Keep a Changelog Format<a class="headerlink" href="#pattern-3-keep-a-changelog-format" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="gh"># Changelog</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>All notable changes to this project will be documented in this file.
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>Format: [<span class="nt">Keep a Changelog</span>](<span class="na">https://keepachangelog.com/en/1.0.0/</span>)
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>Versioning: [<span class="nt">Semantic Versioning</span>](<span class="na">https://semver.org/spec/v2.0.0.html</span>)
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="gu">## [Unreleased]</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="gu">## [1.0.0] - 2026-03-03</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="gu">### Added</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="k">-</span><span class="w"> </span>[feature description]
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="gu">### Fixed</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="k">-</span><span class="w"> </span>[bug fix description]
+</code></pre></div>
+<p><strong>What:</strong> Human-readable version history organized by release and change category.
+<strong>Categories:</strong> Added, Changed, Deprecated, Removed, Fixed, Security.</p>
+<h3 id="pattern-4-prd-for-infrastructure-component">Pattern 4: PRD for Infrastructure Component<a class="headerlink" href="#pattern-4-prd-for-infrastructure-component" title="Permanent link">&para;</a></h3>
+<p>For a self-contained daemon rather than a user-facing product:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gh"># Product Requirements Document: cee-exporter</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="gu">## Overview</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="gu">## Problem Statement</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="gu">## Goals and Non-Goals</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="gu">## User Personas</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="gu">## Functional Requirements (reference REQUIREMENTS.md)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="gu">## Non-Functional Requirements</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="gu">## Architecture Summary</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="gu">## v1.0 Scope</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="gu">## Out of Scope</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="gu">## Success Metrics</span>
+</code></pre></div>
+<h3 id="anti-patterns-to-avoid">Anti-Patterns to Avoid<a class="headerlink" href="#anti-patterns-to-avoid" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Documenting internals in README:</strong> README is for operators, not developers. Architecture details belong in ADRs or a separate ARCHITECTURE.md.</li>
+<li><strong>Configuration table without defaults:</strong> Every config field must have type, default, and at least one example value — operators copy-paste from README.</li>
+<li><strong>Missing SAN in TLS cert example:</strong> Modern Go TLS (≥ 1.15) rejects certificates without Subject Alternative Names. The openssl command MUST include <code>-addext "subjectAltName=..."</code>.</li>
+<li><strong>Vague Graylog steps:</strong> "Add a GELF input" is insufficient. The README must name the exact menu path (<code>System &gt; Inputs &gt; Launch new input &gt; GELF UDP</code>).</li>
+<li><strong>Omitting the RegisterRequest quirk in CEPA section:</strong> The Dell CEPA handshake requires an HTTP 200 OK with strictly empty body. Any XML in the response causes a fatal parse error. This MUST be documented so operators understand cee-exporter's behavior.</li>
+</ul>
+<hr />
+<h2 id="dont-hand-roll">Don't Hand-Roll<a class="headerlink" href="#dont-hand-roll" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Don't Build</th>
+<th>Use Instead</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TLS certificate generation</td>
+<td>Custom Go cert generator</td>
+<td>openssl CLI or <code>go run generate_cert.go</code></td>
+<td>Both are battle-tested, widely documented</td>
+</tr>
+<tr>
+<td>ADR tooling</td>
+<td>Custom script</td>
+<td>Markdown + Git (no tool needed at this scale)</td>
+<td>adr-tools adds complexity; plain markdown files in docs/adr/ are sufficient</td>
+</tr>
+<tr>
+<td>Changelog automation</td>
+<td>Custom changelog generator</td>
+<td>Manual for v1.0; git-cliff or conventional commits tooling can be added later</td>
+<td>Automation adds CI complexity not justified at v1.0 with one release</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key insight:</strong> This is a documentation phase. The only thing to "build" is clear prose. Resist the urge to add tooling for tooling's sake.</p>
+<hr />
+<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<h3 id="pitfall-1-tls-certificate-missing-san">Pitfall 1: TLS Certificate Missing SAN<a class="headerlink" href="#pitfall-1-tls-certificate-missing-san" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Operator generates certificate without Subject Alternative Name, connects a modern PowerStore client or browser, gets <code>x509: certificate relies on legacy Common Name field, use SANs instead</code> error.</p>
+<p><strong>Why it happens:</strong> Pre-2019 openssl workflows used <code>-subj '/CN=hostname'</code> without SAN extension. Go ≥ 1.15 enforces SAN requirement by default.</p>
+<p><strong>How to avoid:</strong> Use the <code>-addext "subjectAltName=DNS:hostname,IP:1.2.3.4"</code> flag (openssl ≥ 1.1.1) or the <code>-extfile</code> approach. Always include both DNS and IP entries for the server.</p>
+<p><strong>Warning signs:</strong> TLS handshake fails with <code>certificate has no suitable IP SANs</code> or <code>certificate relies on legacy CN</code>.</p>
+<p><strong>Correct openssl command:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>openssl<span class="w"> </span>req<span class="w"> </span>-x509<span class="w"> </span>-newkey<span class="w"> </span>rsa:4096<span class="w"> </span>-sha256<span class="w"> </span>-days<span class="w"> </span><span class="m">3650</span><span class="w"> </span>-nodes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>-keyout<span class="w"> </span>server.key<span class="w"> </span>-out<span class="w"> </span>server.crt<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>-subj<span class="w"> </span><span class="s2">&quot;/CN=cee-exporter&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>-addext<span class="w"> </span><span class="s2">&quot;subjectAltName=IP:192.168.1.10,DNS:cee-exporter.corp.local&quot;</span>
+</code></pre></div>
+<h3 id="pitfall-2-cepa-port-blocked-by-firewall">Pitfall 2: CEPA Port Blocked by Firewall<a class="headerlink" href="#pitfall-2-cepa-port-blocked-by-firewall" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Dell PowerStore cannot reach cee-exporter; SDNAS_CEPP_ALL_SERVERS_UNREACHABLE alerts fire.</p>
+<p><strong>Why it happens:</strong> Default port 12228 is non-standard and may not be open in corporate firewalls.</p>
+<p><strong>How to avoid:</strong> Explicitly document in the README that inbound TCP/UDP port 12228 must be open from the PowerStore NAS server IP to the cee-exporter host.</p>
+<p><strong>Warning signs:</strong> RegisterRequest never arrives; heartbeat timeout alerts on PowerStore.</p>
+<h3 id="pitfall-3-registerrequest-response-body-not-empty">Pitfall 3: RegisterRequest Response Body Not Empty<a class="headerlink" href="#pitfall-3-registerrequest-response-body-not-empty" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Dell CEPA publisher receives a non-empty HTTP 200 response to its RegisterRequest, fails to parse it as XML, and terminates the event publishing session.</p>
+<p><strong>Why it happens:</strong> Operators who customize cee-exporter may inadvertently add response bodies. This is a CEPA protocol requirement, not an HTTP convention.</p>
+<p><strong>How to avoid:</strong> Document this explicitly in the README's CEPA section: "cee-exporter responds to RegisterRequest with HTTP 200 OK and an empty body — this is required by the CEPA protocol."</p>
+<h3 id="pitfall-4-gelf-udp-packet-loss-on-high-volume-nas">Pitfall 4: GELF UDP Packet Loss on High-Volume NAS<a class="headerlink" href="#pitfall-4-gelf-udp-packet-loss-on-high-volume-nas" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> At high I/O rates (VCAPS mode, thousands of events per PUT), UDP packets may be silently dropped at the OS or network level.</p>
+<p><strong>Why it happens:</strong> UDP has no delivery guarantee. VCAPS batches can be large.</p>
+<p><strong>How to avoid:</strong> Document in the README that <code>gelf_protocol = "tcp"</code> is recommended for production to avoid packet loss. UDP is fine for lab/test.</p>
+<h3 id="pitfall-5-operator-uses-wrong-nas-server-scope-for-cepa">Pitfall 5: Operator Uses Wrong NAS Server Scope for CEPA<a class="headerlink" href="#pitfall-5-operator-uses-wrong-nas-server-scope-for-cepa" title="Permanent link">&para;</a></h3>
+<p><strong>What goes wrong:</strong> Operator creates Event Publishing Pool on the wrong NAS server, events from a different NAS server never arrive.</p>
+<p><strong>Why it happens:</strong> PowerStore has multiple NAS servers; CEPA is configured per-NAS-server.</p>
+<p><strong>How to avoid:</strong> Document that CEPA must be configured on the specific NAS server whose file-system events you want to capture.</p>
+<hr />
+<h2 id="code-examples">Code Examples<a class="headerlink" href="#code-examples" title="Permanent link">&para;</a></h2>
+<h3 id="config-reference-extracted-from-maingo-and-configtomlexample">Config Reference (extracted from main.go and config.toml.example)<a class="headerlink" href="#config-reference-extracted-from-maingo-and-configtomlexample" title="Permanent link">&para;</a></h3>
+<p>Complete config.toml field reference — every field with type, default, and example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Top-level</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># hostname (string, default: os.Hostname())</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># The hostname embedded in every generated event.</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># hostname = &quot;powerstore-nas01&quot;</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">[listen]</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">addr</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span><span class="w">   </span><span class="c1"># string, default: &quot;0.0.0.0:12228&quot;</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">tls</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">               </span><span class="c1"># bool, default: false</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="c1"># cert_file = &quot;/etc/cee-exporter/tls/server.crt&quot;   # string, default: &quot;&quot;</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># key_file  = &quot;/etc/cee-exporter/tls/server.key&quot;   # string, default: &quot;&quot;</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="k">[output]</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;gelf&quot;</span><span class="w">                   </span><span class="c1"># string: &quot;gelf&quot;|&quot;evtx&quot;|&quot;multi&quot;, default: &quot;gelf&quot;</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="c1"># targets = [&quot;gelf&quot;, &quot;evtx&quot;]   # []string, only for type=&quot;multi&quot;</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="n">gelf_host</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;localhost&quot;</span><span class="w">     </span><span class="c1"># string, default: &quot;localhost&quot;</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="n">gelf_port</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">12201</span><span class="w">           </span><span class="c1"># int, default: 12201</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="n">gelf_protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;udp&quot;</span><span class="w">           </span><span class="c1"># string: &quot;udp&quot;|&quot;tcp&quot;, default: &quot;udp&quot;</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="n">gelf_tls</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w">           </span><span class="c1"># bool, default: false (TCP only)</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="c1"># evtx_path = &quot;/var/log/cee-exporter&quot;  # string, default: &quot;&quot;</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="k">[queue]</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="n">capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100000</span><span class="w">               </span><span class="c1"># int, default: 100000</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="n">workers</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="w">                    </span><span class="c1"># int, default: 4</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="k">[logging]</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="n">level</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;info&quot;</span><span class="w">                 </span><span class="c1"># string: &quot;debug&quot;|&quot;info&quot;|&quot;warn&quot;|&quot;error&quot;, default: &quot;info&quot;</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;json&quot;</span><span class="w">                 </span><span class="c1"># string: &quot;json&quot;|&quot;text&quot;, default: &quot;json&quot;</span>
+</code></pre></div>
+<p><strong>Environment variable overrides:</strong></p>
+<ul>
+<li><code>CEE_LOG_LEVEL</code> — overrides <code>[logging] level</code></li>
+<li><code>CEE_LOG_FORMAT</code> — overrides <code>[logging] format</code></li>
+</ul>
+<h3 id="tls-self-signed-certificate-generation">TLS Self-Signed Certificate Generation<a class="headerlink" href="#tls-self-signed-certificate-generation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Generate a 4096-bit RSA key + self-signed certificate valid for 10 years</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># Replace the IP/DNS values with your actual cee-exporter host address</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>openssl<span class="w"> </span>req<span class="w"> </span>-x509<span class="w"> </span>-newkey<span class="w"> </span>rsa:4096<span class="w"> </span>-sha256<span class="w"> </span>-days<span class="w"> </span><span class="m">3650</span><span class="w"> </span>-nodes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span>-keyout<span class="w"> </span>server.key<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>-out<span class="w"> </span>server.crt<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>-subj<span class="w"> </span><span class="s2">&quot;/CN=cee-exporter&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span>-addext<span class="w"> </span><span class="s2">&quot;subjectAltName=IP:192.168.1.10,DNS:cee-exporter.corp.local&quot;</span>
+</code></pre></div>
+<p>Requires openssl &gt;= 1.1.1 (for <code>-addext</code>). For older openssl, use an extfile:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Alternative using extfile (works with openssl &lt; 1.1.1)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>cat<span class="w"> </span>&gt;<span class="w"> </span>san.cnf<span class="w"> </span><span class="s">&lt;&lt;&#39;EOF&#39;</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="s">[req]</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="s">distinguished_name = req_dn</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="s">x509_extensions = v3_req</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="s">prompt = no</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="s">[req_dn]</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="s">CN = cee-exporter</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="s">[v3_req]</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="s">subjectAltName = IP:192.168.1.10,DNS:cee-exporter.corp.local</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="s">EOF</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>openssl<span class="w"> </span>req<span class="w"> </span>-x509<span class="w"> </span>-newkey<span class="w"> </span>rsa:4096<span class="w"> </span>-sha256<span class="w"> </span>-days<span class="w"> </span><span class="m">3650</span><span class="w"> </span>-nodes<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">  </span>-keyout<span class="w"> </span>server.key<span class="w"> </span>-out<span class="w"> </span>server.crt<span class="w"> </span>-config<span class="w"> </span>san.cnf
+</code></pre></div>
+<p>Configure cee-exporter:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">[listen]</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">addr</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.0.0.0:12228&quot;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">tls</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">cert_file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/etc/cee-exporter/tls/server.crt&quot;</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">key_file</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/etc/cee-exporter/tls/server.key&quot;</span>
+</code></pre></div>
+<h3 id="graylog-gelf-udp-input-setup">Graylog GELF UDP Input Setup<a class="headerlink" href="#graylog-gelf-udp-input-setup" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>1. Open Graylog web interface
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>2. Navigate to System &gt; Inputs
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>3. Select &quot;GELF UDP&quot; from the &quot;Select input&quot; dropdown
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>4. Click &quot;Launch new input&quot;
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>5. Fill in:
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>   - Title: &quot;PowerStore CEPA Events&quot;
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>   - Bind address: 0.0.0.0
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>   - Port: 12201
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>6. Click &quot;Launch&quot;
+</code></pre></div>
+<p>Test that Graylog is receiving:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s1">&#39;{&quot;version&quot;:&quot;1.1&quot;,&quot;host&quot;:&quot;test&quot;,&quot;short_message&quot;:&quot;cee-exporter test&quot;,&quot;level&quot;:6}&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>nc<span class="w"> </span>-w0<span class="w"> </span>-u<span class="w"> </span>graylog.corp.local<span class="w"> </span><span class="m">12201</span>
+</code></pre></div>
+<h3 id="dell-powerstore-cepa-event-publishing-pool">Dell PowerStore CEPA Event Publishing Pool<a class="headerlink" href="#dell-powerstore-cepa-event-publishing-pool" title="Permanent link">&para;</a></h3>
+<p>Steps (PowerStore Web UI):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>1. Navigate to Storage &gt; NAS Servers
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>2. Select the target NAS Server
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>3. Go to Security &amp; Events tab &gt; Events Publishing sub-tab
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>4. Click &quot;Create new event publisher&quot; (or Modify if one exists)
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>5. Assign a Publisher Name (e.g., &quot;cee-exporter&quot;)
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>6. Under Publishing Pools, click Create Pool
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>7. Enter Pool Name (e.g., &quot;default-pool&quot;)
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>8. Add CEPA Server:
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>   - Enter cee-exporter host IP or FQDN
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>   - Port: 12228 (default)
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>9. Under Event Configuration &gt; Post-Events tab:
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>   - Click &quot;Select all&quot;
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>   - Uncheck: CloseDir, OpenDir, FileRead, OpenFileReadOffline, OpenFileWriteOffline
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>   - Leave Pre-Events and Post-Error-Events unchecked
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>10. Click Apply
+</code></pre></div>
+<p><strong>Critical:</strong> Port 12228 must be reachable from the PowerStore NAS server's IP to the cee-exporter host. Verify with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># From a host that can reach both:</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>nc<span class="w"> </span>-zv<span class="w"> </span>&lt;cee-exporter-ip&gt;<span class="w"> </span><span class="m">12228</span>
+</code></pre></div>
+<h3 id="adr-template-nygard-format">ADR Template (Nygard Format)<a class="headerlink" href="#adr-template-nygard-format" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="gh"># ADR-001: Use Go as implementation language</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="gs">**Status:**</span> accepted
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="gu">## Context</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>The exporter must run as a single binary on both Linux and Windows without
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>requiring a runtime installation. It must handle concurrent HTTP requests
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>within the CEPA 3-second heartbeat timeout. The team has Go expertise.
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="gu">## Decision</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>We will implement cee-exporter in Go.
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="gu">## Consequences</span>
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>Cross-platform compilation is trivial (GOOS/GOARCH env vars). The binary
+<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>has no external runtime dependencies. goroutines and channels map naturally
+<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a>to the async queue pattern required by CEPA timing constraints. Win32 API
+<a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a>access is available via golang.org/x/sys/windows. The trade-off is that
+<a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a>pure-Go binary EVTX generation requires BinXML format implementation
+<a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a>(deferred to v2).
+</code></pre></div>
+<h3 id="changelogmd-initial-structure">CHANGELOG.md Initial Structure<a class="headerlink" href="#changelogmd-initial-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="gh"># Changelog</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>All notable changes to this project will be documented in this file.
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>The format is based on [<span class="nt">Keep a Changelog</span>](<span class="na">https://keepachangelog.com/en/1.0.0/</span>),
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>and this project adheres to [<span class="nt">Semantic Versioning</span>](<span class="na">https://semver.org/spec/v2.0.0.html</span>).
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="gu">## [Unreleased]</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="gu">## [1.0.0] - 2026-03-03</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="gu">### Added</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="k">-</span><span class="w"> </span>CEPA HTTP listener with RegisterRequest handshake and heartbeat support
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="k">-</span><span class="w"> </span>CEE XML parser for single-event and VCAPS bulk batch payloads
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="k">-</span><span class="w"> </span>Semantic mapping of 6 CEPA event types to Windows Event IDs (4660, 4663, 4670)
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="k">-</span><span class="w"> </span>GELF 1.1 writer over UDP and TCP with automatic TCP reconnection
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="k">-</span><span class="w"> </span>Win32 EventLog writer for Windows (ReportEvent API)
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="k">-</span><span class="w"> </span>MultiWriter fan-out to multiple backends simultaneously
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="k">-</span><span class="w"> </span>HTTPS/TLS listener with configurable x509 certificate
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="k">-</span><span class="w"> </span>TLS certificate expiry warning at startup (WARN when &lt; 30 days remain)
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="k">-</span><span class="w"> </span>GET /health JSON endpoint (uptime, queue depth, event counters)
+<a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="k">-</span><span class="w"> </span>Structured JSON logging via slog
+<a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="k">-</span><span class="w"> </span>Async worker queue with configurable capacity and worker count
+<a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="k">-</span><span class="w"> </span>TOML configuration file with environment variable overrides
+<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a><span class="k">-</span><span class="w"> </span>Makefile with build, build-windows, test, lint, clean targets
+<a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a><span class="k">-</span><span class="w"> </span>Cross-compiled Windows binary (CGO_ENABLED=0, GOOS=windows GOARCH=amd64)
+<a id="__codelineno-15-27" name="__codelineno-15-27" href="#__codelineno-15-27"></a>
+<a id="__codelineno-15-28" name="__codelineno-15-28" href="#__codelineno-15-28"></a><span class="gu">### Fixed</span>
+<a id="__codelineno-15-29" name="__codelineno-15-29" href="#__codelineno-15-29"></a><span class="k">-</span><span class="w"> </span>http.MaxBytesReader nil ResponseWriter panic on payloads &gt; 64 MiB
+</code></pre></div>
+<h3 id="prd-section-structure-for-cee-exporter">PRD Section Structure for cee-exporter<a class="headerlink" href="#prd-section-structure-for-cee-exporter" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="gh"># Product Requirements Document: cee-exporter</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="gs">**Version:**</span> 1.0.0
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="gs">**Date:**</span> 2026-03-03
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="gu">## Problem Statement</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>Dell PowerStore file-system audit events (CEPA/CEE protocol) are only natively
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>consumed by Windows CEE agents. Organizations using Linux-based SIEMs (Graylog,
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>Elasticsearch) or who cannot deploy Windows infrastructure need a bridge.
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="gu">## Goals</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="k">-</span><span class="w"> </span>Any SIEM can ingest PowerStore file-system audit events without a Windows host
+<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="k">-</span><span class="w"> </span>Zero runtime dependencies beyond the Go binary
+<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="k">-</span><span class="w"> </span>CEPA protocol-compliant listener that handles heartbeat timing requirements
+<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>
+<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="gu">## Non-Goals (v1.0)</span>
+<a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a>
+<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="k">-</span><span class="w"> </span>Binary .evtx file generation on Linux (v2)
+<a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="k">-</span><span class="w"> </span>Prometheus metrics endpoint (v2)
+<a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="k">-</span><span class="w"> </span>Windows Service installer (v2)
+<a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="k">-</span><span class="w"> </span>HA load-balancer configuration
+<a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a>
+<a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a><span class="gu">## User Personas</span>
+<a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a>
+<a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a><span class="k">-</span><span class="w"> </span>Linux sysadmin deploying Graylog who needs PowerStore NAS audit events
+<a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a><span class="k">-</span><span class="w"> </span>Windows sysadmin using native Event Log infrastructure
+<a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a>
+<a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a><span class="gu">## Architecture Summary</span>
+<a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a>
+<a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a>See PROJECT.md. Pipeline: CEPA HTTP PUT → server → parser → mapper → queue → writers
+</code></pre></div>
+<hr />
+<h2 id="adrs-to-write">ADRs to Write<a class="headerlink" href="#adrs-to-write" title="Permanent link">&para;</a></h2>
+<p>Based on the key decisions documented in PROJECT.md and STATE.md:</p>
+<table>
+<thead>
+<tr>
+<th>ADR #</th>
+<th>Decision</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ADR-001</td>
+<td>Use Go as implementation language</td>
+<td>accepted</td>
+</tr>
+<tr>
+<td>ADR-002</td>
+<td>GELF as primary Linux output (not binary .evtx)</td>
+<td>accepted</td>
+</tr>
+<tr>
+<td>ADR-003</td>
+<td>Async queue between HTTP handler and event writers</td>
+<td>accepted</td>
+</tr>
+<tr>
+<td>ADR-004</td>
+<td>Binary EVTX writer deferred to v2</td>
+<td>accepted</td>
+</tr>
+<tr>
+<td>ADR-005</td>
+<td>CGO_ENABLED=0 for static linking on both targets</td>
+<td>accepted</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="state-of-the-art">State of the Art<a class="headerlink" href="#state-of-the-art" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Old Approach</th>
+<th>Current Approach</th>
+<th>When Changed</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>openssl with CN only</td>
+<td>openssl with <code>-addext subjectAltName</code></td>
+<td>Go 1.15 (2020)</td>
+<td>Go rejects certs without SAN; must use modern form</td>
+</tr>
+<tr>
+<td>gzip-compressed GELF UDP</td>
+<td>Uncompressed GELF JSON</td>
+<td>N/A</td>
+<td>Graylog accepts both; uncompressed is simpler for debugging</td>
+</tr>
+<tr>
+<td>Separate CHANGELOG per environment</td>
+<td>Single CHANGELOG.md (Keep a Changelog 1.0.0)</td>
+<td>~2017</td>
+<td>Universal standard now</td>
+</tr>
+<tr>
+<td>Long-form ADR with 10+ fields</td>
+<td>Nygard 3-field ADR (Context, Decision, Consequences)</td>
+<td>2011 (Nygard), dominant ~2019</td>
+<td>Simpler and more widely adopted</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Deprecated/outdated:</strong></p>
+<ul>
+<li><code>openssl req -subj '/CN=hostname'</code> without SAN: rejected by Go TLS, modern browsers, and Java since ~2020</li>
+<li>GELF chunked UDP messages for large payloads: still supported by Graylog but TCP is cleaner</li>
+</ul>
+<hr />
+<h2 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Should README document Windows deployment separately from Linux?</strong></li>
+<li>What we know: The binary runs on both; the Win32 EventLog writer requires Windows; Graylog GELF path is cross-platform</li>
+<li>What's unclear: Does the target operator audience include Windows admins?</li>
+<li>
+<p>Recommendation: Yes — include a short "Windows Deployment" subsection noting that the Win32 writer activates automatically and that <code>cee-exporter.exe</code> is produced by <code>make build-windows</code></p>
+</li>
+<li>
+<p><strong>Should TLS be documented as mandatory for production?</strong></p>
+</li>
+<li>What we know: Plaintext HTTP exposes audit event data on the network; CEPA traffic is sensitive</li>
+<li>What's unclear: Whether the PowerStore CEPA publisher supports HTTPS to the CEE server</li>
+<li>
+<p>Recommendation: Based on docs review, PowerStore sends events over plain HTTP to the CEPA server by default. Note in README that TLS at the cee-exporter listener protects data in transit if CEPA is configured with an HTTPS endpoint. Mark as "recommended for production."</p>
+</li>
+<li>
+<p><strong>CHANGELOG initial date: use implementation date or documentation date?</strong></p>
+</li>
+<li>What we know: Core pipeline was implemented pre-roadmap; tests/build added 2026-03-02</li>
+<li>
+<p>Recommendation: Use 2026-03-03 (today / documentation completion date) as v1.0.0 date — it's the first documented release. This is the conventional approach.</p>
+</li>
+<li>
+<p><strong>Dell PowerStore CEPA: does it support HTTPS to the CEE server?</strong></p>
+</li>
+<li>What we know: The default is HTTP on port 12228; the PeerSoftware KB and Dell docs don't mention HTTPS for the PUT transport</li>
+<li>What's unclear: Whether newer PowerStore firmware versions support TLS for event publishing</li>
+<li>Recommendation: Document TLS as applying to the cee-exporter HTTP listener (useful if CEPA sends over HTTPS), but note it may not be used with default PowerStore CEPA configuration. Flag for operator to verify with Dell support.</li>
+</ol>
+<hr />
+<h2 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h2>
+<h3 id="primary-high-confidence">Primary (HIGH confidence)<a class="headerlink" href="#primary-high-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>cmd/cee-exporter/main.go</code> — Full Config struct with all fields, types, defaults extracted directly</li>
+<li><code>config.toml.example</code> — Canonical config file format and comments</li>
+<li><code>docs/PowerStore_CEPA_CEE vers EVTX.txt</code> — Architecture analysis with protocol details</li>
+<li><code>.planning/PROJECT.md</code> — Key decisions table used for ADR derivation</li>
+<li><code>.planning/REQUIREMENTS.md</code> — DOC-01..DOC-04 requirement text</li>
+<li><a href="https://keepachangelog.com/en/1.0.0/">https://keepachangelog.com/en/1.0.0/</a> — Keep a Changelog format specification (fetched, verified)</li>
+<li><a href="https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions.html">https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions.html</a> — Nygard ADR format (fetched, verified)</li>
+</ul>
+<h3 id="secondary-medium-confidence">Secondary (MEDIUM confidence)<a class="headerlink" href="#secondary-medium-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="https://kb.peersoftware.com/kb/dell-powerstore-configuration-guide">https://kb.peersoftware.com/kb/dell-powerstore-configuration-guide</a> — PowerStore CEPA configuration steps (fetched, detailed and consistent with Dell docs)</li>
+<li><a href="https://go2docs.graylog.org/current/getting_in_log_data/gelf.html">https://go2docs.graylog.org/current/getting_in_log_data/gelf.html</a> — Graylog GELF input setup (verified via WebSearch)</li>
+<li><a href="https://www.dell.com/support/manuals/en-us/powerstore-500t/pwrstr-cfg-nfs/events-publishing">https://www.dell.com/support/manuals/en-us/powerstore-500t/pwrstr-cfg-nfs/events-publishing</a> — Dell PowerStore event publishing (403 on direct fetch; steps confirmed via WebSearch and PeerSoftware KB)</li>
+<li>WebSearch results for openssl SAN certificate generation — multiple sources agree on <code>-addext</code> approach for openssl &gt;= 1.1.1</li>
+</ul>
+<h3 id="tertiary-low-confidence">Tertiary (LOW confidence)<a class="headerlink" href="#tertiary-low-confidence" title="Permanent link">&para;</a></h3>
+<ul>
+<li>WebSearch for Graylog GELF menu path (<code>System &gt; Inputs</code>) — single source confirmation; recommend verifying against actual Graylog instance</li>
+</ul>
+<hr />
+<h2 id="metadata">Metadata<a class="headerlink" href="#metadata" title="Permanent link">&para;</a></h2>
+<p><strong>Confidence breakdown:</strong></p>
+<ul>
+<li>Standard stack: HIGH — no new libraries; pure documentation</li>
+<li>README content (config, TLS): HIGH — extracted directly from source code</li>
+<li>CEPA configuration steps: MEDIUM — confirmed via PeerSoftware KB and WebSearch; direct Dell docs returned 403</li>
+<li>ADR format: HIGH — fetched from Nygard's original blog post</li>
+<li>CHANGELOG format: HIGH — fetched from keepachangelog.com</li>
+<li>Graylog GELF menu path: MEDIUM — WebSearch confirms; not fetched from official docs</li>
+</ul>
+<p><strong>Research date:</strong> 2026-03-03
+<strong>Valid until:</strong> 2026-04-03 (30 days — stable documentation domain; CEPA config steps may vary by PowerStore firmware version)</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.sections", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
