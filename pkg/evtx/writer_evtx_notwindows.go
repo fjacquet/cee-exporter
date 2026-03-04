@@ -22,13 +22,13 @@ type BinaryEvtxWriter struct {
 
 // NewBinaryEvtxWriter creates a BinaryEvtxWriter that will write to evtxPath.
 //
-// evtxPath is the output file path (not a directory). The parent directory is
-// created if it does not exist. The file itself is only written on Close().
-func NewBinaryEvtxWriter(evtxPath string) (*BinaryEvtxWriter, error) {
+// cfg controls periodic checkpoint-write behaviour. Pass goevtx.RotationConfig{}
+// to disable the background goroutine (FlushIntervalSec defaults to 0 = disabled).
+func NewBinaryEvtxWriter(evtxPath string, cfg goevtx.RotationConfig) (*BinaryEvtxWriter, error) {
 	if evtxPath == "" {
 		return nil, fmt.Errorf("binary_evtx_writer: evtxPath must be non-empty")
 	}
-	w, err := goevtx.New(evtxPath)
+	w, err := goevtx.New(evtxPath, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("binary_evtx_writer: %w", err)
 	}

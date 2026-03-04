@@ -19,6 +19,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	goevtx "github.com/fjacquet/go-evtx"
 )
 
 // TestBinaryEvtxWriter_WriteClose verifies that WriteEvent + Close produce a
@@ -28,7 +30,7 @@ func TestBinaryEvtxWriter_WriteClose(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "test.evtx")
 
-	w, err := NewBinaryEvtxWriter(outPath)
+	w, err := NewBinaryEvtxWriter(outPath, goevtx.RotationConfig{})
 	if err != nil {
 		t.Fatalf("NewBinaryEvtxWriter: %v", err)
 	}
@@ -146,7 +148,7 @@ func TestBinaryEvtxWriter_EmptyClose(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "empty.evtx")
 
-	w, err := NewBinaryEvtxWriter(outPath)
+	w, err := NewBinaryEvtxWriter(outPath, goevtx.RotationConfig{})
 	if err != nil {
 		t.Fatalf("NewBinaryEvtxWriter: %v", err)
 	}
@@ -168,7 +170,7 @@ func TestBinaryEvtxWriter_Concurrent(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "concurrent.evtx")
 
-	w, err := NewBinaryEvtxWriter(outPath)
+	w, err := NewBinaryEvtxWriter(outPath, goevtx.RotationConfig{})
 	if err != nil {
 		t.Fatalf("NewBinaryEvtxWriter: %v", err)
 	}
@@ -216,7 +218,7 @@ func TestBinaryEvtxWriter_Concurrent(t *testing.T) {
 // TestBinaryEvtxWriter_EmptyPath verifies that NewBinaryEvtxWriter returns an
 // error when given an empty path.
 func TestBinaryEvtxWriter_EmptyPath(t *testing.T) {
-	_, err := NewBinaryEvtxWriter("")
+	_, err := NewBinaryEvtxWriter("", goevtx.RotationConfig{})
 	if err == nil {
 		t.Fatal("expected error for empty path, got nil")
 	}
@@ -229,7 +231,7 @@ func TestBinaryEvtxWriter_ParentDirCreated(t *testing.T) {
 	// Use a nested path whose parent does not exist yet.
 	outPath := filepath.Join(dir, "nested", "deep", "test.evtx")
 
-	w, err := NewBinaryEvtxWriter(outPath)
+	w, err := NewBinaryEvtxWriter(outPath, goevtx.RotationConfig{})
 	if err != nil {
 		t.Fatalf("NewBinaryEvtxWriter with nested path: %v", err)
 	}
@@ -261,7 +263,7 @@ func TestBinaryEvtxWriter_ChunkLayout(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "layout.evtx")
 
-	w, err := NewBinaryEvtxWriter(outPath)
+	w, err := NewBinaryEvtxWriter(outPath, goevtx.RotationConfig{})
 	if err != nil {
 		t.Fatalf("NewBinaryEvtxWriter: %v", err)
 	}

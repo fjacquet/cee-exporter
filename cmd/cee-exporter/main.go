@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	goevtx "github.com/fjacquet/go-evtx"
 	"golang.org/x/crypto/acme/autocert"
 
 	ceeprometheus "github.com/fjacquet/cee-exporter/pkg/prometheus"
@@ -97,6 +98,10 @@ type OutputConfig struct {
 	BeatsHost string `toml:"beats_host"`
 	BeatsPort int    `toml:"beats_port"` // default 5044 (set in NewBeatsWriter)
 	BeatsTLS  bool   `toml:"beats_tls"`
+	// FlushIntervalSec is the interval in seconds between periodic checkpoint writes
+	// for the evtx output type. 0 disables the background flush goroutine.
+	// Default: 15 (set in defaultConfig). Only applies when type = "evtx".
+	FlushIntervalSec int `toml:"flush_interval_s"`
 }
 
 type QueueConfig struct {
@@ -120,10 +125,11 @@ func defaultConfig() Config {
 			Addr: "0.0.0.0:12228",
 		},
 		Output: OutputConfig{
-			Type:         "gelf",
-			GELFHost:     "localhost",
-			GELFPort:     12201,
-			GELFProtocol: "udp",
+			Type:             "gelf",
+			GELFHost:         "localhost",
+			GELFPort:         12201,
+			GELFProtocol:     "udp",
+			FlushIntervalSec: 15,
 		},
 		Queue: QueueConfig{
 			Capacity: 100000,
@@ -336,7 +342,9 @@ func buildWriter(cfg OutputConfig) (evtx.Writer, string, error) {
 		return w, addr, err
 
 	case "evtx":
-		w, err := evtx.NewNativeEvtxWriter(cfg.EVTXPath)
+		w, err := evtx.NewNativeEvtxWriter(cfg.EVTXPath, goevtx.RotationConfig{
+			FlushIntervalSec: cfg.FlushIntervalSec,
+		})
 		return w, cfg.EVTXPath, err
 
 	case "multi":
