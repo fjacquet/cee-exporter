@@ -1,749 +1,446 @@
 # Architecture Research
 
-**Domain:** Go daemon — CEPA audit event bridge, v2 feature integration
-**Researched:** 2026-03-03
-**Confidence:** HIGH (existing code read directly; new feature patterns verified via official docs and pkg.go.dev)
+**Domain:** Periodic fsync + file rotation in BinaryEvtxWriter (Go daemon)
+**Researched:** 2026-03-04
+**Confidence:** HIGH — based on direct source inspection of the existing codebase
 
----
+## Standard Architecture
 
-## Current v1 Architecture (Baseline)
-
-### System Overview
-
-```text
-Dell PowerStore
-  CEPA HTTP PUT
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│  pkg/server — HTTP listener (:12228)                         │
-│  ┌─────────────────┐   ┌──────────────────────────────────┐  │
-│  │ Handler (PUT /) │   │ HealthHandler (GET /health) JSON │  │
-│  └────────┬────────┘   └──────────────────────────────────┘  │
-└───────────┼──────────────────────────────────────────────────┘
-            │ Enqueue()
-            ▼
-┌──────────────────────────────────────────────────────────────┐
-│  pkg/queue — buffered channel + N worker goroutines          │
-│  ch chan WindowsEvent (capacity 100 000)                     │
-│  workers = 4 (configurable)                                  │
-└───────────┬──────────────────────────────────────────────────┘
-            │
-    ┌───────┴────────────────────────────────────────┐
-    │  pkg/parser   →   pkg/mapper                    │
-    │  CEE XML           CEPAEvent → WindowsEvent      │
-    └───────┬────────────────────────────────────────┘
-            │ WriteEvent(ctx, WindowsEvent)
-            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  pkg/evtx — Writer interface                                │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐  │
-│  │  GELFWriter  │  │ Win32Writer  │  │ BinaryEvtxWriter  │  │
-│  │  (all OS)    │  │ (Windows)    │  │  (stub, !windows) │  │
-│  └──────────────┘  └──────────────┘  └───────────────────┘  │
-│  ┌──────────────────────────────────────────┐               │
-│  │  MultiWriter (fan-out to ≥1 of the above)│               │
-│  └──────────────────────────────────────────┘               │
-└─────────────────────────────────────────────────────────────┘
-            │
-            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  pkg/metrics — atomic int64 counters                        │
-│  EventsReceivedTotal  EventsWrittenTotal  EventsDroppedTotal │
-│  WriterErrorsTotal    QueueDepth          LastEventAt        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Component Responsibilities (v1)
-
-| Component | Responsibility | File(s) |
-|-----------|----------------|---------|
-| `cmd/cee-exporter/main.go` | Wiring: config, writers, queue, mux, signals | `cmd/cee-exporter/main.go` |
-| `pkg/server.Handler` | CEPA HTTP PUT handler; ACKs immediately | `pkg/server/server.go` |
-| `pkg/server.HealthHandler` | GET /health JSON snapshot | `pkg/server/health.go` |
-| `pkg/parser` | CEE XML → `[]CEPAEvent` | `pkg/parser/parser.go` |
-| `pkg/mapper` | `CEPAEvent` → `WindowsEvent` | `pkg/mapper/mapper.go` |
-| `pkg/queue.Queue` | Async worker pool; non-blocking Enqueue | `pkg/queue/queue.go` |
-| `pkg/evtx.Writer` | Output abstraction interface | `pkg/evtx/writer.go` |
-| `pkg/evtx.GELFWriter` | GELF 1.1 JSON over UDP/TCP | `pkg/evtx/writer_gelf.go` |
-| `pkg/evtx.Win32EventLogWriter` | Win32 ReportEvent API | `pkg/evtx/writer_windows.go` |
-| `pkg/evtx.BinaryEvtxWriter` | Stub; returns error | `pkg/evtx/writer_evtx_stub.go` |
-| `pkg/evtx.MultiWriter` | Fan-out to multiple backends | `pkg/evtx/writer_multi.go` |
-| `pkg/metrics.Store` | Atomic counters + Snapshot() | `pkg/metrics/metrics.go` |
-| `pkg/log` | slog initialisation | `pkg/log/log.go` |
-
----
-
-## v2 Feature Integration Plan
-
-### Feature 1: Prometheus /metrics Endpoint
-
-**Integration point:** `cmd/cee-exporter/main.go` (modified) + new `pkg/metrics` bridge.
-
-**Problem:** The CEPA listener already occupies port 12228 and is TLS-optioned. The `/metrics` endpoint must not share that mux because:
-
-- Prometheus scrapes are typically unauthenticated and on a private network port.
-- The CEPA listener may be TLS-only in production; adding `/metrics` there forces the Prometheus scraper to handle TLS client configuration.
-- Industry standard for Go exporters is a **separate port** in the `9xxx` range.
-
-**Solution: separate HTTP server on a dedicated port (default 9228).**
+### System Overview: Current State (v3.0)
 
 ```
-Prometheus scraper ──► :9228/metrics
-                           │
-                    ┌──────┴──────────────────────────────────────┐
-                    │  pkg/prometheus — PrometheusHandler          │
-                    │  Reads pkg/metrics.M.Snapshot() atomically  │
-                    │  Wraps existing counters as Prometheus       │
-                    │  CounterVec / Gauge descriptors              │
-                    └─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         CEPA HTTP Layer                                  │
+│  [Dell PowerStore PUT /]  [RegisterRequest handshake]  [Heartbeat ACK]  │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ WindowsEvent
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       pkg/queue (async dispatch)                         │
+│  channel(cap=100K)   N worker goroutines   Stop()/drain guarantee       │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ Writer.WriteEvent(ctx, e)
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    pkg/evtx  Writer interface                            │
+│  ┌────────────────┐ ┌─────────────┐ ┌──────────────┐ ┌──────────────┐  │
+│  │ BinaryEvtxWriter│ │ GELFWriter  │ │ SyslogWriter │ │ MultiWriter  │  │
+│  │ (non-Windows)  │ │ (all platfm)│ │ (all platfm) │ │ (fan-out)    │  │
+│  └────────────────┘ └─────────────┘ └──────────────┘ └──────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼ (on Close only)
+                        .evtx file on disk
 ```
 
-**New file:** `pkg/prometheus/handler.go` (all platforms, no build tag)
+### System Overview: Target State (v4.0)
 
-The handler creates a `prometheus.NewRegistry()` (not the default registry, to avoid Go runtime metrics pollution) and registers:
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         CEPA HTTP Layer (unchanged)                      │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ WindowsEvent
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       pkg/queue (unchanged interface)                    │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ Writer.WriteEvent(ctx, e)
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│              pkg/evtx  BinaryEvtxWriter (extended)                       │
+│                                                                          │
+│  WriteEvent() ──► stage records in pending buffer                       │
+│                    │                                                     │
+│                    └─► check size trigger → rotateLocked() if exceeded  │
+│                                                                          │
+│  fsyncTicker ──► flush pending to open *os.File + f.Sync()              │
+│                                                                          │
+│  rotateTicker ──► rotateLocked(): close file, open new timestamped file │
+│                                                                          │
+│  Open *os.File handle (held between events, not only on Close)          │
+└──────────────────────────────────────────────────────────────────────────┘
+                │ periodic fdatasync                  │ rotation creates
+                ▼                                     ▼
+        audit-2026-03-04T120000Z.evtx    audit-2026-03-04T130000Z.evtx ...
+```
 
-| Prometheus Metric | Source in pkg/metrics | Type |
-|---|---|---|
-| `cee_events_received_total` | `M.EventsReceivedTotal.Load()` | Counter |
-| `cee_events_written_total` | `M.EventsWrittenTotal.Load()` | Counter |
-| `cee_events_dropped_total` | `M.EventsDroppedTotal.Load()` | Counter |
-| `cee_writer_errors_total` | `M.WriterErrorsTotal.Load()` | Counter |
-| `cee_queue_depth` | `M.QueueDepth()` | Gauge |
+### Component Responsibilities
 
-Because `pkg/metrics.Store` uses `atomic.Int64` values, no mutex is needed; each `Collect()` call reads with `Load()`.
+| Component | Responsibility | Integration Point |
+|-----------|----------------|-------------------|
+| `BinaryEvtxWriter` | Hold open file handle; accept writes; run fsync ticker; run rotate ticker; enforce size/count/time limits | Modified: gains `backgroundLoop()` goroutine, `RotationConfig`, `*os.File` handle |
+| `OutputConfig` (main.go) | Parse and pass `[output]` TOML fields to writer factory | Modified: new `FlushIntervalSec`, `MaxFileSizeMB`, `MaxFileCount`, `RotationIntervalH` fields |
+| `buildWriter()` (main.go) | Construct `BinaryEvtxWriter` with `RotationConfig` from `OutputConfig` | Modified: pass config struct to `NewBinaryEvtxWriter` |
+| `Writer` interface (writer.go) | Stable contract for all backends | Unchanged — no new methods needed |
+| `pkg/queue` | Async dispatch of events to writers | Unchanged — queue is unaware of flushing or rotation |
+| `config.toml.example` | Document all operator-facing fields | Updated with four new rotation/flush fields |
 
-**Modified file:** `cmd/cee-exporter/main.go`
+## Recommended Project Structure
 
-Add `MetricsConfig` to `Config` struct:
+No new packages are needed. All changes are contained within existing files:
+
+```
+pkg/evtx/
+├── writer.go                    # Writer interface — UNCHANGED
+├── writer_evtx_notwindows.go    # BinaryEvtxWriter — PRIMARY CHANGE FILE
+│                                #   Add: RotationConfig struct
+│                                #   Add: open *os.File field
+│                                #   Add: pending []byte staging buffer field
+│                                #   Add: currentFileBytes int64 field
+│                                #   Add: stopCh / stopped channels
+│                                #   Add: backgroundLoop() goroutine
+│                                #   Add: rotateLocked() helper
+│                                #   Add: openRotatedFile() helper
+│                                #   Add: pruneOldFiles() helper
+│                                #   Modify: NewBinaryEvtxWriter() — accept RotationConfig, open file
+│                                #   Modify: WriteEvent() — stage to pending, check size trigger
+│                                #   Modify: Close() — stop goroutine, final flush/sync
+│                                #   Remove: flushToFile() (replaced by incremental open-handle model)
+├── evtx_binformat.go            # UNCHANGED — pure binary helpers
+├── writer_native_notwindows.go  # Minimal change: pass RotationConfig to NewBinaryEvtxWriter
+└── ...
+
+cmd/cee-exporter/
+└── main.go
+    ├── OutputConfig              # MODIFIED: add four rotation/flush fields
+    ├── defaultConfig()           # MODIFIED: add sensible defaults
+    └── buildWriter()             # MODIFIED: map OutputConfig → RotationConfig, pass to constructor
+
+config.toml.example              # MODIFIED: document four new [output] fields
+```
+
+### Structure Rationale
+
+- **All rotation logic in `writer_evtx_notwindows.go`:** Rotation is a file-specific concern. The `Writer` interface stays at two methods (`WriteEvent`, `Close`). GELF, Syslog, Beats, and Win32 writers are untouched.
+- **No new package:** Scope is one writer backend. A `pkg/rotation` package would be over-engineering for this milestone.
+- **Flat fields on `[output]`:** BurntSushi/toml handles flat structs cleanly. All other backends (GELF, Syslog, Beats) already use flat fields on `[output]`. An `[output.evtx]` sub-table would be inconsistent with the existing pattern and adds no value at this scope.
+
+## Architectural Patterns
+
+### Pattern 1: Writer-Owned Background Goroutine
+
+**What:** The fsync ticker and rotation ticker live inside `BinaryEvtxWriter` as a single `backgroundLoop()` goroutine. The goroutine is started by `NewBinaryEvtxWriter` and stopped by `Close()` via a `stopCh chan struct{}`. A `stopped chan struct{}` channel lets `Close()` synchronize before the final flush.
+
+**When to use:** When the goroutine lifecycle is identical to the writer object lifecycle. The queue calls `w.Close()` on `q.Stop()`, so ticker cleanup is automatic and requires no changes to `pkg/queue`.
+
+**Why NOT the queue layer:** The queue is transport-agnostic. It dispatches `WindowsEvent` structs and has no knowledge of file handles, fsync semantics, or file naming. Adding a flush ticker in `pkg/queue` would couple the queue to file-I/O concerns and would require adding a `Flush()` method to the `Writer` interface — forcing all six writer implementations to satisfy a method that is meaningless for GELF, Syslog, Beats, and Win32.
+
+**Trade-offs:**
+- Pro: Clean encapsulation, no queue changes, no interface changes
+- Pro: Works correctly when `BinaryEvtxWriter` is used inside `MultiWriter` — each writer manages its own ticker independently
+- Con: `BinaryEvtxWriter` gains internal goroutines — tests must call `Close()` to avoid goroutine leaks; test helpers should set `FlushIntervalSec=0` to disable the ticker in unit tests
+
+**Sketch:**
 
 ```go
-type MetricsConfig struct {
-    Enabled bool   `toml:"enabled"`
-    Addr    string `toml:"addr"` // default "0.0.0.0:9228"
-}
-```
-
-In `main()`, after starting the CEPA `httpServer`:
-
-```go
-if cfg.Metrics.Enabled {
-    go prometheus.Serve(cfg.Metrics.Addr)
-}
-```
-
-`prometheus.Serve()` starts its own `net/http` server on the metrics port, binding a `promhttp.HandlerFor(reg, ...)` to `/metrics`. It runs in its own goroutine and is intentionally not TLS (metrics traffic is internal).
-
-**No changes to `pkg/server`, `pkg/queue`, `pkg/evtx`, or `pkg/metrics`.**
-
-**Config additions** (`config.toml.example`):
-
-```toml
-[metrics]
-enabled = true
-addr    = "0.0.0.0:9228"
-```
-
-**New dependency:** `github.com/prometheus/client_golang` (verified current on pkg.go.dev, latest `v1.x`).
-
----
-
-### Feature 2: Systemd Unit File
-
-**Integration point:** None — pure deployment artifact.
-
-**New file:** `deploy/systemd/cee-exporter.service`
-
-This is a static text file committed to the repo. No Go code changes.
-
-Standard pattern for a Go binary as systemd service:
-
-```ini
-[Unit]
-Description=Dell PowerStore CEPA → Windows Event Log bridge
-Documentation=https://github.com/fjacquet/cee-exporter
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=cee-exporter
-Group=cee-exporter
-WorkingDirectory=/etc/cee-exporter
-ExecStart=/usr/local/bin/cee-exporter -config /etc/cee-exporter/config.toml
-Restart=on-failure
-RestartSec=5s
-TimeoutStopSec=30s
-Environment=CEE_LOG_FORMAT=json
-EnvironmentFile=-/etc/cee-exporter/env
-LimitNOFILE=65536
-ProtectSystem=full
-PrivateTmp=true
-NoNewPrivileges=true
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Key choices:
-
-- `Type=simple` because Go's `net/http` goroutine model does not support `Type=fork`.
-- `TimeoutStopSec=30s` matches the 30-second graceful shutdown already coded in `main()`.
-- `EnvironmentFile=-/etc/cee-exporter/env` (the `-` prefix makes it optional).
-- `ProtectSystem=full` + `PrivateTmp=true` + `NoNewPrivileges=true` for minimal privilege surface.
-
-**No Go code changes. No new dependencies.**
-
----
-
-### Feature 3: Windows Service
-
-**Integration point:** `cmd/cee-exporter/main.go` (modified) + new platform file.
-
-**Library:** `github.com/kardianos/service` v1.x (verified: last published July 2025, supports Windows XP+, imported by 1,359 projects).
-
-**Platform architecture:** The Windows service wrapping must not affect Linux builds.
-
-**Pattern:** Split `main()` into a `run()` function containing the existing startup logic. Add a `serviceRunner` struct that satisfies `service.Interface`. The service wrapper lives in a platform-specific file pair.
-
-**New files:**
-
-```
-cmd/cee-exporter/service_notwindows.go   //go:build !windows
-cmd/cee-exporter/service_windows.go      //go:build windows
-```
-
-`service_notwindows.go` — trivial shim:
-
-```go
-//go:build !windows
-
-package main
-
-// runWithServiceManager runs the program directly (no OS service manager).
-func runWithServiceManager(runFn func()) {
-    runFn()
-}
-```
-
-`service_windows.go` — wraps via kardianos/service:
-
-```go
-//go:build windows
-
-package main
-
-import "github.com/kardianos/service"
-
-type serviceRunner struct{ runFn func() }
-
-func (s *serviceRunner) Start(_ service.Service) error {
-    go s.runFn()
-    return nil
+type RotationConfig struct {
+    FlushIntervalSec  int   // periodic fsync interval; 0 = only on Close
+    MaxFileSizeMB     int64 // rotate at this size; 0 = unlimited
+    MaxFileCount      int   // keep this many rotated files; 0 = keep all
+    RotationIntervalH int   // rotate every N hours; 0 = disabled
 }
 
-func (s *serviceRunner) Stop(_ service.Service) error { return nil }
+type BinaryEvtxWriter struct {
+    mu               sync.Mutex
+    path             string
+    f                *os.File
+    pending          []byte
+    records          []byte
+    recordID         uint64
+    firstID          uint64
+    currentFileBytes int64
+    cfg              RotationConfig
+    stopCh           chan struct{}
+    stopped          chan struct{}
+}
 
-func runWithServiceManager(runFn func()) {
-    cfg := &service.Config{
-        Name:        "CeeExporter",
-        DisplayName: "CEE Exporter (PowerStore CEPA bridge)",
-        Description: "Bridges Dell PowerStore CEPA audit events to Windows Event Log / GELF / Beats / Syslog.",
+func NewBinaryEvtxWriter(evtxPath string, cfg RotationConfig) (*BinaryEvtxWriter, error) {
+    w := &BinaryEvtxWriter{
+        path:    evtxPath,
+        cfg:     cfg,
+        stopCh:  make(chan struct{}),
+        stopped: make(chan struct{}),
+        recordID: 1,
+        firstID:  1,
     }
-    prg := &serviceRunner{runFn: runFn}
-    svc, err := service.New(prg, cfg)
+    f, err := w.openRotatedFile(evtxPath)
     if err != nil {
-        panic(err)
+        return nil, err
     }
-    if err := svc.Run(); err != nil {
-        panic(err)
-    }
+    w.f = f
+    go w.backgroundLoop()
+    return w, nil
 }
 ```
 
-**Modified file:** `cmd/cee-exporter/main.go`
+### Pattern 2: Open-Handle Incremental Write Model
 
-```go
-func main() {
-    runWithServiceManager(run)
-}
+**What:** Replace the current `os.WriteFile()` on Close with an open `*os.File` held for the writer's lifetime. `WriteEvent` stages encoded records in a `pending []byte` buffer. The fsync tick drains `pending` into the open file with `f.Write(pending)` then calls `f.Sync()`.
 
-func run() {
-    // all existing main() logic moved here verbatim
-}
-```
+**Why this is required:** The current model calls `os.WriteFile` which opens, truncates, writes, and closes on every invocation. This is safe for the Close-only model but cannot provide periodic durability — there is no file handle to sync between events. Additionally, `os.WriteFile` re-serializes all records on every call, which grows O(n) in cost as records accumulate.
 
-The signal handling (`syscall.SIGTERM` / `SIGINT`) already in `run()` satisfies the `Stop()` contract on Windows because SCM sends a stop signal that is translated to SIGTERM by kardianos/service. No additional stop logic is needed.
+**Trade-offs:**
+- Pro: True durability guarantee — crash loses at most `FlushIntervalSec` seconds of events
+- Pro: Enables size-based rotation via tracking `currentFileBytes`
+- Pro: Write cost per tick is proportional to new events since last tick, not total file size
+- Con: The EVTX file header fields (`NextRecordIdentifier`, `ChunkCount`) must be patched on each rotation and Close — not just at final Close
+- Con: A crash mid-flush leaves an open chunk without a valid CRC — parsers must tolerate this (python-evtx is tolerant; Event Viewer may not be; acceptable for a Linux forensics file)
 
-**Service install/uninstall:** kardianos/service provides `svc.Install()` / `svc.Uninstall()`. Expose via `-service install|uninstall|start|stop` CLI flags (add to `main()` flag parsing).
+**Note on EVTX chunk boundary:** Each rotated file remains a single-chunk file (matching the current design). Rotation is the mechanism for bounding file size — not multi-chunk support. This avoids adding multi-chunk complexity to the BinXML writer.
 
-**New dependency:** `github.com/kardianos/service`
+### Pattern 3: Timestamped Rotation File Naming
 
-**Important:** CGO_ENABLED=0 is preserved. kardianos/service uses pure Go on Windows (calls `golang.org/x/sys/windows` which is already a dependency in `go.mod`).
+**What:** On rotation, close the current file and open a new file with a timestamp suffix. The config `evtx_path` value is treated as a base path: the directory and stem are preserved, the timestamp and `.evtx` extension are generated.
 
----
+**Recommended:** Generate names from the base path. Given `evtx_path = "/var/log/cee-exporter/audit.evtx"`:
+- Active file: `/var/log/cee-exporter/audit-2026-03-04T120000Z.evtx`
+- Next rotation: `/var/log/cee-exporter/audit-2026-03-04T130000Z.evtx`
 
-### Feature 4: BinaryEvtxWriter (Pure Go .evtx on Linux)
+The base name is derived by stripping the `.evtx` extension from `evtxPath`, appending a UTC timestamp, then re-adding `.evtx`. Pruning uses `filepath.Glob` on the stripped prefix.
 
-**Integration point:** `pkg/evtx/writer_evtx_stub.go` (replaced) + new implementation file.
+**Trade-offs:**
+- Pro: Completed files have stable names — safe to ingest or archive while the daemon continues writing to the newest file
+- Pro: File count pruning is trivial (`Glob` + sort by name, which sorts by time since timestamps are lexicographic)
+- Con: External consumers must discover the active file by listing the directory rather than opening a fixed path
 
-**Context:** No existing Go library writes valid binary .evtx files. All public Go libraries (`0xrawsec/golang-evtx`, `Velocidex/evtx`) are read-only parsers. The BinaryEvtxWriter must be implemented from scratch using the EVTX file format specification (documented in `libyal/libevtx`).
+## Data Flow
 
-**Complexity:** HIGH. Estimated 500–1500 LOC for a minimal compliant writer covering:
-
-- EVTX file header (magic `ElfFile\0`, chunk count, CRC32)
-- Chunk header (magic `ElfChnk\0`, string table, CRC32)
-- BinXML token stream (template, fragment, element, attribute, value tokens)
-- FILETIME encoding (100-nanosecond intervals since 1601-01-01)
-- SID encoding for `SubjectUserSID`
-- Log rotation: new chunk when current chunk fills (65536 bytes)
-
-**Replacement strategy:**
-
-Replace `pkg/evtx/writer_evtx_stub.go` (build tag `//go:build !windows`) with the real implementation once complete. The stub can remain during development and be replaced file by file.
-
-**New files:**
+### Write Path with Periodic fsync
 
 ```
-pkg/evtx/writer_binary_evtx.go           //go:build !windows
-pkg/evtx/binxml/                          new sub-package
-  chunk.go    — chunk header + CRC32
-  header.go   — file header
-  token.go    — BinXML token emitter
-  sid.go      — SID binary encoding
-  filetime.go — Windows FILETIME encoding
+WriteEvent(ctx, e)
+    │
+    ├─► encode BinXML record bytes  (CPU, in-memory, unchanged from current)
+    │
+    ├─► w.mu.Lock()
+    ├─► w.pending = append(w.pending, rec...)  (stage in pending buffer)
+    ├─► check size trigger:
+    │       if w.currentFileBytes + int64(len(w.pending)) > MaxFileSizeMB*1024*1024
+    │           → call rotateLocked()  (flushes pending, closes file, opens new)
+    └─► w.mu.Unlock()
+    → return nil  (no disk I/O per event in normal path)
+
+backgroundLoop() goroutine — select on tickers and stopCh:
+
+    fsyncTicker fires every FlushIntervalSec:
+        ├─► w.mu.Lock()
+        ├─► if len(w.pending) > 0:
+        │       n, _ := w.f.Write(w.pending)
+        │       w.currentFileBytes += int64(n)
+        │       w.pending = w.pending[:0]
+        ├─► w.f.Sync()
+        └─► w.mu.Unlock()
+
+    rotateTicker fires every RotationIntervalH (if > 0):
+        └─► w.mu.Lock() → rotateLocked() → w.mu.Unlock()
+
+rotateLocked() — called with w.mu held:
+    ├─► flush w.pending to w.f  (same as fsync path above)
+    ├─► patch EVTX file header (NextRecordIdentifier, ChunkCount = 1)
+    ├─► w.f.Sync()
+    ├─► w.f.Close()
+    ├─► newPath = generateTimestampedPath(w.basePath)
+    ├─► w.f = openRotatedFile(newPath)  — write placeholder file header
+    ├─► w.currentFileBytes = evtxFileHeaderSize
+    ├─► w.firstID = w.recordID  (continue record IDs across rotation)
+    └─► pruneOldFiles()  — delete oldest files if len(files) > MaxFileCount
 ```
 
-**Modified file:** `pkg/evtx/writer_native_notwindows.go`
-
-Currently delegates to `NewBinaryEvtxWriter(evtxPath)` which returns the stub. After v2, `NewBinaryEvtxWriter` returns the real implementation. No change to `writer_native_notwindows.go` itself.
-
-**`OutputConfig` already has `EVTXPath` field.** No config schema changes needed.
-
-**No new external dependencies.** Pure stdlib: `encoding/binary`, `hash/crc32`, `os`, `path/filepath`, `sync`.
-
-**Testing approach:** Generate a test .evtx file, parse it with `0xrawsec/golang-evtx` (as a test-only dependency) to verify round-trip correctness.
-
----
-
-### Feature 5: BeatsWriter (Lumberjack v2)
-
-**Integration point:** New `pkg/evtx/writer_beats.go` (all platforms) + `buildWriter()` in `main.go`.
-
-**Library:** `github.com/elastic/go-lumber/client/v2` (official Elastic library, verified on pkg.go.dev).
-
-**Client choice:** `SyncClient` for simplicity (send batch → wait for ACK → proceed). `AsyncClient` is appropriate if throughput benchmarking shows the ACK round-trip is a bottleneck, but SyncClient is correct for the first implementation.
-
-**Data format:** go-lumber sends `[]interface{}` where each element is a map. Map the `WindowsEvent` struct fields to a flat map:
-
-```go
-func windowsEventToBeatsMap(e evtx.WindowsEvent) map[string]interface{} {
-    return map[string]interface{}{
-        "@timestamp":       e.TimeCreated.UTC().Format(time.RFC3339Nano),
-        "event_id":         e.EventID,
-        "provider":         e.ProviderName,
-        "computer":         e.Computer,
-        "object_name":      e.ObjectName,
-        "account_name":     e.SubjectUsername,
-        "account_domain":   e.SubjectDomain,
-        "account_sid":      e.SubjectUserSID,
-        "client_address":   e.ClientAddr,
-        "access_mask":      e.AccessMask,
-        "cepa_event_type":  e.CEPAEventType,
-        "bytes_read":       e.BytesRead,
-        "bytes_written":    e.BytesWritten,
-    }
-}
-```
-
-**New file:** `pkg/evtx/writer_beats.go` (no build tag — all platforms)
-
-```go
-type BeatsWriter struct {
-    client *v2.SyncClient
-    mu     sync.Mutex
-    addr   string
-}
-```
-
-The writer holds a `SyncClient`, reconnects on error (same pattern as `GELFWriter`). `WriteEvent` sends a single-event batch: `client.Send([]interface{}{eventMap})`.
-
-**Config additions** — new fields in `OutputConfig`:
-
-```go
-BeatsHost     string `toml:"beats_host"`
-BeatsPort     int    `toml:"beats_port"` // default 5044
-BeatsTLS      bool   `toml:"beats_tls"`
-```
-
-Output type token: `"beats"`.
-
-**`buildWriter()` modification:** Add `case "beats":` branch.
-
-**Config example additions:**
-
-```toml
-# Beats/Lumberjack v2 output (Logstash or Graylog Beats Input)
-# beats_host = "logstash.corp.local"
-# beats_port = 5044
-# beats_tls  = false
-```
-
-**New dependency:** `github.com/elastic/go-lumber`
-
----
-
-### Feature 6: SyslogWriter (RFC 5424)
-
-**Integration point:** New `pkg/evtx/writer_syslog.go` (all platforms) + `buildWriter()` in `main.go`.
-
-**Standard library consideration:** Go's `log/syslog` package implements BSD syslog (RFC 3164), not RFC 5424. It also has build constraints that exclude Windows. For RFC 5424 compliance and cross-platform support, a thin wrapper is needed.
-
-**Approach:** Implement `SyslogWriter` using the stdlib `log/syslog` package on Linux/macOS and a simple TCP/UDP connection-based RFC 5424 formatter on Windows. Use build tags to split.
-
-**Alternative:** Use `github.com/crewjam/rfc5424` (pure Go, cross-platform, verified on pkg.go.dev) to build the RFC 5424 message, then send over a raw `net.Conn`. This avoids all platform split complexity.
-
-**Recommended approach:** Raw `net.Conn` + `crewjam/rfc5424` message builder.
+### Shutdown Path
 
 ```
-SyslogWriter
-  ├── net.Conn (UDP or TCP to syslog server)
-  ├── RFC 5424 message built by crewjam/rfc5424
-  └── reconnect-on-error (same as GELFWriter)
+signal received (SIGTERM / SIGINT) or context cancelled
+    │
+    └─► q.Stop()
+            │
+            ├─► close(q.ch) — drain channel
+            ├─► q.wg.Wait() — workers finish
+            └─► w.Close()
+                    │
+                    ├─► close(w.stopCh)    — signal backgroundLoop to exit
+                    ├─► <-w.stopped        — wait for goroutine to exit cleanly
+                    ├─► w.mu.Lock()
+                    ├─► flush w.pending to w.f
+                    ├─► patch EVTX file header
+                    ├─► w.f.Sync()
+                    └─► w.f.Close()
 ```
 
-**RFC 5424 field mapping:**
-
-| RFC 5424 field | Source |
-|---|---|
-| MSGID | `strconv.Itoa(e.EventID)` |
-| HOSTNAME | `e.Computer` |
-| APP-NAME | `e.ProviderName` |
-| STRUCTURED-DATA `[cepa@0]` | `CEPAEventType`, `ObjectName`, `SubjectUsername`, `ClientAddr` |
-| MSG | `"EventID=<n> <CEPAEventType> on <ObjectName>"` |
-| FACILITY | `LOG_AUDIT` (13) or `LOG_LOCAL0` (16) if audit unavailable |
-| SEVERITY | `LOG_INFO` (6) |
-
-**New file:** `pkg/evtx/writer_syslog.go` (no build tag — all platforms)
-
-**Config additions:**
-
-```go
-SyslogHost     string `toml:"syslog_host"`
-SyslogPort     int    `toml:"syslog_port"`   // default 514
-SyslogProtocol string `toml:"syslog_protocol"` // "udp" | "tcp"
-SyslogTLS      bool   `toml:"syslog_tls"`
-```
-
-Output type token: `"syslog"`.
-
-**New dependency:** `github.com/crewjam/rfc5424`
-
----
-
-## Complete v2 Architecture
+### Config Flow
 
 ```
-Dell PowerStore
-  CEPA HTTP PUT
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  pkg/server — HTTP listener (:12228, optional TLS)               │
-│  ┌──────────────────┐   ┌────────────────────────────────────┐   │
-│  │ Handler (PUT /)  │   │ HealthHandler (GET /health) JSON   │   │
-│  └─────────┬────────┘   └────────────────────────────────────┘   │
-└────────────┼─────────────────────────────────────────────────────┘
-             │ Enqueue()
-             ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  pkg/queue — buffered channel + N worker goroutines              │
-└────────────┬─────────────────────────────────────────────────────┘
-             │ WriteEvent(ctx, WindowsEvent)
-             ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  pkg/evtx — Writer interface                                     │
-│  ┌────────────┐  ┌──────────┐  ┌────────────┐  ┌─────────────┐  │
-│  │ GELFWriter │  │ Win32Writer│  │BeatsWriter │  │SyslogWriter │  │
-│  │ (all)      │  │ (windows)│  │ (all)      │  │ (all)       │  │
-│  └────────────┘  └──────────┘  └────────────┘  └─────────────┘  │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │  BinaryEvtxWriter  (!windows — real impl replaces stub)   │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │  MultiWriter (fan-out)                                     │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  pkg/metrics — atomic counters (unchanged)                       │
-└──────────────────────────────────────────────────────────────────┘
-
-Prometheus scraper ──► :9228/metrics
-                              │
-                    ┌─────────┴──────────────────────────────────┐
-                    │  pkg/prometheus — separate HTTP mux         │
-                    │  Reads pkg/metrics.M.Snapshot()            │
-                    └────────────────────────────────────────────┘
-
-[Windows only]
-SCM / Service Manager
-  Start/Stop signals
-       │
-       ▼
-cmd/cee-exporter/service_windows.go
-  kardianos/service wraps run()
-```
-
----
-
-## New Files Created in v2
-
-| File | Build Tag | Purpose |
-|------|-----------|---------|
-| `pkg/prometheus/handler.go` | none (all) | Prometheus HTTP handler; reads pkg/metrics |
-| `pkg/evtx/writer_beats.go` | none (all) | BeatsWriter implementation |
-| `pkg/evtx/writer_syslog.go` | none (all) | SyslogWriter implementation |
-| `pkg/evtx/writer_binary_evtx.go` | `!windows` | Real BinaryEvtxWriter (replaces stub) |
-| `pkg/evtx/binxml/chunk.go` | none (all) | BinXML chunk builder |
-| `pkg/evtx/binxml/header.go` | none (all) | EVTX file header builder |
-| `pkg/evtx/binxml/token.go` | none (all) | BinXML token stream emitter |
-| `pkg/evtx/binxml/sid.go` | none (all) | Windows SID binary encoder |
-| `pkg/evtx/binxml/filetime.go` | none (all) | Windows FILETIME encoder |
-| `cmd/cee-exporter/service_windows.go` | `windows` | kardianos/service wrapper |
-| `cmd/cee-exporter/service_notwindows.go` | `!windows` | No-op service shim |
-| `deploy/systemd/cee-exporter.service` | n/a | Systemd unit file (not Go) |
-
----
-
-## Existing Files Modified in v2
-
-| File | Change | Scope |
-|------|--------|-------|
-| `cmd/cee-exporter/main.go` | Add `MetricsConfig` struct; add `runWithServiceManager()` call; rename existing `main()` body to `run()`; add `-service` flag; extend `buildWriter()` with `beats`/`syslog` cases | Moderate |
-| `pkg/evtx/writer_evtx_stub.go` | Remove or demote to development fallback once `writer_binary_evtx.go` is complete | Moderate |
-| `config.toml.example` | Add `[metrics]`, `beats_*`, `syslog_*` fields | Trivial |
-| `go.mod` / `go.sum` | Add `client_golang`, `go-lumber`, `rfc5424`, `kardianos/service` | Trivial |
-
----
-
-## Build Order (Dependency-Driven)
-
-```
-Phase 1 — Independent: no dependency on other new components
-  1a. Prometheus endpoint
-      Depends on: pkg/metrics (exists), main.go (minor changes)
-      New dep:    github.com/prometheus/client_golang
-
-  1b. Systemd unit file
-      Depends on: nothing (text file)
-
-Phase 2 — Windows Service (depends on main() refactor from Phase 1 changes)
-  2.  Windows Service
-      Depends on: run() function extracted in Phase 1 changes to main.go
-      New dep:    github.com/kardianos/service
-
-Phase 3 — New Writers (independent of each other; both depend on Writer interface)
-  3a. BeatsWriter
-      Depends on: pkg/evtx.Writer (exists), OutputConfig (minor changes)
-      New dep:    github.com/elastic/go-lumber
-
-  3b. SyslogWriter
-      Depends on: pkg/evtx.Writer (exists), OutputConfig (minor changes)
-      New dep:    github.com/crewjam/rfc5424
-
-Phase 4 — BinaryEvtxWriter (highest complexity; independent of phases 2, 3)
-  4.  BinaryEvtxWriter
-      Depends on: pkg/evtx.Writer (exists), pkg/evtx/binxml sub-package
-      New dep:    none (stdlib only)
-      Test dep:   github.com/0xrawsec/golang-evtx (test-only, verify round-trip)
-```
-
-**Recommended build sequence:** 1b → 1a → 3a → 3b → 2 → 4
-
-Rationale: Systemd first (zero risk). Prometheus second (validates metrics are correct before adding more writers). Beats and Syslog next (parallel development possible; same Writer interface). Windows Service after Prometheus because it requires the `run()` extraction refactor. BinaryEvtxWriter last because it is the highest complexity and can be developed independently without blocking any other feature.
-
----
-
-## Data Flow Changes
-
-### Prometheus Data Flow
-
-```
-[Prometheus scraper GET :9228/metrics]
-  ↓
-pkg/prometheus.handler.Collect()
-  → metrics.M.Snapshot()   // single atomic read, no lock
-  → prometheus.Desc values populated
-  ↓
-promhttp.HandlerFor(reg) serialises to text/plain
-  ↓
-HTTP 200 response
-```
-
-No event pipeline touched. Zero latency impact on CEPA path.
-
-### BeatsWriter Data Flow
-
-```
-pkg/queue worker
-  → WriteEvent(ctx, WindowsEvent)
-  → BeatsWriter.WriteEvent()
-    → windowsEventToBeatsMap(e)   // struct → map[string]interface{}
-    → SyncClient.Send([]interface{}{m})
-    → wait for Lumberjack ACK
-    → return nil or error
-```
-
-The SyncClient.Send() blocks until server ACK. This is acceptable because the queue worker pool decouples this from the CEPA HTTP handler. If ACK latency becomes an issue, switch to AsyncClient in a later iteration.
-
-### SyslogWriter Data Flow
-
-```
-pkg/queue worker
-  → WriteEvent(ctx, WindowsEvent)
-  → SyslogWriter.WriteEvent()
-    → rfc5424.Message{...}.String()   // format RFC 5424 message
-    → conn.Write(msg)
-    → reconnect on error (UDP: best-effort, no error; TCP: reconnect)
-    → return nil or error
-```
-
-### BinaryEvtxWriter Data Flow
-
-```
-pkg/queue worker
-  → WriteEvent(ctx, WindowsEvent)
-  → BinaryEvtxWriter.WriteEvent()
-    → binxml.NewFragment(e)   // BinXML token stream
-    → chunk.Append(fragment)  // accumulate in current chunk
-    → if chunk full: flush chunk to file, open new chunk
-    → return nil or error
-```
-
-File rotation: one `.evtx` file per run (opened at `NewBinaryEvtxWriter` time), chunks accumulated in memory until full then flushed. On `Close()`, write final partial chunk and update file header chunk count and CRC32.
-
----
-
-## Platform-Specific File Naming Rules
-
-Following the rule established in v1 (`IMPORTANT: DO NOT use _linux suffix`):
-
-| Platform scope | File suffix | Build tag |
-|---|---|---|
-| Windows only | `_windows.go` | `//go:build windows` |
-| Non-Windows | `_notwindows.go` | `//go:build !windows` |
-| All platforms | (no suffix) | none required |
-
-New files for v2 follow this convention:
-
-- `service_windows.go` / `service_notwindows.go` — correct
-- `writer_binary_evtx.go` with `//go:build !windows` — correct (replaces `writer_evtx_stub.go` which also uses `!windows`)
-- All other new writers and pkg/prometheus — no suffix needed
-
----
-
-## Config Schema Additions (v2)
-
-New sections/fields in `config.toml` and `Config` struct:
-
-```toml
-[metrics]
-enabled = true
-addr    = "0.0.0.0:9228"
-
+config.toml
 [output]
-# existing fields unchanged, add:
-beats_host     = "logstash.corp.local"
-beats_port     = 5044
-beats_tls      = false
-
-syslog_host     = "syslog.corp.local"
-syslog_port     = 514
-syslog_protocol = "udp"   # or "tcp"
-syslog_tls      = false
+flush_interval_s    = 15
+max_file_size_mb    = 100
+max_file_count      = 10
+rotation_interval_h = 24
+        │
+        ▼ BurntSushi/toml decodes into OutputConfig
+        │
+        ▼ buildWriter(cfg.Output) in main.go
+        │
+        ▼ evtx.NewBinaryEvtxWriter(cfg.EVTXPath, evtx.RotationConfig{
+              FlushIntervalSec:  cfg.FlushIntervalSec,
+              MaxFileSizeMB:     cfg.MaxFileSizeMB,
+              MaxFileCount:      cfg.MaxFileCount,
+              RotationIntervalH: cfg.RotationIntervalH,
+          })
 ```
 
-`type` field new valid values: `"beats"`, `"syslog"` (adds to existing `"gelf"`, `"evtx"`, `"multi"`).
+## Scaling Considerations
 
-`HealthConfig.WriterType` string in `pkg/server/health.go` should be extended to accept new type names — this is purely a display concern, no logic change.
+This is a single-host daemon. The relevant axis is audit event throughput from PowerStore VCAPS batches.
 
----
+| Concern | Current (v3.0) | With v4.0 rotation |
+|---------|----------------|--------------------|
+| Write latency per event | ~0 (in-memory append) | ~0 (pending buffer append) |
+| Disk I/O frequency | Once on process exit | Every `flush_interval_s` seconds (default 15) |
+| Memory for unflushed events | All events since process start | Events accumulated since last fsync tick |
+| Max single file size | Unbounded (limited only by chunk size = 65536 B of records) | Bounded by `max_file_size_mb` |
+| Disk space management | Manual operator intervention | Automatic via `max_file_count` |
+| Crash durability guarantee | Zero (all records lost) | At most `flush_interval_s` seconds of events |
 
-## Scalability Considerations
+### Scaling Priorities
 
-| Scale | Architecture | Notes |
-|-------|--------------|-------|
-| Current (1 PowerStore NAS) | Single instance, 4 workers, 100k queue | Sufficient |
-| 5-10 NAS nodes | Same binary, increase `workers` | Queue depth metric via Prometheus tells when |
-| 10+ NAS nodes | Run one instance per NAS or use MultiWriter | Prometheus scrape identifies bottleneck writer |
-
-The async queue architecture means throughput is bounded by the slowest writer. With `MultiWriter`, all backends receive every event; the slowest one determines effective throughput. Prometheus `/metrics` exposes `cee_queue_depth` which is the primary scaling signal.
-
----
+1. **First bottleneck:** `rotateLocked()` holds `w.mu` while doing disk I/O (file close, new file open). Worker goroutines calling `WriteEvent` will briefly contend for the mutex during rotation. This is acceptable — rotation is infrequent (hourly or size-triggered) and the mutex hold time is bounded by two `f.Close()`/`f.Open()` calls.
+2. **Second bottleneck:** Large `w.pending` at fsync time if event burst precedes the tick. Reduce `FlushIntervalSec` or increase `max_file_size_mb` to control memory pressure.
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Adding /metrics to the CEPA mux
+### Anti-Pattern 1: Flush Ticker in the Queue Layer
 
-**What people do:** Register `promhttp.Handler()` on the existing CEPA HTTP mux at `"/metrics"`.
+**What people do:** Add a `time.Ticker` in `pkg/queue` that calls a `Flush()` method on the `Writer` interface at regular intervals.
 
-**Why it's wrong:** The CEPA mux may be TLS-only (forcing Prometheus scraper to handle certs). More importantly, the CEPA handler logs every request — Prometheus scrapes every 15s would pollute CEPA logs. The `RegisterRequest` path check (`parser.IsRegisterRequest`) runs on every PUT; accidental GET to `/` returns 405 with a CEPA-format error.
+**Why it's wrong:** The queue is transport-agnostic. GELF and Syslog writers do not need flushing — network writes are already non-buffered. Adding `Flush()` to the `Writer` interface forces all six implementations (GELFWriter, SyslogWriter, BeatsWriter, Win32Writer, BinaryEvtxWriter, MultiWriter) to implement dead methods. It also couples the queue to file-I/O semantics that belong exclusively to `BinaryEvtxWriter`.
 
-**Do this instead:** Separate goroutine, separate `http.ServeMux`, separate port (9228). Two servers, zero conflicts.
+**Do this instead:** Embed the ticker inside `BinaryEvtxWriter`. The writer owns its file handle and is the only component that knows whether an fsync is meaningful.
 
-### Anti-Pattern 2: Blocking WriteEvent in BeatsWriter with unbounded retry
+### Anti-Pattern 2: Rewrite-on-Sync (full `os.WriteFile` per tick)
 
-**What people do:** Retry failed `Send()` calls in a loop inside `WriteEvent()`.
+**What people do:** Keep `flushToFile()` as-is and call it on every fsync tick — re-writing the entire accumulated buffer to disk each time.
 
-**Why it's wrong:** A blocked worker goroutine stops draining the queue. With 4 workers, a Logstash outage causes the queue to fill in seconds and events get dropped.
+**Why it's wrong:** `os.WriteFile` opens, truncates, writes, and closes on every invocation. Truncation creates a window where the file exists but is empty — any crash in that window loses all data. Write cost grows O(n) with accumulated records. The file header is re-serialized from scratch each time.
 
-**Do this instead:** One reconnect attempt (same as GELFWriter). If reconnect fails, return the error. The `pkg/queue` worker logs the error and increments `WriterErrorsTotal`. The Prometheus counter surfaces this to alerting.
+**Do this instead:** Hold an open `*os.File`. Append only the new (pending) records on each tick. Call `f.Sync()` at the end. Write cost per tick is proportional to new events only.
 
-### Anti-Pattern 3: Sharing kardianos/service Stop() with CEPA signal handling
+### Anti-Pattern 3: Extending the Writer Interface for Rotation
 
-**What people do:** Call `os.Exit()` inside `Stop()`.
+**What people do:** Add `Rotate() error` or `Flush() error` to the `evtx.Writer` interface so that callers can trigger these operations explicitly.
 
-**Why it's wrong:** kardianos/service documentation explicitly says Stop must not call `os.Exit()`. Doing so bypasses queue drain and writer Close.
+**Why it's wrong:** The `Writer` interface has two methods (`WriteEvent`, `Close`). This is the correct surface area. Adding rotation/flush methods breaks all other implementations and makes `MultiWriter.Rotate()` ambiguous (rotate all? rotate only file writers?).
 
-**Do this instead:** In `Stop()`, send a signal to the existing `sig` channel (or cancel the context). The existing shutdown path in `run()` handles draining and close.
+**Do this instead:** `BinaryEvtxWriter` manages its own rotation schedule autonomously via its internal goroutine. External triggers (if ever needed) should type-assert to `*BinaryEvtxWriter` — not go through the interface.
 
-### Anti-Pattern 4: BinaryEvtxWriter without chunk CRC32
+### Anti-Pattern 4: Passing Full `OutputConfig` to `NewBinaryEvtxWriter`
 
-**What people do:** Write BinXML content without computing the chunk CRC32 at finalisation.
+**What people do:** Pass the entire `OutputConfig` struct to the writer constructor to avoid defining a separate config struct.
 
-**Why it's wrong:** Windows Event Viewer and all parsers (including `0xrawsec/golang-evtx`) validate chunk CRC32. A missing or wrong CRC causes the file to be rejected as corrupt.
+**Why it's wrong:** `OutputConfig` contains fields for GELF (`gelf_host`, `gelf_port`, `gelf_tls`), Syslog, and Beats that are irrelevant to `BinaryEvtxWriter`. This couples the writer package to the main package's config schema and makes the writer harder to test in isolation.
 
-**Do this instead:** Accumulate the chunk bytes in a buffer, compute CRC32 over bytes 8–127 (with the CRC field zeroed) using CRC32 polynomial 0xEDB88320, write the CRC back at offset 120.
+**Do this instead:** Define `RotationConfig` in `pkg/evtx`. `main.go` maps the relevant `OutputConfig` fields to `RotationConfig` at construction time. The writer package has no import dependency on the main package.
 
----
+## Integration Points
 
-## Integration Points Summary
+### New Config Fields — TOML Layout
 
-| Feature | New Files | Modified Files | New Dependencies |
-|---------|-----------|----------------|-----------------|
-| Prometheus /metrics | `pkg/prometheus/handler.go` | `main.go`, `config.toml.example`, `go.mod` | `github.com/prometheus/client_golang` |
-| Systemd unit | `deploy/systemd/cee-exporter.service` | none | none |
-| Windows Service | `cmd/cee-exporter/service_windows.go`, `service_notwindows.go` | `main.go`, `go.mod` | `github.com/kardianos/service` |
-| BinaryEvtxWriter | `pkg/evtx/writer_binary_evtx.go`, `pkg/evtx/binxml/*.go` | `writer_evtx_stub.go` (replaced), `go.mod` | none (stdlib only) |
-| BeatsWriter | `pkg/evtx/writer_beats.go` | `main.go` (`buildWriter`), `config.toml.example`, `go.mod` | `github.com/elastic/go-lumber` |
-| SyslogWriter | `pkg/evtx/writer_syslog.go` | `main.go` (`buildWriter`), `config.toml.example`, `go.mod` | `github.com/crewjam/rfc5424` |
+Flat fields on the existing `[output]` section, consistent with all other backend fields:
 
----
+```toml
+[output]
+type      = "evtx"
+evtx_path = "/var/log/cee-exporter/audit.evtx"
+
+# BinaryEvtxWriter durability and rotation (effective only when type = "evtx" on Linux)
+flush_interval_s    = 15   # fsync to disk every N seconds; 0 = only on Close
+max_file_size_mb    = 100  # rotate when file exceeds N MiB; 0 = no size-based rotation
+max_file_count      = 10   # keep at most N rotated files; 0 = keep all
+rotation_interval_h = 24   # rotate every N hours; 0 = no time-based rotation
+```
+
+### Go Struct Changes
+
+`OutputConfig` in `main.go` gains four fields:
+
+```go
+type OutputConfig struct {
+    // ... all existing fields unchanged ...
+
+    // BinaryEvtxWriter rotation and durability (evtx type only)
+    FlushIntervalSec  int   `toml:"flush_interval_s"`
+    MaxFileSizeMB     int64 `toml:"max_file_size_mb"`
+    MaxFileCount      int   `toml:"max_file_count"`
+    RotationIntervalH int   `toml:"rotation_interval_h"`
+}
+```
+
+`defaultConfig()` defaults:
+
+```go
+Output: OutputConfig{
+    Type:             "gelf",
+    GELFHost:         "localhost",
+    GELFPort:         12201,
+    GELFProtocol:     "udp",
+    FlushIntervalSec: 15, // ≤15s durability guarantee by default
+    // MaxFileSizeMB, MaxFileCount, RotationIntervalH default to 0 (disabled)
+},
+```
+
+### Internal Boundaries
+
+| Boundary | Communication | Change Required |
+|----------|---------------|-----------------|
+| `main.go` ↔ `pkg/evtx` | `NewBinaryEvtxWriter(path, RotationConfig)` | Signature change — add `RotationConfig` parameter |
+| `writer_native_notwindows.go` ↔ `BinaryEvtxWriter` | `NewBinaryEvtxWriter` call | Update to pass `RotationConfig{}` (zero = defaults, no rotation) |
+| `pkg/queue` ↔ `evtx.Writer` | `Writer.WriteEvent`, `Writer.Close` | No change — interface is stable |
+| `BinaryEvtxWriter` ↔ `os.File` | Open handle held for writer lifetime | Major change — replace `os.WriteFile` with incremental append |
+
+### Suggested Build Order
+
+Dependencies determine sequencing. Tasks that can parallelize are grouped.
+
+**Step 1 (foundation — do first, unblocks all other tasks):**
+- Define `RotationConfig` struct in `pkg/evtx/writer_evtx_notwindows.go`
+- Update `NewBinaryEvtxWriter` signature to accept `RotationConfig`
+- Update `writer_native_notwindows.go` to pass zero `RotationConfig` (backward-compatible)
+- Add `OutputConfig` fields and `defaultConfig()` values in `main.go`
+- Update `buildWriter()` to map `OutputConfig` → `RotationConfig`
+
+**Step 2 (open-handle model — highest risk, do before any goroutine work):**
+- Replace `os.WriteFile` with open `*os.File` held at construction
+- Add `pending []byte` staging buffer and `currentFileBytes` counter
+- Update `WriteEvent` to append to `pending` instead of `w.records`
+- Rewrite `Close()` to flush pending, patch file header, sync, close
+- Write targeted tests verifying EVTX binary correctness with the new model
+
+**Step 3 (fsync goroutine — depends on Step 2):**
+- Add `stopCh` / `stopped` channels to `BinaryEvtxWriter`
+- Implement `backgroundLoop()` with fsync ticker
+- Update `Close()` to signal and wait for goroutine before final flush
+
+**Step 4 (rotation — depends on Steps 2 and 3, can be done in parallel sub-tasks):**
+- Implement `rotateLocked()` helper
+- Implement `openRotatedFile()` helper (generates timestamped path)
+- Add size-based trigger check in `WriteEvent`
+- Add time-based rotation ticker in `backgroundLoop()`
+- Implement `pruneOldFiles()` helper (depends on rotation naming being stable)
+
+**Step 5 (documentation and ADRs — can be done alongside Step 4):**
+- Update `config.toml.example` with the four new fields and operator guidance
+- Write ADR-01: Flush ticker ownership (writer layer vs queue layer)
+- Write ADR-02: Open-handle vs write-on-close model and EVTX crash tolerance
 
 ## Sources
 
-- [kardianos/service pkg.go.dev](https://pkg.go.dev/github.com/kardianos/service) — Interface, Start/Stop signatures, Run() lifecycle (HIGH confidence, official)
-- [elastic/go-lumber client/v2 pkg.go.dev](https://pkg.go.dev/github.com/elastic/go-lumber/client/v2) — SyncClient.Send(), AsyncClient API (HIGH confidence, official)
-- [prometheus/client_golang pkg.go.dev](https://pkg.go.dev/github.com/prometheus/client_golang/prometheus) — NewRegistry(), CounterVec, GaugeVec (HIGH confidence, official)
-- [promhttp pkg.go.dev](https://pkg.go.dev/github.com/prometheus/client_golang/prometheus/promhttp) — HandlerFor(), Handler() (HIGH confidence, official)
-- [crewjam/rfc5424 pkg.go.dev](https://pkg.go.dev/github.com/crewjam/rfc5424) — RFC 5424 message writer (MEDIUM confidence, verified pkg.go.dev)
-- [0xrawsec/golang-evtx GitHub](https://github.com/0xrawsec/golang-evtx) — Confirmed read-only parser; no write capability (HIGH confidence, source code reviewed)
-- [libyal/libevtx EVTX format spec](https://github.com/libyal/libevtx/blob/main/documentation/Windows%20XML%20Event%20Log%20(EVTX).asciidoc) — BinXML binary format documentation (HIGH confidence, authoritative spec)
-- Existing codebase read directly: `main.go`, `writer.go`, `writer_gelf.go`, `writer_windows.go`, `writer_multi.go`, `writer_evtx_stub.go`, `metrics.go`, `server.go`, `health.go`, `queue.go`
+- Direct source inspection: `pkg/evtx/writer_evtx_notwindows.go` (current `BinaryEvtxWriter`)
+- Direct source inspection: `pkg/evtx/writer.go` (`Writer` interface, `WindowsEvent` struct)
+- Direct source inspection: `pkg/evtx/evtx_binformat.go` (EVTX binary format helpers)
+- Direct source inspection: `pkg/queue/queue.go` (queue lifecycle and `Stop()` contract)
+- Direct source inspection: `cmd/cee-exporter/main.go` (`OutputConfig`, `buildWriter`, `defaultConfig`)
+- Direct source inspection: `config.toml.example` (existing TOML layout conventions)
+- Project context: `.planning/PROJECT.md` (v4.0 milestone goals and constraints)
 
 ---
-
-*Architecture research for: cee-exporter v2 feature integration*
-*Researched: 2026-03-03*
+*Architecture research for: periodic fsync + file rotation in BinaryEvtxWriter*
+*Researched: 2026-03-04*
