@@ -1,122 +1,92 @@
 # Requirements: cee-exporter
 
-**Defined:** 2026-03-03
+**Defined:** 2026-03-04
+**Milestone:** v4.0 Industrialisation
 **Core Value:** Any SIEM can ingest Dell PowerStore file-system audit events as native Windows EventLog or GELF, from any Linux or Windows host, with no external dependencies beyond the Go binary.
 
-## v2 Requirements
+## v4.0 Requirements
 
-Requirements for the v2.0 Operations & Output Expansion milestone.
+Requirements for the Industrialisation milestone. Scope: BinaryEvtxWriter durability, file rotation, and supporting config/docs.
 
-### Observability
+### Durability (FLUSH)
 
-- [x] **OBS-01**: Operator can scrape `cee_events_received_total` counter from `/metrics` endpoint
-- [x] **OBS-02**: Operator can scrape `cee_events_dropped_total` counter from `/metrics` endpoint
-- [x] **OBS-03**: Operator can scrape `cee_queue_depth` gauge from `/metrics` endpoint
-- [x] **OBS-04**: Operator can scrape `cee_writer_errors_total` counter from `/metrics` endpoint
-- [x] **OBS-05**: `/metrics` endpoint is served on a configurable dedicated port (default 9228, separate from CEPA port 12228)
+- [ ] **FLUSH-01**: Operator can set `flush_interval_s` (default 15) so BinaryEvtxWriter calls `f.Sync()` every N seconds, bounding potential data loss to at most N seconds on power failure
+- [ ] **FLUSH-02**: BinaryEvtxWriter flushes and fsyncs all buffered events to disk before the process exits on graceful shutdown
+- [ ] **FLUSH-03**: Prometheus `/metrics` endpoint exposes a `cee_last_fsync_unix_seconds` gauge so SREs can alert when fsync has not occurred within the expected interval
 
-### Service Deployment
+### EVTX Correctness (EVTX)
 
-- [x] **DEPLOY-01**: Linux operator is provided a hardened systemd unit file for daemon management
-- [x] **DEPLOY-02**: Linux operator can `systemctl enable --now cee-exporter` to auto-start at boot with auto-restart on failure
-- [x] **DEPLOY-03**: Windows operator can run `cee-exporter.exe install` to register daemon with Service Control Manager
-- [x] **DEPLOY-04**: Windows operator can run `cee-exporter.exe uninstall` to remove daemon from Service Control Manager
-- [x] **DEPLOY-05**: Windows Service auto-restarts after unexpected crash (recovery actions configured)
+- [ ] **EVTX-01**: BinaryEvtxWriter writes all events to disk regardless of session length (fix `flushChunkLocked()` stub that currently silently drops events beyond ~2,400 per session)
 
-### Output Targets
+### File Rotation (ROT)
 
-- [x] **OUT-01**: Operator can configure BeatsWriter to forward events to Logstash or Graylog Beats Input via Lumberjack v2 protocol
-- [x] **OUT-02**: BeatsWriter supports TLS for encrypted Beats transport
-- [x] **OUT-03**: Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over UDP
-- [x] **OUT-04**: Operator can configure SyslogWriter to forward RFC 5424 structured syslog events over TCP
-- [x] **OUT-05**: Operator can configure BinaryEvtxWriter to write native `.evtx` files on Linux
-- [x] **OUT-06**: `.evtx` files generated on Linux open correctly in Windows Event Viewer and can be parsed by forensics tools
+- [ ] **ROT-01**: Operator can set `max_file_size_mb` so the active `.evtx` file is rotated when it reaches that size (0 = unlimited; rotation produces a timestamped archive file)
+- [ ] **ROT-02**: Operator can set `max_file_count` so only the N most recent archive files are kept and older ones are deleted automatically (0 = unlimited)
+- [ ] **ROT-03**: Operator can set `rotation_interval_h` so the active `.evtx` file is rotated on a fixed schedule regardless of size (0 = disabled)
+- [ ] **ROT-04**: Operator can send SIGHUP to the process to trigger an immediate `.evtx` file rotation without restarting the daemon
 
-## v3 Requirements
+### Configuration (CFG)
 
-Requirements for Phase 8: TLS Certificate Automation with Let's Encrypt.
+- [ ] **CFG-01**: All flush and rotation parameters (`flush_interval_s`, `max_file_size_mb`, `max_file_count`, `rotation_interval_h`) are configurable in the `[output]` section of `config.toml` with documented zero-value semantics
+- [ ] **CFG-02**: cee-exporter rejects invalid configuration (e.g., `flush_interval_s = 0`) at startup with a clear error message rather than panicking at runtime
+- [ ] **CFG-03**: `config.toml.example` is updated to document all four new `[output]` fields with inline comments explaining default values and zero-value semantics
 
-### TLS Certificate Management
+### Architecture & Documentation (ADR)
 
-- [x] **TLS-01**: Operator can set `tls_mode="acme"` with `acme_domains` in config.toml and the daemon automatically obtains and renews a TLS certificate from Let's Encrypt via ACME TLS-ALPN-01 challenge on port 443
-- [x] **TLS-02**: Operator can set `tls_mode="self-signed"` and the daemon generates a runtime ECDSA certificate at startup — no files, no network access, no external dependencies
-- [x] **TLS-03**: Operator can set `tls_mode="manual"` (or use the legacy `tls=true` + `cert_file`/`key_file` config) and the daemon loads TLS credentials from the specified files (backward compatible with pre-Phase-8 configs)
-- [x] **TLS-04**: Existing config.toml files with `tls=true` + `cert_file`/`key_file` are automatically migrated to `tls_mode="manual"` behavior without requiring operator changes
-- [x] **TLS-05**: config.toml.example documents all four TLS modes (`off`, `manual`, `acme`, `self-signed`) with explanatory comments including the CEPA HTTP-only protocol constraint
+- [ ] **ADR-01**: Architecture Decision Record documents the decision to own the flush ticker inside `BinaryEvtxWriter` (not in the queue layer), explaining why `Flush()` was not added to the `Writer` interface
+- [ ] **ADR-02**: Architecture Decision Record documents the decision to switch from write-on-close (`os.WriteFile`) to open-handle incremental flush, covering EVTX crash tolerance and fsync semantics
 
-## Future Requirements
+## v5 Requirements
 
-Features acknowledged but deferred beyond v2.0.
+Deferred to future release.
 
 ### Observability
 
-- **OBS-F01**: Operator can configure alerting thresholds for dropped events via Prometheus alerting rules (documentation/examples only)
-- **OBS-F02**: sd_notify READY=1 integration for `Type=notify` systemd units
+- **OBS-01**: Prometheus counter `cee_rotation_total` for tracking rotation events over time
 
-### Output Targets
+### EVTX
 
-- **OUT-F01**: BinaryEvtxWriter uses cross-event template sharing for reduced file size
-- **OUT-F02**: BeatsWriter uses AsyncClient with batching for higher throughput
-- **OUT-F03**: Syslog TLS transport (RFC 5425)
+- **EVTX-02**: Multi-chunk EVTX files (full multi-chunk support beyond single-chunk-per-session)
+- **EVTX-03**: Startup repair pass for partial-chunk files left by a crash (invalid CRC recovery)
 
-### TLS
+### Rotation
 
-- **TLS-F01**: DNS-01 ACME challenge via go-acme/lego for air-gapped / private-network ACME (no public port 80/443 needed)
-- **TLS-F02**: Let's Encrypt staging URL support via `acme_staging = true` config flag for development environments
+- **ROT-F01**: Compression of rotated `.evtx` files (blocked on forensics tool support)
 
 ## Out of Scope
 
-Explicitly excluded from v2.0. Documented to prevent scope creep.
-
 | Feature | Reason |
 |---------|--------|
-| MSI installer for Windows Service | Scope explosion; `install`/`uninstall` subcommands provide equivalent value |
-| NSSM-based Windows Service | External binary dependency; breaks single-artifact deploy contract |
-| Prometheus push gateway | Pull model is correct for a long-running daemon |
-| RFC 3164 (legacy BSD syslog) | Unstructured; cannot carry audit SD-PARAMs reliably |
-| EVTX chunked streaming (mid-chunk) | Not how the EVTX format works; flush per chunk or on Close |
-| Grafana dashboards / alerting rules | Operational concern; not part of the daemon |
-| MSI / WiX installer | Scope explosion for v2 |
-| macOS platform support | Not a target platform |
-| HA / load-balancer setup | Operational concern, not code |
-| DNS-01 ACME via go-acme/lego (Phase 8) | Adds 160+ DNS provider deps; deferred to TLS-F01 |
-| Let's Encrypt staging URL (Phase 8) | Operator concern; use acme_cache_dir for separation; deferred to TLS-F02 |
+| Rotation for GELF, Syslog, Beats, Win32 writers | Network-based backends; file rotation not applicable |
+| Log rotation for application logs (stdout/syslog) | Handled by systemd/logrotate at the OS level |
+| DNS-01 ACME challenge | Already deferred in v3.0 (TLS-F01) |
+| sd_notify READY=1 | Already deferred in v3.0 (OBS-F02) |
 
 ## Traceability
 
-Which phases cover which requirements. Populated during roadmap creation.
+Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OBS-01 | Phase 4 | Complete |
-| OBS-02 | Phase 4 | Complete |
-| OBS-03 | Phase 4 | Complete |
-| OBS-04 | Phase 4 | Complete |
-| OBS-05 | Phase 4 | Complete |
-| DEPLOY-01 | Phase 4 | Complete |
-| DEPLOY-02 | Phase 4 | Complete |
-| DEPLOY-03 | Phase 5 | Complete |
-| DEPLOY-04 | Phase 5 | Complete |
-| DEPLOY-05 | Phase 5 | Complete |
-| OUT-01 | Phase 6 | Complete |
-| OUT-02 | Phase 6 | Complete |
-| OUT-03 | Phase 6 | Complete |
-| OUT-04 | Phase 6 | Complete |
-| OUT-05 | Phase 7 | Complete |
-| OUT-06 | Phase 7 | Complete |
-| TLS-01 | Phase 8 | Planned |
-| TLS-02 | Phase 8 | Planned |
-| TLS-03 | Phase 8 | Planned |
-| TLS-04 | Phase 8 | Planned |
-| TLS-05 | Phase 8 | Planned |
+| FLUSH-01 | — | Pending |
+| FLUSH-02 | — | Pending |
+| FLUSH-03 | — | Pending |
+| EVTX-01 | — | Pending |
+| ROT-01 | — | Pending |
+| ROT-02 | — | Pending |
+| ROT-03 | — | Pending |
+| ROT-04 | — | Pending |
+| CFG-01 | — | Pending |
+| CFG-02 | — | Pending |
+| CFG-03 | — | Pending |
+| ADR-01 | — | Pending |
+| ADR-02 | — | Pending |
 
 **Coverage:**
-
-- v2 requirements: 16 total — all complete
-- v3 requirements (Phase 8): 5 total — 0 complete, 5 planned
-- Mapped to phases: 21 (roadmap complete)
-- Unmapped: 0
+- v4.0 requirements: 13 total
+- Mapped to phases: 0
+- Unmapped: 13 ⚠️
 
 ---
-*Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 — Phase 8 TLS requirements added (TLS-01 through TLS-05)*
+*Requirements defined: 2026-03-04*
+*Last updated: 2026-03-04 after initial v4.0 definition*
