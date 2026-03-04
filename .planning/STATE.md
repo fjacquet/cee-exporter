@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Industrialisation
 status: executing
-stopped_at: Completed 08.5-02-PLAN.md — go-evtx adapter complete, BinaryEvtxWriter thin adapter deployed
-last_updated: "2026-03-04T06:30:09.543Z"
-last_activity: 2026-03-04 — Phase 8.5 Plan 01 complete; github.com/fjacquet/go-evtx v0.1.0 published
+stopped_at: Completed 09-01-PLAN.md — go-evtx v0.2.0 RotationConfig + background goroutine published
+last_updated: "2026-03-04T23:27:34Z"
+last_activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 5
+  total_plans: 3
+  completed_plans: 3
+  percent: 8
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** Any SIEM can ingest Dell PowerStore file-system audit events as native Windows EventLog or GELF, from any Linux or Windows host, with no external dependencies beyond the Go binary.
-**Current focus:** Phase 8.5 — go-evtx OSS Module Extraction
+**Current focus:** Phase 09 — Goroutine Scaffolding and Fsync
 
 ## Current Position
 
-Phase: 8.5 of 12 — v4.0 (go-evtx OSS Module Extraction)
-Plan: 1 of 1 in current phase (complete)
+Phase: 9 of 12 — v4.0 (Goroutine Scaffolding and Fsync)
+Plan: 1 of N in current phase (plan 01 complete)
 Status: In Progress
-Last activity: 2026-03-04 — Phase 8.5 Plan 01 complete; github.com/fjacquet/go-evtx v0.1.0 published
+Last activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
 
-Progress: [█░░░░░░░░░] 5% (v4.0 milestone; 0/4 phases complete; Phase 8.5 plan 01/01 done)
+Progress: [█░░░░░░░░░] 8% (v4.0 milestone; 1/4 phases partially complete; Phase 09 plan 01/N done)
 
 ## Accumulated Context
 
@@ -47,6 +47,8 @@ Recent decisions affecting current work:
 - MIT license chosen for go-evtx OSS module (08.5-01)
 - stdlib-only constraint maintained in go-evtx; zero external dependencies (08.5-01)
 - [Phase 08.5-go-evtx-oss-module-extraction]: BinaryEvtxWriter replaced with thin adapter delegating to go-evtx; evtx_binformat.go removed from cee-exporter
+- [Phase 09-01]: RotationConfig.FlushIntervalSec == 0 disables goroutine; time.NewTicker(0) never called; Close() ordering: close(done) -> wg.Wait() -> mu.Lock() -> flush
+- [Phase 09-01]: go-evtx v0.2.0 published with RotationConfig API and backgroundLoop goroutine; zero races confirmed
 
 ### Pending Todos
 
@@ -55,12 +57,12 @@ None.
 ### Blockers/Concerns
 
 - [Phase 10] flushChunkLocked() stub silently drops events beyond ~2,400 per session — must be fixed before rotation is added
-- [Phase 9] go test -race requires CGO=1; run separately from make test to validate concurrency correctness
+- [Phase 9] go test -race requires CGO=1; RESOLVED in 09-01 — race detector confirmed zero races for v0.2.0
 - [Phase 11] Windows rename (MoveFileEx) may need manual validation if no Windows CI runner available
 - [Phase 11] Directory fsync after rename on Linux requires raw syscall not yet used in codebase — confirm pattern during planning
 
 ## Session Continuity
 
-Last session: 2026-03-04T06:24:40.676Z
-Stopped at: Completed 08.5-02-PLAN.md — go-evtx adapter complete, BinaryEvtxWriter thin adapter deployed
+Last session: 2026-03-04T23:27:34Z
+Stopped at: Completed 09-01-PLAN.md — go-evtx v0.2.0 RotationConfig + background goroutine published
 Resume file: None

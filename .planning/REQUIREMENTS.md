@@ -18,8 +18,8 @@ Requirements for the Industrialisation milestone. Scope: extract EVTX code as OS
 
 ### Durability (FLUSH)
 
-- [ ] **FLUSH-01**: Operator can set `flush_interval_s` (default 15) so BinaryEvtxWriter calls `f.Sync()` every N seconds, bounding potential data loss to at most N seconds on power failure
-- [ ] **FLUSH-02**: BinaryEvtxWriter flushes and fsyncs all buffered events to disk before the process exits on graceful shutdown
+- [x] **FLUSH-01**: Operator can set `flush_interval_s` (default 15) so BinaryEvtxWriter calls `f.Sync()` every N seconds, bounding potential data loss to at most N seconds on power failure
+- [x] **FLUSH-02**: BinaryEvtxWriter flushes and fsyncs all buffered events to disk before the process exits on graceful shutdown
 - [ ] **FLUSH-03**: Prometheus `/metrics` endpoint exposes a `cee_last_fsync_unix_seconds` gauge so SREs can alert when fsync has not occurred within the expected interval
 
 ### EVTX Correctness (EVTX)
@@ -81,8 +81,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXT-03 | Phase 8.5 | Complete |
 | EXT-04 | Phase 8.5 | Complete |
 | EXT-05 | Phase 8.5 | Complete |
-| FLUSH-01 | Phase 9 | Pending |
-| FLUSH-02 | Phase 9 | Pending |
+| FLUSH-01 | Phase 9 | Complete |
+| FLUSH-02 | Phase 9 | Complete |
 | ADR-01 | Phase 9 | Pending |
 | ADR-02 | Phase 9 | Pending |
 | EVTX-01 | Phase 10 | Pending |
