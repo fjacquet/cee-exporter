@@ -37,14 +37,27 @@
 
 ### 🚧 v4.0 Industrialisation (In Progress)
 
-**Milestone Goal:** Add durability guarantees and file lifecycle management to BinaryEvtxWriter — periodic fsync (≤15s), size/count/time-based rotation, configurable via [output] section in config.toml.
+**Milestone Goal:** Extract EVTX writer as an OSS Go module (`github.com/fjacquet/go-evtx`), then add durability guarantees (periodic fsync ≤15s) and file lifecycle management (size/count/time rotation) built directly into that module, wired back into cee-exporter.
 
-- [ ] **Phase 9: Goroutine Scaffolding and fsync** — Establish the concurrency contract: background goroutine with correct shutdown, periodic f.Sync(), and ADRs documenting architectural decisions
+- [ ] **Phase 8.5: go-evtx OSS Module Extraction** — Create `github.com/fjacquet/go-evtx` as a standalone Go module with layered API (WriteRaw + WriteRecord), port existing tests, and replace cee-exporter's internal EVTX implementation with the new dependency
+- [ ] **Phase 9: Goroutine Scaffolding and fsync** — Establish the concurrency contract in go-evtx: background goroutine with correct shutdown, periodic f.Sync(), and ADRs documenting architectural decisions
 - [ ] **Phase 10: Open-Handle Incremental Flush** — Replace os.WriteFile with a persistent *os.File held for the writer's lifetime; fix flushChunkLocked stub so no events are silently dropped
 - [ ] **Phase 11: File Rotation** — Implement size-based, time-based, count-based, and SIGHUP-triggered rotation on top of the Phase 10 open-handle model
 - [ ] **Phase 12: Config, Validation, Prometheus and Docs** — Wire all rotation/flush parameters into [output] TOML section, add startup validation, expose fsync gauge, update config.toml.example
 
 ## Phase Details
+
+### Phase 8.5: go-evtx OSS Module Extraction
+**Goal**: `github.com/fjacquet/go-evtx` exists as a standalone, tested, published Go module with a layered API; cee-exporter consumes it as a dependency instead of owning the EVTX implementation
+**Depends on**: Phase 8 (existing BinaryEvtxWriter is the source of truth for extraction)
+**Requirements**: EXT-01, EXT-02, EXT-03, EXT-04, EXT-05
+**Success Criteria** (what must be TRUE):
+  1. `go get github.com/fjacquet/go-evtx` works from any machine; module is published to pkg.go.dev
+  2. `go-evtx` exposes `WriteRaw(chunk []byte) error` and `WriteRecord(eventID int, fields map[string]string) error`; both produce valid EVTX files confirmed by python-evtx
+  3. All tests ported from `cee-exporter/pkg/evtx/` pass in the `go-evtx` CI pipeline
+  4. `cee-exporter/go.mod` lists `github.com/fjacquet/go-evtx` as a dependency; `pkg/evtx/writer_evtx_notwindows.go` delegates to the module
+  5. `cee-exporter` test suite (`make test`) still passes after the swap
+**Plans**: TBD
 
 ### Phase 9: Goroutine Scaffolding and fsync
 **Goal**: BinaryEvtxWriter writes events to disk within a bounded window and shuts down cleanly without losing buffered data
@@ -103,6 +116,7 @@
 | 6. SIEM Writers | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 7. BinaryEvtxWriter | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 8. TLS Certificate Automation | v3.0 | 4/4 | Complete | 2026-03-03 |
+| 8.5. go-evtx OSS Module Extraction | v4.0 | 0/? | Not started | - |
 | 9. Goroutine Scaffolding and fsync | v4.0 | 0/? | Not started | - |
 | 10. Open-Handle Incremental Flush | v4.0 | 0/? | Not started | - |
 | 11. File Rotation | v4.0 | 0/? | Not started | - |
