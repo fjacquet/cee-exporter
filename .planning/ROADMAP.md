@@ -57,7 +57,11 @@
   3. All tests ported from `cee-exporter/pkg/evtx/` pass in the `go-evtx` CI pipeline
   4. `cee-exporter/go.mod` lists `github.com/fjacquet/go-evtx` as a dependency; `pkg/evtx/writer_evtx_notwindows.go` delegates to the module
   5. `cee-exporter` test suite (`make test`) still passes after the swap
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 08.5-01-PLAN.md — Create go-evtx GitHub repo, implement binformat.go + binxml.go + evtx.go + tests, publish v0.1.0 (EXT-01, EXT-02, EXT-03, EXT-04)
+- [ ] 08.5-02-PLAN.md — Add go-evtx dependency to cee-exporter, replace writer_evtx_notwindows.go with adapter, remove evtx_binformat.go (EXT-05)
 
 ### Phase 9: Goroutine Scaffolding and fsync
 **Goal**: BinaryEvtxWriter writes events to disk within a bounded window and shuts down cleanly without losing buffered data
@@ -116,7 +120,7 @@
 | 6. SIEM Writers | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 7. BinaryEvtxWriter | v2.0 | 3/3 | Complete | 2026-03-03 |
 | 8. TLS Certificate Automation | v3.0 | 4/4 | Complete | 2026-03-03 |
-| 8.5. go-evtx OSS Module Extraction | v4.0 | 0/? | Not started | - |
+| 8.5. go-evtx OSS Module Extraction | v4.0 | 0/2 | Not started | - |
 | 9. Goroutine Scaffolding and fsync | v4.0 | 0/? | Not started | - |
 | 10. Open-Handle Incremental Flush | v4.0 | 0/? | Not started | - |
 | 11. File Rotation | v4.0 | 0/? | Not started | - |
