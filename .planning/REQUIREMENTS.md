@@ -10,10 +10,10 @@ Requirements for the Industrialisation milestone. Scope: extract EVTX code as OS
 
 ### OSS Module Extraction (EXT)
 
-- [ ] **EXT-01**: `github.com/fjacquet/go-evtx` exists as an independent Go module (`go.mod` at `github.com/fjacquet/go-evtx`) with its own GitHub repository, CI (GitHub Actions), and README
-- [ ] **EXT-02**: `go-evtx` exposes a low-level `WriteRaw(chunk []byte) error` API for raw BinXML chunk writing, giving forensics tools and custom callers full control
-- [ ] **EXT-03**: `go-evtx` exposes a high-level `WriteRecord(eventID int, fields map[string]string) error` API that handles BinXML encoding internally
-- [ ] **EXT-04**: Existing `pkg/evtx` EVTX tests are ported to `go-evtx` and pass in CI
+- [x] **EXT-01**: `github.com/fjacquet/go-evtx` exists as an independent Go module (`go.mod` at `github.com/fjacquet/go-evtx`) with its own GitHub repository, CI (GitHub Actions), and README
+- [x] **EXT-02**: `go-evtx` exposes a low-level `WriteRaw(chunk []byte) error` API for raw BinXML chunk writing, giving forensics tools and custom callers full control
+- [x] **EXT-03**: `go-evtx` exposes a high-level `WriteRecord(eventID int, fields map[string]string) error` API that handles BinXML encoding internally
+- [x] **EXT-04**: Existing `pkg/evtx` EVTX tests are ported to `go-evtx` and pass in CI
 - [ ] **EXT-05**: `cee-exporter` replaces its internal EVTX implementation with `go-evtx` as a `go.mod` dependency; `BinaryEvtxWriter` becomes a thin adapter over `go-evtx`
 
 ### Durability (FLUSH)
@@ -76,10 +76,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EXT-01 | Phase 8.5 | Pending |
-| EXT-02 | Phase 8.5 | Pending |
-| EXT-03 | Phase 8.5 | Pending |
-| EXT-04 | Phase 8.5 | Pending |
+| EXT-01 | Phase 8.5 | Complete |
+| EXT-02 | Phase 8.5 | Complete |
+| EXT-03 | Phase 8.5 | Complete |
+| EXT-04 | Phase 8.5 | Complete |
 | EXT-05 | Phase 8.5 | Pending |
 | FLUSH-01 | Phase 9 | Pending |
 | FLUSH-02 | Phase 9 | Pending |
