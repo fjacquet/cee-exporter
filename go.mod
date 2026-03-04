@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/fjacquet/go-evtx v0.1.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 )
