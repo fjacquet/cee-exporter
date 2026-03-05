@@ -20,7 +20,7 @@ Requirements for the Industrialisation milestone. Scope: extract EVTX code as OS
 
 - [x] **FLUSH-01**: Operator can set `flush_interval_s` (default 15) so BinaryEvtxWriter calls `f.Sync()` every N seconds, bounding potential data loss to at most N seconds on power failure
 - [x] **FLUSH-02**: BinaryEvtxWriter flushes and fsyncs all buffered events to disk before the process exits on graceful shutdown
-- [ ] **FLUSH-03**: Prometheus `/metrics` endpoint exposes a `cee_last_fsync_unix_seconds` gauge so SREs can alert when fsync has not occurred within the expected interval
+- [x] **FLUSH-03**: Prometheus `/metrics` endpoint exposes a `cee_last_fsync_unix_seconds` gauge so SREs can alert when fsync has not occurred within the expected interval
 
 ### EVTX Correctness (EVTX)
 
@@ -35,9 +35,9 @@ Requirements for the Industrialisation milestone. Scope: extract EVTX code as OS
 
 ### Configuration (CFG)
 
-- [ ] **CFG-01**: All flush and rotation parameters (`flush_interval_s`, `max_file_size_mb`, `max_file_count`, `rotation_interval_h`) are configurable in the `[output]` section of `config.toml` with documented zero-value semantics
-- [ ] **CFG-02**: cee-exporter rejects invalid configuration (e.g., `flush_interval_s = 0`) at startup with a clear error message rather than panicking at runtime
-- [ ] **CFG-03**: `config.toml.example` is updated to document all four new `[output]` fields with inline comments explaining default values and zero-value semantics
+- [x] **CFG-01**: All flush and rotation parameters (`flush_interval_s`, `max_file_size_mb`, `max_file_count`, `rotation_interval_h`) are configurable in the `[output]` section of `config.toml` with documented zero-value semantics
+- [x] **CFG-02**: cee-exporter rejects invalid configuration (e.g., `flush_interval_s = 0`) at startup with a clear error message rather than panicking at runtime
+- [x] **CFG-03**: `config.toml.example` is updated to document all four new `[output]` fields with inline comments explaining default values and zero-value semantics
 
 ### Architecture & Documentation (ADR)
 
@@ -90,10 +90,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ROT-02 | Phase 11 | Complete |
 | ROT-03 | Phase 11 | Complete |
 | ROT-04 | Phase 11 | Complete |
-| FLUSH-03 | Phase 12 | Pending |
-| CFG-01 | Phase 12 | Pending |
-| CFG-02 | Phase 12 | Pending |
-| CFG-03 | Phase 12 | Pending |
+| FLUSH-03 | Phase 12 | Complete |
+| CFG-01 | Phase 12 | Complete |
+| CFG-02 | Phase 12 | Complete |
+| CFG-03 | Phase 12 | Complete |
 
 **Coverage:**
 - v4.0 requirements: 18 total

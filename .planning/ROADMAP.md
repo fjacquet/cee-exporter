@@ -158,4 +158,4 @@ Plans:
 | 9. Goroutine Scaffolding and fsync | v4.0 | 2/2 | Complete | 2026-03-05 |
 | 10. Open-Handle Incremental Flush | v4.0 | 2/2 | Complete | 2026-03-05 |
 | 11. File Rotation | v4.0 | 2/2 | Complete | 2026-03-05 |
-| 12. Config, Validation, Prometheus and Docs | v4.0 | 2/2 | Complete | 2026-03-05 |
+| 12. Config, Validation, Prometheus and Docs | v4.0 | Complete    | 2026-03-05 | 2026-03-05 |
