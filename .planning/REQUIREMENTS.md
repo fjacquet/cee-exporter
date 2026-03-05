@@ -24,7 +24,7 @@ Requirements for the Industrialisation milestone. Scope: extract EVTX code as OS
 
 ### EVTX Correctness (EVTX)
 
-- [ ] **EVTX-01**: BinaryEvtxWriter writes all events to disk regardless of session length (fix `flushChunkLocked()` stub that currently silently drops events beyond ~2,400 per session)
+- [x] **EVTX-01**: BinaryEvtxWriter writes all events to disk regardless of session length (fix `flushChunkLocked()` stub that currently silently drops events beyond ~2,400 per session)
 
 ### File Rotation (ROT)
 
@@ -85,7 +85,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FLUSH-02 | Phase 9 | Complete |
 | ADR-01 | Phase 9 | Complete |
 | ADR-02 | Phase 9 | Complete |
-| EVTX-01 | Phase 10 | Pending |
+| EVTX-01 | Phase 10 | Complete |
 | ROT-01 | Phase 11 | Pending |
 | ROT-02 | Phase 11 | Pending |
 | ROT-03 | Phase 11 | Pending |

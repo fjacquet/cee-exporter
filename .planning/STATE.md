@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Industrialisation
 status: executing
-stopped_at: Completed 09-02-PLAN.md — RotationConfig wired, ADR-012/ADR-013 committed
-last_updated: "2026-03-04T23:45:19.650Z"
+stopped_at: Completed 10-01-PLAN.md — open-handle incremental flush, flushChunkLocked implemented (EVTX-01 fixed)
+last_updated: "2026-03-05T06:51:58.192Z"
 last_activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
   percent: 8
 ---
 
@@ -51,6 +51,9 @@ Recent decisions affecting current work:
 - [Phase 09-01]: go-evtx v0.2.0 published with RotationConfig API and backgroundLoop goroutine; zero races confirmed
 - [Phase 09]: Use replace directive for go-evtx: published v0.2.0 missing fromFILETIME; local path used until fixed upstream
 - [Phase 09]: writer_native_windows.go updated to accept RotationConfig for API symmetry; cfg ignored (Win32 EventLog synchronous)
+- [Phase 10-open-handle-incremental-flush]: Option A flush-without-reset: tickFlushLocked writes in-progress chunk without incrementing chunkCount
+- [Phase 10-open-handle-incremental-flush]: Pre-append capacity check in WriteRecord/WriteRaw to prevent overflow byte loss
+- [Phase 10-open-handle-incremental-flush]: os.Remove on empty Close for backward compatibility (no file on empty session)
 
 ### Pending Todos
 
@@ -65,6 +68,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-04T23:42:26.302Z
-Stopped at: Completed 09-02-PLAN.md — RotationConfig wired, ADR-012/ADR-013 committed
+Last session: 2026-03-05T06:51:58.190Z
+Stopped at: Completed 10-01-PLAN.md — open-handle incremental flush, flushChunkLocked implemented (EVTX-01 fixed)
 Resume file: None
