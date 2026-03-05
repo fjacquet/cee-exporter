@@ -69,6 +69,30 @@ gelf_tls      = false   # only applies when gelf_protocol = "tcp"
 # EVTX output: path to the .evtx file (Linux BinaryEvtxWriter writes on Close)
 # evtx_path = "/var/log/cee-exporter/audit.evtx"
 
+# EVTX durability and rotation (applies only when type = "evtx")
+#
+# flush_interval_s — Interval in seconds between periodic checkpoint writes (fsync).
+#   Bounds maximum data loss on power failure to this many seconds.
+#   Must be > 0 when type = "evtx" (0 disables fsync and risks data loss on crash).
+#   Default: 15
+# flush_interval_s = 15
+#
+# max_file_size_mb — Rotate the active .evtx file when it reaches this size in MiB.
+#   0 = unlimited (file grows without bound).
+#   Default: 0
+# max_file_size_mb = 0
+#
+# max_file_count — Keep only the N most recent archive .evtx files; delete older ones.
+#   0 = unlimited (all archives are kept).
+#   Default: 0
+# max_file_count = 0
+#
+# rotation_interval_h — Rotate the active .evtx file every N hours regardless of size.
+#   0 = disabled (no time-based rotation).
+#   Send SIGHUP to trigger an immediate rotation at any time.
+#   Default: 0
+# rotation_interval_h = 0
+
 # Multi-target example (fan-out to both GELF and EVTX)
 # type    = "multi"
 # targets = ["gelf", "evtx"]

@@ -54,6 +54,12 @@ gelf_tls      = false   # only applies when gelf_protocol = "tcp"
 # evtx_path = "/var/log/cee-exporter/audit.evtx"
 evtx_path = "/tmp/audit.evtx"
 
+# EVTX durability and rotation (applies only when type = "evtx")
+flush_interval_s   = 15  # seconds between periodic fsync; must be > 0 when type = "evtx"
+max_file_size_mb   = 0   # rotate when file reaches N MiB; 0 = unlimited
+max_file_count     = 0   # keep N most recent archives; 0 = unlimited
+rotation_interval_h = 0  # rotate every N hours; 0 = disabled
+
 # Multi-target example (fan-out to both GELF and EVTX)
 # type    = "multi"
 # targets = ["gelf", "evtx"]
