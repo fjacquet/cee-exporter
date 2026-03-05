@@ -114,7 +114,12 @@ Plans:
   3. When rotation_interval_h is set, the active file is rotated on schedule regardless of its current size
   4. Sending SIGHUP to the running daemon triggers an immediate rotation without dropping events or restarting the process
   5. Rotated archive files are parseable by python-evtx (headers and CRCs are finalized before rename)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 11-01-PLAN.md — TDD: write RED rotation tests, implement rotate()/Rotate()/cleanOldFiles()/syncDir()/currentSize in go-evtx, publish v0.4.0 (ROT-01, ROT-02, ROT-03, ROT-04)
+- [ ] 11-02-PLAN.md — Wire rotation into cee-exporter: BinaryEvtxWriter.Rotate(), SIGHUP platform files, OutputConfig extensions, buildWriter() wiring, go.mod v0.4.0 (ROT-01, ROT-02, ROT-03, ROT-04)
 
 ### Phase 12: Config, Validation, Prometheus and Docs
 
@@ -143,6 +148,6 @@ Plans:
 | 8. TLS Certificate Automation | v3.0 | 4/4 | Complete | 2026-03-03 |
 | 8.5. go-evtx OSS Module Extraction | v4.0 | 2/2 | Complete | 2026-03-04 |
 | 9. Goroutine Scaffolding and fsync | v4.0 | 1/2 | In Progress | - |
-| 10. Open-Handle Incremental Flush | 2/2 | Complete    | 2026-03-05 | - |
-| 11. File Rotation | v4.0 | 0/? | Not started | - |
+| 10. Open-Handle Incremental Flush | v4.0 | 2/2 | Complete | 2026-03-05 |
+| 11. File Rotation | v4.0 | 0/2 | Not started | - |
 | 12. Config, Validation, Prometheus and Docs | v4.0 | 0/? | Not started | - |
