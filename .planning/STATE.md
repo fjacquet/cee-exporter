@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Industrialisation
 status: executing
-stopped_at: Completed 11-01-PLAN.md — go-evtx v0.4.0 tagged and pushed; rotation implemented (ROT-01 through ROT-04)
-last_updated: "2026-03-05T07:21:41.845Z"
+stopped_at: Completed 11-02-PLAN.md — SIGHUP rotation wired end-to-end; go-evtx v0.4.0; all ROT-* requirements fulfilled
+last_updated: "2026-03-05T07:26:20.240Z"
 last_activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 8
 ---
 
@@ -58,6 +58,9 @@ Recent decisions affecting current work:
 - [Phase 11]: rotate() requires caller holds w.mu; Rotate() acquires mu then calls rotate() — single mutex prevents deadlock
 - [Phase 11]: archivePathFor uses hyphens for colons in UTC timestamp (2006-01-02T15-04-05) for filesystem portability
 - [Phase 11]: backgroundLoop nil-channel idiom: disabled tickers (rotC=nil) add zero overhead — receive on nil channel blocks forever
+- [Phase 11-file-rotation]: SIGHUP type assertion: w.(interface{ Rotate() error }) avoids polluting Writer interface
+- [Phase 11-file-rotation]: Platform files: sighup_notwindows.go + sighup_windows.go; installSIGHUP called after buildWriter() before queue
+- [Phase 11-file-rotation]: MaxFileSizeMB/MaxFileCount/RotationIntervalH default 0 (unlimited/disabled); go-evtx bumped to v0.4.0
 
 ### Pending Todos
 
@@ -72,6 +75,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-05T07:21:41.625Z
-Stopped at: Completed 11-01-PLAN.md — go-evtx v0.4.0 tagged and pushed; rotation implemented (ROT-01 through ROT-04)
+Last session: 2026-03-05T07:26:20.237Z
+Stopped at: Completed 11-02-PLAN.md — SIGHUP rotation wired end-to-end; go-evtx v0.4.0; all ROT-* requirements fulfilled
 Resume file: None
