@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Industrialisation
-status: executing
-stopped_at: Completed 12-01-PLAN.md — OnFsync gauge, validateOutputConfig, EVTX config docs; all FLUSH-03, CFG-01, CFG-02, CFG-03 requirements fulfilled
-last_updated: "2026-03-05T08:01:24.462Z"
-last_activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
+status: complete
+stopped_at: Completed 12-02-PLAN.md — v4.0 Industrialisation milestone complete; all FLUSH-*, CFG-* requirements satisfied
+last_updated: "2026-03-05T09:00:00.000Z"
+last_activity: 2026-03-05 — Phase 12 complete; go-evtx v0.5.0 (OnFsync callback); cee_last_fsync_unix_seconds Prometheus gauge; validateOutputConfig startup validation; config.toml and config.toml.example updated
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 10
-  completed_plans: 9
-  percent: 8
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** Any SIEM can ingest Dell PowerStore file-system audit events as native Windows EventLog or GELF, from any Linux or Windows host, with no external dependencies beyond the Go binary.
-**Current focus:** Phase 09 — Goroutine Scaffolding and Fsync
+**Current focus:** v4.0 Industrialisation COMPLETE — all phases 8.5-12 delivered
 
 ## Current Position
 
-Phase: 9 of 12 — v4.0 (Goroutine Scaffolding and Fsync)
-Plan: 1 of N in current phase (plan 01 complete)
-Status: In Progress
-Last activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
+Phase: 12 of 12 — v4.0 (Config, Validation, Prometheus and Docs) — COMPLETE
+Plan: 2 of 2 in current phase (plan 02 complete)
+Status: Complete
+Last activity: 2026-03-05 — Phase 12 complete; go-evtx v0.5.0 (OnFsync callback); cee_last_fsync_unix_seconds Prometheus gauge; validateOutputConfig startup validation; config.toml and config.toml.example updated
 
-Progress: [█░░░░░░░░░] 8% (v4.0 milestone; 1/4 phases partially complete; Phase 09 plan 01/N done)
+Progress: [██████████] 100% (v4.0 milestone COMPLETE; all 5 phases done; 10/10 plans complete)
 
 ## Accumulated Context
 
@@ -62,6 +62,7 @@ Recent decisions affecting current work:
 - [Phase 11-file-rotation]: Platform files: sighup_notwindows.go + sighup_windows.go; installSIGHUP called after buildWriter() before queue
 - [Phase 11-file-rotation]: MaxFileSizeMB/MaxFileCount/RotationIntervalH default 0 (unlimited/disabled); go-evtx bumped to v0.4.0
 - [Phase 12]: OnFsync nil-guard callback in go-evtx v0.5.0; lastFsyncAt stores Unix seconds for Prometheus compatibility; validateOutputConfig is evtx-only
+- [Phase 12-02]: OnFsync callback in RotationConfig (Option A from research); go-evtx v0.5.0; validateOutputConfig rejects flush_interval_s=0 when type=evtx; config.toml shows active values, config.toml.example shows commented documentation
 
 ### Pending Todos
 
@@ -76,6 +77,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-05T08:01:24.458Z
-Stopped at: Completed 12-01-PLAN.md — OnFsync gauge, validateOutputConfig, EVTX config docs; all FLUSH-03, CFG-01, CFG-02, CFG-03 requirements fulfilled
+Last session: 2026-03-05T09:00:00.000Z
+Stopped at: Completed 12-02-PLAN.md — v4.0 Industrialisation milestone complete; all FLUSH-*, CFG-* requirements satisfied
 Resume file: None
