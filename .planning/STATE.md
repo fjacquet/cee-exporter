@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Industrialisation
 status: executing
-stopped_at: Completed 10-01-PLAN.md — open-handle incremental flush, flushChunkLocked implemented (EVTX-01 fixed)
-last_updated: "2026-03-05T06:51:58.192Z"
+stopped_at: Completed 10-02-PLAN.md — go-evtx v0.3.0 tagged and pushed; cee-exporter go.mod bumped to v0.3.0; EVTX-01 delivered
+last_updated: "2026-03-05T06:57:13.206Z"
 last_activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 8
 ---
 
@@ -54,6 +54,7 @@ Recent decisions affecting current work:
 - [Phase 10-open-handle-incremental-flush]: Option A flush-without-reset: tickFlushLocked writes in-progress chunk without incrementing chunkCount
 - [Phase 10-open-handle-incremental-flush]: Pre-append capacity check in WriteRecord/WriteRaw to prevent overflow byte loss
 - [Phase 10-open-handle-incremental-flush]: os.Remove on empty Close for backward compatibility (no file on empty session)
+- [Phase 10-open-handle-incremental-flush]: v0.3.0 = Phase 10 open-handle incremental flush published; replace directive preserved in cee-exporter go.mod
 
 ### Pending Todos
 
@@ -68,6 +69,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-05T06:51:58.190Z
-Stopped at: Completed 10-01-PLAN.md — open-handle incremental flush, flushChunkLocked implemented (EVTX-01 fixed)
+Last session: 2026-03-05T06:57:13.204Z
+Stopped at: Completed 10-02-PLAN.md — go-evtx v0.3.0 tagged and pushed; cee-exporter go.mod bumped to v0.3.0; EVTX-01 delivered
 Resume file: None
