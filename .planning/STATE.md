@@ -4,7 +4,7 @@ milestone: v4.0
 milestone_name: Industrialisation
 status: complete
 stopped_at: Completed 12-02-PLAN.md — v4.0 Industrialisation milestone complete; all FLUSH-*, CFG-* requirements satisfied
-last_updated: "2026-03-05T09:00:00.000Z"
+last_updated: "2026-03-05T08:05:34.687Z"
 last_activity: 2026-03-05 — Phase 12 complete; go-evtx v0.5.0 (OnFsync callback); cee_last_fsync_unix_seconds Prometheus gauge; validateOutputConfig startup validation; config.toml and config.toml.example updated
 progress:
   total_phases: 5
