@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: completed
-stopped_at: Completed 12-02-PLAN.md — v4.0 Industrialisation milestone complete; all FLUSH-*, CFG-* requirements satisfied
-last_updated: "2026-03-05T08:08:52.529Z"
-last_activity: 2026-03-05 — Phase 12 complete; go-evtx v0.5.0 (OnFsync callback); cee_last_fsync_unix_seconds Prometheus gauge; validateOutputConfig startup validation; config.toml and config.toml.example updated
+milestone: v4.0
+milestone_name: Industrialisation
+status: archived
+stopped_at: v4.0 Industrialisation milestone archived — 18/18 requirements satisfied, all 5 phases passed audit
+last_updated: "2026-03-05T10:00:00.000Z"
+last_activity: 2026-03-05 — v4.0 Industrialisation complete and archived; go-evtx v0.1.0-v0.5.0 published; 18 requirements satisfied
 progress:
   total_phases: 5
   completed_phases: 5

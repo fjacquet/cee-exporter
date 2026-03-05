@@ -1,5 +1,14 @@
 # Milestones
 
+## v4.0 Industrialisation (Shipped: 2026-03-05)
+
+**Phases completed:** 5 phases, 10 plans, 5 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v3.0 TLS Certificate Automation (Shipped: 2026-03-04)
 
 **Phases:** 8 (Phase 8 new + Phases 1-7 dependency) | **Plans:** 4 (Phase 8) | **LOC:** 4,623 Go
