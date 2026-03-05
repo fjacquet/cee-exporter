@@ -42,7 +42,7 @@
 - [x] **Phase 8.5: go-evtx OSS Module Extraction** — Create `github.com/fjacquet/go-evtx` as a standalone Go module with layered API (WriteRaw + WriteRecord), port existing tests, and replace cee-exporter's internal EVTX implementation with the new dependency (completed 2026-03-04)
 - [ ] **Phase 9: Goroutine Scaffolding and fsync** — Establish the concurrency contract in go-evtx: background goroutine with correct shutdown, periodic f.Sync(), and ADRs documenting architectural decisions
 - [x] **Phase 10: Open-Handle Incremental Flush** — Replace os.WriteFile with a persistent *os.File held for the writer's lifetime; fix flushChunkLocked stub so no events are silently dropped (completed 2026-03-05)
-- [ ] **Phase 11: File Rotation** — Implement size-based, time-based, count-based, and SIGHUP-triggered rotation on top of the Phase 10 open-handle model
+- [x] **Phase 11: File Rotation** — Implement size-based, time-based, count-based, and SIGHUP-triggered rotation on top of the Phase 10 open-handle model (completed 2026-03-05)
 - [ ] **Phase 12: Config, Validation, Prometheus and Docs** — Wire all rotation/flush parameters into [output] TOML section, add startup validation, expose fsync gauge, update config.toml.example
 
 ## Phase Details
@@ -143,6 +143,6 @@ Plans:
 | 8. TLS Certificate Automation | v3.0 | 4/4 | Complete | 2026-03-03 |
 | 8.5. go-evtx OSS Module Extraction | v4.0 | 2/2 | Complete | 2026-03-04 |
 | 9. Goroutine Scaffolding and fsync | v4.0 | 1/2 | In Progress | - |
-| 10. Open-Handle Incremental Flush | 2/2 | Complete   | 2026-03-05 | - |
+| 10. Open-Handle Incremental Flush | 2/2 | Complete    | 2026-03-05 | - |
 | 11. File Rotation | v4.0 | 0/? | Not started | - |
 | 12. Config, Validation, Prometheus and Docs | v4.0 | 0/? | Not started | - |
