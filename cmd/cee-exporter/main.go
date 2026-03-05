@@ -102,6 +102,15 @@ type OutputConfig struct {
 	// for the evtx output type. 0 disables the background flush goroutine.
 	// Default: 15 (set in defaultConfig). Only applies when type = "evtx".
 	FlushIntervalSec int `toml:"flush_interval_s"`
+	// MaxFileSizeMB rotates the active .evtx file when it reaches this size.
+	// 0 = unlimited. Only applies when type = "evtx".
+	MaxFileSizeMB int `toml:"max_file_size_mb"`
+	// MaxFileCount keeps only the N most recent archive .evtx files.
+	// 0 = unlimited. Only applies when type = "evtx".
+	MaxFileCount int `toml:"max_file_count"`
+	// RotationIntervalH rotates the active .evtx file every N hours.
+	// 0 = disabled. Only applies when type = "evtx".
+	RotationIntervalH int `toml:"rotation_interval_h"`
 }
 
 type QueueConfig struct {
@@ -197,6 +206,9 @@ func run(ctx context.Context) {
 		slog.Error("writer_init_failed", "error", err)
 		os.Exit(1)
 	}
+
+	// Wire SIGHUP → immediate EVTX rotation (no-op on Windows).
+	installSIGHUP(w)
 
 	// Build queue.
 	q := queue.New(cfg.Queue.Capacity, cfg.Queue.Workers, w)
@@ -343,7 +355,10 @@ func buildWriter(cfg OutputConfig) (evtx.Writer, string, error) {
 
 	case "evtx":
 		w, err := evtx.NewNativeEvtxWriter(cfg.EVTXPath, goevtx.RotationConfig{
-			FlushIntervalSec: cfg.FlushIntervalSec,
+			FlushIntervalSec:  cfg.FlushIntervalSec,
+			MaxFileSizeMB:     cfg.MaxFileSizeMB,
+			MaxFileCount:      cfg.MaxFileCount,
+			RotationIntervalH: cfg.RotationIntervalH,
 		})
 		return w, cfg.EVTXPath, err
 
