@@ -4,7 +4,7 @@ milestone: v4.0
 milestone_name: Industrialisation
 status: executing
 stopped_at: Completed 11-02-PLAN.md — SIGHUP rotation wired end-to-end; go-evtx v0.4.0; all ROT-* requirements fulfilled
-last_updated: "2026-03-05T07:26:20.240Z"
+last_updated: "2026-03-05T07:30:36.557Z"
 last_activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
 progress:
   total_phases: 5
