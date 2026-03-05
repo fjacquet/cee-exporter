@@ -34,6 +34,7 @@ import (
 	ceeprometheus "github.com/fjacquet/cee-exporter/pkg/prometheus"
 	applog "github.com/fjacquet/cee-exporter/pkg/log"
 	"github.com/fjacquet/cee-exporter/pkg/evtx"
+	"github.com/fjacquet/cee-exporter/pkg/metrics"
 	"github.com/fjacquet/cee-exporter/pkg/queue"
 	"github.com/fjacquet/cee-exporter/pkg/server"
 )
@@ -173,6 +174,11 @@ func run(ctx context.Context) {
 		os.Exit(1)
 	}
 	migrateListenConfig(&cfg.Listen)
+
+	if err := validateOutputConfig(cfg.Output); err != nil {
+		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Environment variable overrides.
 	if v := os.Getenv("CEE_LOG_LEVEL"); v != "" {
@@ -341,6 +347,34 @@ func run(ctx context.Context) {
 // Writer factory
 // ----------------------------------------------------------------------------
 
+// validateOutputConfig validates the output section of the configuration.
+// Returns nil if valid, or an error describing the problem.
+// Only validates EVTX-specific fields when cfg.Type == "evtx".
+func validateOutputConfig(cfg OutputConfig) error {
+	if cfg.Type == "evtx" {
+		if cfg.EVTXPath == "" {
+			return fmt.Errorf("[output] evtx_path must be set when type = \"evtx\"")
+		}
+		if cfg.FlushIntervalSec == 0 {
+			return fmt.Errorf("[output] flush_interval_s = 0 disables periodic fsync; " +
+				"set to a positive value (default: 15) when type = \"evtx\" to bound data loss on crash")
+		}
+		if cfg.FlushIntervalSec < 0 {
+			return fmt.Errorf("[output] flush_interval_s must be > 0, got %d", cfg.FlushIntervalSec)
+		}
+		if cfg.MaxFileSizeMB < 0 {
+			return fmt.Errorf("[output] max_file_size_mb must be >= 0, got %d", cfg.MaxFileSizeMB)
+		}
+		if cfg.MaxFileCount < 0 {
+			return fmt.Errorf("[output] max_file_count must be >= 0, got %d", cfg.MaxFileCount)
+		}
+		if cfg.RotationIntervalH < 0 {
+			return fmt.Errorf("[output] rotation_interval_h must be >= 0, got %d", cfg.RotationIntervalH)
+		}
+	}
+	return nil
+}
+
 func buildWriter(cfg OutputConfig) (evtx.Writer, string, error) {
 	switch cfg.Type {
 	case "gelf":
@@ -359,6 +393,7 @@ func buildWriter(cfg OutputConfig) (evtx.Writer, string, error) {
 			MaxFileSizeMB:     cfg.MaxFileSizeMB,
 			MaxFileCount:      cfg.MaxFileCount,
 			RotationIntervalH: cfg.RotationIntervalH,
+			OnFsync:           metrics.M.RecordFsyncAt,
 		})
 		return w, cfg.EVTXPath, err
 

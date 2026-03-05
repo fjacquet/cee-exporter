@@ -23,6 +23,10 @@ type Store struct {
 
 	// Timestamp of the last successfully processed event
 	lastEventAt atomic.Int64 // Unix nanoseconds
+
+	// lastFsyncAt records when the EVTX writer last successfully called f.Sync().
+	// Stored as Unix seconds (not nanoseconds) to match Prometheus convention.
+	lastFsyncAt atomic.Int64 // Unix seconds
 }
 
 // SetQueueDepth records the current queue depth.
@@ -49,6 +53,18 @@ func (s *Store) LastEventAt() time.Time {
 	return time.Unix(0, ns)
 }
 
+// RecordFsyncAt records the time of the last successful fsync.
+// Called from the go-evtx OnFsync callback in buildWriter().
+func (s *Store) RecordFsyncAt(t time.Time) {
+	s.lastFsyncAt.Store(t.Unix())
+}
+
+// LastFsyncUnix returns the Unix timestamp (seconds) of the last fsync.
+// Returns 0 if no fsync has occurred yet.
+func (s *Store) LastFsyncUnix() int64 {
+	return s.lastFsyncAt.Load()
+}
+
 // Snapshot returns an immutable point-in-time copy of the counters.
 type Snapshot struct {
 	EventsReceivedTotal int64
@@ -57,6 +73,7 @@ type Snapshot struct {
 	WriterErrorsTotal   int64
 	QueueDepth          int64
 	LastEventAt         time.Time
+	LastFsyncUnix       int64
 }
 
 // Snapshot captures the current metrics.
@@ -68,5 +85,6 @@ func (s *Store) Snapshot() Snapshot {
 		WriterErrorsTotal:   s.WriterErrorsTotal.Load(),
 		QueueDepth:          s.QueueDepth(),
 		LastEventAt:         s.LastEventAt(),
+		LastFsyncUnix:       s.LastFsyncUnix(),
 	}
 }

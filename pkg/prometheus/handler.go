@@ -56,6 +56,14 @@ func NewMetricsHandler() http.Handler {
 			},
 			func() float64 { return float64(metrics.M.EventsWrittenTotal.Load()) },
 		),
+		prometheus.NewGaugeFunc(
+			prometheus.GaugeOpts{
+				Name: "cee_last_fsync_unix_seconds",
+				Help: "Unix timestamp of the last successful fsync to the EVTX file. " +
+					"0 = no fsync has occurred yet. Alert when time()-this > flush_interval_s*2.",
+			},
+			func() float64 { return float64(metrics.M.LastFsyncUnix()) },
+		),
 	)
 
 	return promhttp.HandlerFor(reg, promhttp.HandlerOpts{})

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fjacquet/cee-exporter/pkg/metrics"
 	ceeprometheus "github.com/fjacquet/cee-exporter/pkg/prometheus"
@@ -27,6 +28,7 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 	metrics.M.WriterErrorsTotal.Store(1)
 	metrics.M.SetQueueDepth(15)
 	metrics.M.EventsWrittenTotal.Store(30)
+	metrics.M.RecordFsyncAt(time.Unix(1700000000, 0))
 
 	h := ceeprometheus.NewMetricsHandler()
 
@@ -47,6 +49,11 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 		"cee_writer_errors_total 1",
 		"cee_queue_depth 15",
 		"cee_events_written_total 30",
+	}
+
+	// Assert the fsync gauge metric name appears.
+	if !strings.Contains(body, "cee_last_fsync_unix_seconds") {
+		t.Errorf("expected cee_last_fsync_unix_seconds in scrape output\nBody:\n%s", body)
 	}
 
 	for _, want := range required {
