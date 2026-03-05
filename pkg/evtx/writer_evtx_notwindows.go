@@ -45,6 +45,14 @@ func (b *BinaryEvtxWriter) Close() error {
 	return b.w.Close()
 }
 
+// Rotate triggers an immediate rotation of the active .evtx file.
+// The current chunk is finalized to disk, the file is renamed to a
+// timestamped archive, and a fresh file is opened.
+// Safe for concurrent use. Called by the SIGHUP handler in main.go.
+func (b *BinaryEvtxWriter) Rotate() error {
+	return b.w.Rotate()
+}
+
 // windowsEventToFields translates a WindowsEvent to the map[string]string
 // expected by go-evtx's WriteRecord.
 func windowsEventToFields(e WindowsEvent) map[string]string {
