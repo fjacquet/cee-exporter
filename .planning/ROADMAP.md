@@ -132,7 +132,12 @@ Plans:
   2. Starting the daemon with flush_interval_s = 0 produces a clear error message at startup and exits non-zero (no runtime panic)
   3. The Prometheus /metrics endpoint exposes cee_last_fsync_unix_seconds gauge that updates on each successful fsync
   4. All four [output] fields are read from config.toml and correctly mapped to BinaryEvtxWriter at construction time
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+- [ ] 12-01-PLAN.md — Add OnFsync callback (go-evtx v0.5.0), fsync Prometheus gauge, validateOutputConfig, config documentation (FLUSH-03, CFG-01, CFG-02, CFG-03)
+- [ ] 12-02-PLAN.md — Full integration test suite, build verification, planning artifact finalization (FLUSH-03, CFG-01, CFG-02, CFG-03)
 
 ## Progress
 
@@ -149,5 +154,5 @@ Plans:
 | 8.5. go-evtx OSS Module Extraction | v4.0 | 2/2 | Complete | 2026-03-04 |
 | 9. Goroutine Scaffolding and fsync | v4.0 | 1/2 | In Progress | - |
 | 10. Open-Handle Incremental Flush | v4.0 | 2/2 | Complete | 2026-03-05 |
-| 11. File Rotation | 2/2 | Complete    | 2026-03-05 | - |
-| 12. Config, Validation, Prometheus and Docs | v4.0 | 0/? | Not started | - |
+| 11. File Rotation | v4.0 | 2/2 | Complete | 2026-03-05 |
+| 12. Config, Validation, Prometheus and Docs | v4.0 | 0/2 | Not started | - |
