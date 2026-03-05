@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Industrialisation
 status: executing
-stopped_at: Completed 11-02-PLAN.md — SIGHUP rotation wired end-to-end; go-evtx v0.4.0; all ROT-* requirements fulfilled
-last_updated: "2026-03-05T07:30:36.557Z"
+stopped_at: Completed 12-01-PLAN.md — OnFsync gauge, validateOutputConfig, EVTX config docs; all FLUSH-03, CFG-01, CFG-02, CFG-03 requirements fulfilled
+last_updated: "2026-03-05T08:01:24.462Z"
 last_activity: 2026-03-04 — Phase 09 Plan 01 complete; github.com/fjacquet/go-evtx v0.2.0 published (RotationConfig + backgroundLoop)
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
   percent: 8
 ---
 
@@ -61,6 +61,7 @@ Recent decisions affecting current work:
 - [Phase 11-file-rotation]: SIGHUP type assertion: w.(interface{ Rotate() error }) avoids polluting Writer interface
 - [Phase 11-file-rotation]: Platform files: sighup_notwindows.go + sighup_windows.go; installSIGHUP called after buildWriter() before queue
 - [Phase 11-file-rotation]: MaxFileSizeMB/MaxFileCount/RotationIntervalH default 0 (unlimited/disabled); go-evtx bumped to v0.4.0
+- [Phase 12]: OnFsync nil-guard callback in go-evtx v0.5.0; lastFsyncAt stores Unix seconds for Prometheus compatibility; validateOutputConfig is evtx-only
 
 ### Pending Todos
 
@@ -75,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-05T07:26:20.237Z
-Stopped at: Completed 11-02-PLAN.md — SIGHUP rotation wired end-to-end; go-evtx v0.4.0; all ROT-* requirements fulfilled
+Last session: 2026-03-05T08:01:24.458Z
+Stopped at: Completed 12-01-PLAN.md — OnFsync gauge, validateOutputConfig, EVTX config docs; all FLUSH-03, CFG-01, CFG-02, CFG-03 requirements fulfilled
 Resume file: None
