@@ -28,10 +28,10 @@ Requirements for the Industrialisation milestone. Scope: extract EVTX code as OS
 
 ### File Rotation (ROT)
 
-- [ ] **ROT-01**: Operator can set `max_file_size_mb` so the active `.evtx` file is rotated when it reaches that size (0 = unlimited; rotation produces a timestamped archive file)
-- [ ] **ROT-02**: Operator can set `max_file_count` so only the N most recent archive files are kept and older ones are deleted automatically (0 = unlimited)
-- [ ] **ROT-03**: Operator can set `rotation_interval_h` so the active `.evtx` file is rotated on a fixed schedule regardless of size (0 = disabled)
-- [ ] **ROT-04**: Operator can send SIGHUP to the process to trigger an immediate `.evtx` file rotation without restarting the daemon
+- [x] **ROT-01**: Operator can set `max_file_size_mb` so the active `.evtx` file is rotated when it reaches that size (0 = unlimited; rotation produces a timestamped archive file)
+- [x] **ROT-02**: Operator can set `max_file_count` so only the N most recent archive files are kept and older ones are deleted automatically (0 = unlimited)
+- [x] **ROT-03**: Operator can set `rotation_interval_h` so the active `.evtx` file is rotated on a fixed schedule regardless of size (0 = disabled)
+- [x] **ROT-04**: Operator can send SIGHUP to the process to trigger an immediate `.evtx` file rotation without restarting the daemon
 
 ### Configuration (CFG)
 
@@ -86,10 +86,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADR-01 | Phase 9 | Complete |
 | ADR-02 | Phase 9 | Complete |
 | EVTX-01 | Phase 10 | Complete |
-| ROT-01 | Phase 11 | Pending |
-| ROT-02 | Phase 11 | Pending |
-| ROT-03 | Phase 11 | Pending |
-| ROT-04 | Phase 11 | Pending |
+| ROT-01 | Phase 11 | Complete |
+| ROT-02 | Phase 11 | Complete |
+| ROT-03 | Phase 11 | Complete |
+| ROT-04 | Phase 11 | Complete |
 | FLUSH-03 | Phase 12 | Pending |
 | CFG-01 | Phase 12 | Pending |
 | CFG-02 | Phase 12 | Pending |

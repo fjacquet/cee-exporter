@@ -149,5 +149,5 @@ Plans:
 | 8.5. go-evtx OSS Module Extraction | v4.0 | 2/2 | Complete | 2026-03-04 |
 | 9. Goroutine Scaffolding and fsync | v4.0 | 1/2 | In Progress | - |
 | 10. Open-Handle Incremental Flush | v4.0 | 2/2 | Complete | 2026-03-05 |
-| 11. File Rotation | v4.0 | 0/2 | Not started | - |
+| 11. File Rotation | 1/2 | In Progress|  | - |
 | 12. Config, Validation, Prometheus and Docs | v4.0 | 0/? | Not started | - |
