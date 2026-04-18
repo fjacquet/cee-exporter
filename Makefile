@@ -11,7 +11,7 @@ VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || ec
 SYSTEMD_UNIT_SRC := deploy/systemd/cee-exporter.service
 SYSTEMD_UNIT_DST := /etc/systemd/system/cee-exporter.service
 
-.PHONY: all build build-windows build-darwin test lint clean docker-build docker-push docker-run install-systemd
+.PHONY: all build build-windows build-darwin test test-race lint lint-full coverage clean docker-build docker-push docker-run install-systemd
 
 all: build build-windows build-darwin
 
@@ -30,8 +30,22 @@ build-darwin:
 test:
 	go test ./...
 
+# Race detector requires CGO; run separately from the default make test which
+# uses CGO_ENABLED=0 for static binary builds.
+test-race:
+	CGO_ENABLED=1 go test -race ./...
+
+coverage:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out | tail -1
+
 lint:
 	go vet ./...
+
+# Full lint: golangci-lint with the repo config. Install with:
+#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+lint-full:
+	golangci-lint run --timeout=5m
 
 clean:
 	rm -f $(BINARY_NAME) $(BINARY_WINDOWS) $(BINARY_DARWIN)

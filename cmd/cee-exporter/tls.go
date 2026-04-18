@@ -17,6 +17,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -147,7 +148,7 @@ func startACMEChallengeListener(m *autocert.Manager, challengeAddr string) error
 
 	go func() {
 		srv := &http.Server{TLSConfig: m.TLSConfig()}
-		if err := srv.ServeTLS(ln, "", ""); err != nil && err != http.ErrServerClosed {
+		if err := srv.ServeTLS(ln, "", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("acme_challenge_listener_error", "addr", challengeAddr, "error", err)
 		}
 	}()

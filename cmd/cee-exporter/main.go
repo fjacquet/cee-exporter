@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -313,7 +314,7 @@ func run(ctx context.Context) {
 
 	if cfg.Metrics.Enabled {
 		go func() {
-			if err := ceeprometheus.Serve(cfg.Metrics.Addr); err != nil && err != http.ErrServerClosed {
+			if err := ceeprometheus.Serve(cfg.Metrics.Addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				slog.Error("metrics_server_error", "error", err)
 			}
 		}()

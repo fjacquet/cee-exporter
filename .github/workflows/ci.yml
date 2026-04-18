@@ -22,11 +22,20 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Lint
+      - name: Lint (go vet)
         run: make lint
+
+      - name: Lint (golangci-lint)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
 
       - name: Test
         run: make test
+
+      - name: Test (race detector)
+        run: make test-race
 
       - name: Build Linux binary
         run: make build
