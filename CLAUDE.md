@@ -40,10 +40,13 @@ CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg
 - **`pkg/queue`** — buffered channel + worker goroutines. Drops events with WARN log when full; exposes depth via `/health`.
 - **`pkg/evtx`** — writer backends behind the `Writer` interface:
   - `writer_gelf.go` — GELF 1.1 JSON over UDP or TCP (all platforms)
+  - `writer_syslog.go` — RFC 5424 syslog over UDP or TCP (all platforms)
+  - `writer_beats.go` — Elastic Beats protocol over TCP (all platforms)
   - `writer_windows.go` — Win32 `ReportEvent` API (`//go:build windows`)
-  - `writer_evtx_stub.go` — `BinaryEvtxWriter` placeholder, no output (`//go:build !windows`)
-  - `writer_multi.go` — fan-out to multiple backends
+  - `writer_evtx_notwindows.go` — `BinaryEvtxWriter` producing EVTX BinXML files (`//go:build !windows`)
+  - `writer_multi.go` — fan-out to multiple backends; forwards `Rotate()` to backends that support it
   - `writer_native_windows.go` / `writer_native_notwindows.go` — `NewNativeEvtxWriter` platform factory
+  - Network writers share helpers in `writer.go`: `hostPort` (IPv6-safe host:port), `ShortMessage` (standard message format), `sendWithRetry` (reconnect-once retry loop)
 - **`pkg/metrics`** — atomic in-process counters (events received/written/dropped).
 - **`pkg/log`** — slog initialisation.
 
@@ -216,3 +219,42 @@ rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
 
 Overall average: **60-90% token reduction** on common development operations.
 <!-- /rtk-instructions -->
+
+<!-- code-review-graph MCP tools -->
+## MCP Tools: code-review-graph
+
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the
+code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
+- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
+- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
+- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview` + `list_communities`
+
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+
+### Key Tools
+
+| Tool | Use when |
+|------|----------|
+| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context` | Need source snippets for review — token-efficient |
+| `get_impact_radius` | Understanding blast radius of a change |
+| `get_affected_flows` | Finding which execution paths are impacted |
+| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes` | Finding functions/classes by name or keyword |
+| `get_architecture_overview` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes` for code review.
+3. Use `get_affected_flows` to understand impact.
+4. Use `query_graph` pattern="tests_for" to check coverage.
