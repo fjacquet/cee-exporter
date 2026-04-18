@@ -72,6 +72,7 @@ func (w *SyslogWriter) connect() error {
 }
 
 func (w *SyslogWriter) send(payload []byte) error {
+	_ = w.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 	switch w.cfg.Protocol {
 	case "tcp":
 		// RFC 6587 §3.4.1 octet-counting: "<length> <message>"

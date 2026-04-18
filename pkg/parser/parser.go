@@ -10,6 +10,7 @@
 package parser
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"strconv"
@@ -45,9 +46,17 @@ type CEPAEvent struct {
 }
 
 // IsRegisterRequest returns true if the body is the CEPA handshake payload.
+// Matches a <RegisterRequest> root element — guards against event payloads
+// whose content (e.g. a file path) happens to contain the word.
 func IsRegisterRequest(body []byte) bool {
-	trimmed := strings.TrimSpace(string(body))
-	return strings.Contains(trimmed, "RegisterRequest")
+	trimmed := bytes.TrimSpace(body)
+	// Skip an optional XML declaration: <?xml ...?>
+	if bytes.HasPrefix(trimmed, []byte("<?xml")) {
+		if idx := bytes.Index(trimmed, []byte("?>")); idx >= 0 {
+			trimmed = bytes.TrimSpace(trimmed[idx+2:])
+		}
+	}
+	return bytes.HasPrefix(trimmed, []byte("<RegisterRequest"))
 }
 
 // ----------------------------------------------------------------------------

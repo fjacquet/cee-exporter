@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -38,7 +39,7 @@ func NewBeatsWriter(cfg BeatsConfig) (*BeatsWriter, error) {
 		cfg.Port = 5044
 	}
 	w := &BeatsWriter{cfg: cfg}
-	if err := w.dial(); err != nil {
+	if err := w.dial(context.Background()); err != nil {
 		return nil, fmt.Errorf("beats_writer: initial dial: %w", err)
 	}
 	slog.Info("beats_writer_ready",
@@ -51,9 +52,10 @@ func NewBeatsWriter(cfg BeatsConfig) (*BeatsWriter, error) {
 
 // dial establishes the underlying TCP/TLS connection and creates a new SyncClient.
 // For TLS connections a tls.Dialer is injected via SyncDialWith because go-lumber
-// has no built-in TLS option.
-func (w *BeatsWriter) dial() error {
-	addr := net.JoinHostPort(w.cfg.Host, fmt.Sprintf("%d", w.cfg.Port))
+// has no built-in TLS option. The caller's context is honoured so that shutdown
+// cancels a slow dial instead of waiting for the 5-second Dialer timeout.
+func (w *BeatsWriter) dial(ctx context.Context) error {
+	addr := net.JoinHostPort(w.cfg.Host, strconv.Itoa(w.cfg.Port))
 
 	var (
 		cl  *lumberv2.SyncClient
@@ -67,7 +69,7 @@ func (w *BeatsWriter) dial() error {
 		}
 		cl, err = lumberv2.SyncDialWith(
 			func(network, address string) (net.Conn, error) {
-				return tlsDialer.DialContext(context.Background(), network, address)
+				return tlsDialer.DialContext(ctx, network, address)
 			},
 			addr,
 			lumberv2.Timeout(30*time.Second),
@@ -95,7 +97,7 @@ func (w *BeatsWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	if _, err := w.client.Send([]interface{}{event}); err != nil {
 		slog.Warn("beats_reconnect", "reason", err)
 		_ = w.client.Close()
-		if rerr := w.dial(); rerr != nil {
+		if rerr := w.dial(ctx); rerr != nil {
 			return fmt.Errorf("beats send+reconnect: %w / %w", err, rerr)
 		}
 		if _, err2 := w.client.Send([]interface{}{event}); err2 != nil {

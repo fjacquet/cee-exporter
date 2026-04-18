@@ -133,7 +133,12 @@ func (w *GELFWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	return nil
 }
 
+// writeDeadline bounds how long a single Write may block before returning an
+// error. Prevents a stalled Graylog from pinning all queue workers.
+const writeDeadline = 5 * time.Second
+
 func (w *GELFWriter) send(payload []byte) error {
+	_ = w.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 	switch w.cfg.Protocol {
 	case "tcp":
 		// GELF TCP: payload + null byte terminator
