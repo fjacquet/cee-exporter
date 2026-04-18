@@ -1,0 +1,32 @@
+version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "cee-exporter"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "python-evtx" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "python-evtx", specifier = ">=0.8.1" }]
+
+[[package]]
+name = "hexdump"
+version = "3.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/b3/279b1d57fa3681725d0db8820405cdcb4e62a9239c205e4ceac4391c78e4/hexdump-3.3.zip", hash = "sha256:d781a43b0c16ace3f9366aade73e8ad3a7bd5137d58f0b45ab2d3f54876f20db", size = 12658, upload-time = "2016-01-22T14:40:19.589Z" }
+
+[[package]]
+name = "python-evtx"
+version = "0.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "hexdump" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/34/44/e28f31531834b1cd93d14472ec84136dad565e9db0f7abcbae96176c1e65/python_evtx-0.8.1.tar.gz", hash = "sha256:e96cea25536a3de5074af7f1bdbf011084d09c2e00664ab754d979820ed75fea", size = 28324, upload-time = "2025-05-02T08:24:38Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/12/f16a7a2f118a07649633b8f72803b932c8d9f0d24a2822cc08a1879ddf6f/python_evtx-0.8.1-py3-none-any.whl", hash = "sha256:46336b854dbe0a1e75873ae30db5f583c9d2262ff1d21bdb6b1e624ecfa18ddb", size = 26725, upload-time = "2025-05-02T08:24:36.279Z" },
+]
