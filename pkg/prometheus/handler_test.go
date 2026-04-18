@@ -1,4 +1,4 @@
-package ceeprometheus_test
+package ceeprometheus
 
 import (
 	"net/http"
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/fjacquet/cee-exporter/pkg/metrics"
-	ceeprometheus "github.com/fjacquet/cee-exporter/pkg/prometheus"
 )
 
 // TestMetricsHandler_AllRequiredMetrics verifies that all four required metric
@@ -30,7 +29,7 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 	metrics.M.EventsWrittenTotal.Store(30)
 	metrics.M.RecordFsyncAt(time.Unix(1700000000, 0))
 
-	h := ceeprometheus.NewMetricsHandler()
+	h := NewMetricsHandler()
 
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	w := httptest.NewRecorder()

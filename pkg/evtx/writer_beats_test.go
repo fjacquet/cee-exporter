@@ -1,6 +1,7 @@
 package evtx
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -143,7 +144,7 @@ func TestBeatsWriterDialerInjection(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			w := &BeatsWriter{cfg: tc.cfg}
-			err := w.dial()
+			err := w.dial(context.Background())
 			if err == nil {
 				t.Errorf("dial: expected error on unreachable address, got nil")
 			}

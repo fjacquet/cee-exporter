@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -58,16 +59,20 @@ func NewSyslogWriter(cfg SyslogConfig) (*SyslogWriter, error) {
 }
 
 func (w *SyslogWriter) connect() error {
-	addr := net.JoinHostPort(w.cfg.Host, fmt.Sprintf("%d", w.cfg.Port))
+	addr := hostPort(w.cfg.Host, w.cfg.Port)
 	conn, err := net.DialTimeout(w.cfg.Protocol, addr, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("syslog connect %s://%s: %w", w.cfg.Protocol, addr, err)
+	}
+	if w.conn != nil {
+		_ = w.conn.Close()
 	}
 	w.conn = conn
 	return nil
 }
 
 func (w *SyslogWriter) send(payload []byte) error {
+	_ = w.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 	switch w.cfg.Protocol {
 	case "tcp":
 		// RFC 6587 §3.4.1 octet-counting: "<length> <message>"
@@ -95,15 +100,14 @@ func (w *SyslogWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if err := w.send(payload); err != nil {
-		// Attempt reconnect once — mirrors GELFWriter resilience pattern.
-		slog.Warn("syslog_reconnect", "reason", err)
-		if rerr := w.connect(); rerr != nil {
-			return fmt.Errorf("syslog send+reconnect: %w / %w", err, rerr)
-		}
-		if err2 := w.send(payload); err2 != nil {
-			return fmt.Errorf("syslog send after reconnect: %w", err2)
-		}
+	if err := sendWithRetry(
+		func() error { return w.send(payload) },
+		func() error {
+			slog.Warn("syslog_reconnect")
+			return w.connect()
+		},
+	); err != nil {
+		return fmt.Errorf("syslog %w", err)
 	}
 
 	slog.Debug("syslog_event_sent", "event_id", e.EventID)
@@ -126,7 +130,7 @@ func (w *SyslogWriter) Close() error {
 func buildSyslog5424(e WindowsEvent, appName string) ([]byte, error) {
 	procID := "-"
 	if e.ProcessID != 0 {
-		procID = fmt.Sprintf("%d", e.ProcessID)
+		procID = strconv.Itoa(e.ProcessID)
 	}
 
 	m := rfc5424.Message{
@@ -135,12 +139,12 @@ func buildSyslog5424(e WindowsEvent, appName string) ([]byte, error) {
 		Hostname:  e.Computer,
 		AppName:   appName,
 		ProcessID: procID,
-		MessageID: fmt.Sprintf("%d", e.EventID),
-		Message:   []byte(fmt.Sprintf("%s on %s", e.CEPAEventType, e.ObjectName)),
+		MessageID: strconv.Itoa(e.EventID),
+		Message:   []byte(e.ShortMessage()),
 	}
 
 	sdID := "audit@32473"
-	m.AddDatum(sdID, "EventID", fmt.Sprintf("%d", e.EventID))
+	m.AddDatum(sdID, "EventID", strconv.Itoa(e.EventID))
 	m.AddDatum(sdID, "User", e.SubjectUsername)
 	m.AddDatum(sdID, "Domain", e.SubjectDomain)
 	m.AddDatum(sdID, "Object", e.ObjectName)

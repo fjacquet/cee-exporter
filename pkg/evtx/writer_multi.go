@@ -42,3 +42,21 @@ func (m *MultiWriter) Close() error {
 	}
 	return errors.Join(errs...)
 }
+
+// Rotate forwards SIGHUP-driven rotation to every wrapped writer that
+// implements Rotate() error (currently only BinaryEvtxWriter). Writers
+// without rotation support are silently skipped. Without this method, an
+// operator running `type = "multi"` with an evtx target would see no
+// rotation on SIGHUP because the outer type assertion in installSIGHUP
+// would fail on *MultiWriter.
+func (m *MultiWriter) Rotate() error {
+	var errs []error
+	for _, w := range m.writers {
+		if r, ok := w.(interface{ Rotate() error }); ok {
+			if err := r.Rotate(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	return errors.Join(errs...)
+}

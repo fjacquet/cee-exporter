@@ -46,6 +46,7 @@ var accessMaskFor = map[string]string{
 	"CEPP_FILE_WRITE":       "0x2",   // WriteData (or AddFile)
 	"CEPP_CLOSE_MODIFIED":   "0x2",
 	"CEPP_RENAME_FILE":      "0x2",
+	"CEPP_RENAME_DIRECTORY": "0x2",
 	"CEPP_DELETE_FILE":      "0x10000", // DELETE
 	"CEPP_DELETE_DIRECTORY": "0x10000",
 	"CEPP_SETACL_FILE":      "0x40000", // WRITE_DAC
@@ -61,6 +62,7 @@ var accessDescFor = map[string]string{
 	"CEPP_FILE_WRITE":       "WriteData (or AddFile)",
 	"CEPP_CLOSE_MODIFIED":   "WriteData (or AddFile)",
 	"CEPP_RENAME_FILE":      "WriteData (or AddFile)",
+	"CEPP_RENAME_DIRECTORY": "WriteData (or AddFile)",
 	"CEPP_DELETE_FILE":      "DELETE",
 	"CEPP_DELETE_DIRECTORY": "DELETE",
 	"CEPP_SETACL_FILE":      "WRITE_DAC",

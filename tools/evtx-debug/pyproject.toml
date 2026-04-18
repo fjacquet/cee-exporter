@@ -1,0 +1,8 @@
+[project]
+name = "cee-evtx-debug"
+version = "0.1.0"
+description = "Ad-hoc scripts for validating BinaryEvtxWriter output against python-evtx"
+requires-python = ">=3.12"
+dependencies = [
+    "python-evtx>=0.8.1",
+]

@@ -19,3 +19,10 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+# Added by code-review-graph
+.code-review-graph/
+
+# Python bytecode / venv for tools/evtx-debug
+__pycache__/
+*.pyc
+.venv/

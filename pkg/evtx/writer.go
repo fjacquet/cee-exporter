@@ -5,6 +5,9 @@ package evtx
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"strconv"
 	"time"
 )
 
@@ -60,4 +63,33 @@ type Writer interface {
 
 	// Close flushes any pending events and releases resources.
 	Close() error
+}
+
+// ShortMessage returns "<CEPAEventType> on <ObjectName>" — the summary string
+// used by every textual writer (GELF short_message, syslog MSG, Beats message).
+func (e WindowsEvent) ShortMessage() string {
+	return fmt.Sprintf("%s on %s", e.CEPAEventType, e.ObjectName)
+}
+
+// hostPort joins a host and port into a dial address, preferring strconv.Itoa
+// over fmt.Sprintf for the integer conversion.
+func hostPort(host string, port int) string {
+	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+// sendWithRetry runs send once; on failure it invokes reconnect and retries
+// send one more time. It's the common send/retry loop extracted from the
+// gelf, syslog, and beats writers.
+func sendWithRetry(send, reconnect func() error) error {
+	err := send()
+	if err == nil {
+		return nil
+	}
+	if rerr := reconnect(); rerr != nil {
+		return fmt.Errorf("send+reconnect: %w / %w", err, rerr)
+	}
+	if err2 := send(); err2 != nil {
+		return fmt.Errorf("send after reconnect: %w", err2)
+	}
+	return nil
 }

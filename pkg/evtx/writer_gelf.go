@@ -77,7 +77,7 @@ func NewGELFWriter(cfg GELFConfig) (*GELFWriter, error) {
 }
 
 func (w *GELFWriter) connect() error {
-	addr := net.JoinHostPort(w.cfg.Host, fmt.Sprintf("%d", w.cfg.Port))
+	addr := hostPort(w.cfg.Host, w.cfg.Port)
 	proto := w.cfg.Protocol
 
 	var conn net.Conn
@@ -96,6 +96,9 @@ func (w *GELFWriter) connect() error {
 	if err != nil {
 		return fmt.Errorf("gelf connect %s://%s: %w", proto, addr, err)
 	}
+	if w.conn != nil {
+		_ = w.conn.Close()
+	}
 	w.conn = conn
 	return nil
 }
@@ -110,15 +113,14 @@ func (w *GELFWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if err := w.send(payload); err != nil {
-		// Attempt reconnect once.
-		slog.Warn("gelf_reconnect", "reason", err)
-		if rerr := w.connect(); rerr != nil {
-			return fmt.Errorf("gelf send+reconnect: %w / %w", err, rerr)
-		}
-		if err2 := w.send(payload); err2 != nil {
-			return fmt.Errorf("gelf send after reconnect: %w", err2)
-		}
+	if err := sendWithRetry(
+		func() error { return w.send(payload) },
+		func() error {
+			slog.Warn("gelf_reconnect")
+			return w.connect()
+		},
+	); err != nil {
+		return fmt.Errorf("gelf %w", err)
 	}
 
 	slog.Debug("gelf_event_sent",
@@ -129,7 +131,12 @@ func (w *GELFWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	return nil
 }
 
+// writeDeadline bounds how long a single Write may block before returning an
+// error. Prevents a stalled Graylog from pinning all queue workers.
+const writeDeadline = 5 * time.Second
+
 func (w *GELFWriter) send(payload []byte) error {
+	_ = w.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 	switch w.cfg.Protocol {
 	case "tcp":
 		// GELF TCP: payload + null byte terminator
@@ -162,7 +169,7 @@ func (w *GELFWriter) Close() error {
 func buildGELF(e WindowsEvent) ([]byte, error) {
 	ts := float64(e.TimeCreated.UnixNano()) / 1e9
 
-	msg := fmt.Sprintf("%s on %s", e.CEPAEventType, e.ObjectName)
+	msg := e.ShortMessage()
 	if len(msg) > 250 {
 		msg = msg[:250]
 	}
