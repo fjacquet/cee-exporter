@@ -14,6 +14,7 @@
 package server
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -115,27 +116,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// readBody reads up to 64 MiB from the request body.
+// readBody reads up to 64 MiB from the request body. MaxBytesReader enforces
+// the cap; any excess returns an error that the caller maps to HTTP 400.
 func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	const maxBody = 64 << 20 // 64 MiB
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
-	buf := make([]byte, 0, 4096)
-	tmp := make([]byte, 32*1024)
-	for {
-		n, err := r.Body.Read(tmp)
-		if n > 0 {
-			buf = append(buf, tmp[:n]...)
-		}
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			// MaxBytesReader error string
-			if n == 0 {
-				return buf, err
-			}
-			break
-		}
-	}
-	return buf, nil
+	return io.ReadAll(r.Body)
 }

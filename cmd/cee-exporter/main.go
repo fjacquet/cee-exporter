@@ -83,7 +83,10 @@ func migrateListenConfig(cfg *ListenConfig) {
 }
 
 type OutputConfig struct {
-	Type         string   `toml:"type"`          // "gelf" | "evtx" | "win32" | "multi" | "syslog" | "beats"
+	// Type selects the output backend. On Windows, "evtx" routes to the Win32
+	// EventLog API via NewNativeEvtxWriter; on other platforms it writes binary
+	// .evtx files. There is no separate "win32" type — the platform decides.
+	Type         string   `toml:"type"`          // "gelf" | "evtx" | "multi" | "syslog" | "beats"
 	Targets      []string `toml:"targets"`       // for type="multi"
 	EVTXPath     string   `toml:"evtx_path"`
 	GELFHost     string   `toml:"gelf_host"`

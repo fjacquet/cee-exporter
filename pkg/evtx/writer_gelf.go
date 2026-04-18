@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -77,7 +78,7 @@ func NewGELFWriter(cfg GELFConfig) (*GELFWriter, error) {
 }
 
 func (w *GELFWriter) connect() error {
-	addr := net.JoinHostPort(w.cfg.Host, fmt.Sprintf("%d", w.cfg.Port))
+	addr := net.JoinHostPort(w.cfg.Host, strconv.Itoa(w.cfg.Port))
 	proto := w.cfg.Protocol
 
 	var conn net.Conn
@@ -95,6 +96,9 @@ func (w *GELFWriter) connect() error {
 	}
 	if err != nil {
 		return fmt.Errorf("gelf connect %s://%s: %w", proto, addr, err)
+	}
+	if w.conn != nil {
+		_ = w.conn.Close()
 	}
 	w.conn = conn
 	return nil

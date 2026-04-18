@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -58,10 +59,13 @@ func NewSyslogWriter(cfg SyslogConfig) (*SyslogWriter, error) {
 }
 
 func (w *SyslogWriter) connect() error {
-	addr := net.JoinHostPort(w.cfg.Host, fmt.Sprintf("%d", w.cfg.Port))
+	addr := net.JoinHostPort(w.cfg.Host, strconv.Itoa(w.cfg.Port))
 	conn, err := net.DialTimeout(w.cfg.Protocol, addr, 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("syslog connect %s://%s: %w", w.cfg.Protocol, addr, err)
+	}
+	if w.conn != nil {
+		_ = w.conn.Close()
 	}
 	w.conn = conn
 	return nil
