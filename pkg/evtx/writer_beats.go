@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 
@@ -55,7 +54,7 @@ func NewBeatsWriter(cfg BeatsConfig) (*BeatsWriter, error) {
 // has no built-in TLS option. The caller's context is honoured so that shutdown
 // cancels a slow dial instead of waiting for the 5-second Dialer timeout.
 func (w *BeatsWriter) dial(ctx context.Context) error {
-	addr := net.JoinHostPort(w.cfg.Host, strconv.Itoa(w.cfg.Port))
+	addr := hostPort(w.cfg.Host, w.cfg.Port)
 
 	var (
 		cl  *lumberv2.SyncClient
@@ -94,15 +93,16 @@ func (w *BeatsWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if _, err := w.client.Send([]interface{}{event}); err != nil {
-		slog.Warn("beats_reconnect", "reason", err)
+	send := func() error {
+		_, err := w.client.Send([]any{event})
+		return err
+	}
+	if err := sendWithRetry(send, func() error {
+		slog.Warn("beats_reconnect")
 		_ = w.client.Close()
-		if rerr := w.dial(ctx); rerr != nil {
-			return fmt.Errorf("beats send+reconnect: %w / %w", err, rerr)
-		}
-		if _, err2 := w.client.Send([]interface{}{event}); err2 != nil {
-			return fmt.Errorf("beats send after reconnect: %w", err2)
-		}
+		return w.dial(ctx)
+	}); err != nil {
+		return fmt.Errorf("beats %w", err)
 	}
 
 	slog.Debug("beats_event_sent",
@@ -124,10 +124,10 @@ func (w *BeatsWriter) Close() error {
 
 // buildBeatsEvent maps a WindowsEvent to a Beats-compatible map.
 // The @timestamp field is formatted as RFC3339Nano (UTC).
-func buildBeatsEvent(e WindowsEvent) map[string]interface{} {
-	return map[string]interface{}{
+func buildBeatsEvent(e WindowsEvent) map[string]any {
+	return map[string]any{
 		"@timestamp":      e.TimeCreated.UTC().Format(time.RFC3339Nano),
-		"message":         fmt.Sprintf("%s on %s", e.CEPAEventType, e.ObjectName),
+		"message":         e.ShortMessage(),
 		"event_id":        e.EventID,
 		"provider":        e.ProviderName,
 		"computer":        e.Computer,

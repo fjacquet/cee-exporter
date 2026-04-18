@@ -36,7 +36,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -78,7 +77,7 @@ func NewGELFWriter(cfg GELFConfig) (*GELFWriter, error) {
 }
 
 func (w *GELFWriter) connect() error {
-	addr := net.JoinHostPort(w.cfg.Host, strconv.Itoa(w.cfg.Port))
+	addr := hostPort(w.cfg.Host, w.cfg.Port)
 	proto := w.cfg.Protocol
 
 	var conn net.Conn
@@ -114,15 +113,14 @@ func (w *GELFWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if err := w.send(payload); err != nil {
-		// Attempt reconnect once.
-		slog.Warn("gelf_reconnect", "reason", err)
-		if rerr := w.connect(); rerr != nil {
-			return fmt.Errorf("gelf send+reconnect: %w / %w", err, rerr)
-		}
-		if err2 := w.send(payload); err2 != nil {
-			return fmt.Errorf("gelf send after reconnect: %w", err2)
-		}
+	if err := sendWithRetry(
+		func() error { return w.send(payload) },
+		func() error {
+			slog.Warn("gelf_reconnect")
+			return w.connect()
+		},
+	); err != nil {
+		return fmt.Errorf("gelf %w", err)
 	}
 
 	slog.Debug("gelf_event_sent",
@@ -171,7 +169,7 @@ func (w *GELFWriter) Close() error {
 func buildGELF(e WindowsEvent) ([]byte, error) {
 	ts := float64(e.TimeCreated.UnixNano()) / 1e9
 
-	msg := fmt.Sprintf("%s on %s", e.CEPAEventType, e.ObjectName)
+	msg := e.ShortMessage()
 	if len(msg) > 250 {
 		msg = msg[:250]
 	}
