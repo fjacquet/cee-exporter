@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="#0d1117" stroke="#30363d" stroke-width="2"/>
+
+  <!-- Shield body -->
+  <path d="M100 24 L156 48 L156 108 Q156 152 100 176 Q44 152 44 108 L44 48 Z"
+        fill="#1f6feb" opacity="0.9"/>
+  <path d="M100 36 L148 56 L148 108 Q148 146 100 166 Q52 146 52 108 L52 56 Z"
+        fill="#0d1117" opacity="0.5"/>
+
+  <!-- Event log lines -->
+  <rect x="72" y="80" width="56" height="6" rx="3" fill="#58a6ff"/>
+  <rect x="72" y="94" width="40" height="6" rx="3" fill="#58a6ff" opacity="0.7"/>
+  <rect x="72" y="108" width="48" height="6" rx="3" fill="#58a6ff" opacity="0.5"/>
+  <rect x="72" y="122" width="32" height="6" rx="3" fill="#58a6ff" opacity="0.3"/>
+
+  <!-- Arrow / export indicator -->
+  <path d="M130 100 L146 100 M138 92 L146 100 L138 108"
+        stroke="#3fb950" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

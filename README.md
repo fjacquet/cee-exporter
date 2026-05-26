@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/logo.svg" alt="cee-exporter logo" width="120" height="120">
+</p>
+
 # cee-exporter
 
 [![CI](https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml)
