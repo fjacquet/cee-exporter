@@ -18,10 +18,9 @@ SYSTEMD_UNIT_DST := /etc/systemd/system/cee-exporter.service
 DIST  ?= dist
 COVER ?= coverage.out
 
-# Go 1.24-compatible tool versions (golangci-lint/goreleaser v2.9+ require Go 1.25)
-GOLANGCI_VERSION   ?= v2.8.0
-GORELEASER_VERSION ?= v2.7.0
-GOVULNCHECK_VERSION ?= v1.1.4
+GOLANGCI_VERSION    ?= v2.12.2
+GORELEASER_VERSION  ?= v2.16.0
+GOVULNCHECK_VERSION ?= latest
 
 .PHONY: all clean install tools lint format test build vuln sbom security docs coverage-upload release ci \
         build-windows build-darwin test-race lint-full coverage docker-build docker-push docker-run install-systemd
@@ -38,7 +37,7 @@ install:
 
 tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
-	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+	go install golang.org/x/vuln/cmd/govulncheck@latest
 	go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
 lint:
@@ -54,7 +53,7 @@ build:
 	go build -v ./...
 
 vuln:
-	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 sbom:
 	mkdir -p $(DIST)
