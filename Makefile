@@ -19,7 +19,7 @@ DIST  ?= dist
 COVER ?= coverage.out
 
 GOLANGCI_VERSION    ?= v2.12.2
-GORELEASER_VERSION  ?= v2.16.0
+GORELEASER_VERSION  ?= v2.12.0
 GOVULNCHECK_VERSION ?= latest
 
 .PHONY: all clean install tools lint format test build vuln sbom security docs coverage-upload release ci \
