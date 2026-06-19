@@ -4,47 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: Test & Lint
-    runs-on: ubuntu-latest
+  ci:
+    uses: fjacquet/ci/.github/workflows/go-ci.yml@v1
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Lint (go vet)
-        run: make lint
-
-      - name: Lint (golangci-lint)
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
-          args: --timeout=5m
-
-      - name: Test
-        run: make test
-
-      - name: Test (race detector)
-        run: make test-race
-
-      - name: Build Linux binary
-        run: make build
-
-      - name: Build Windows binary
-        run: make build-windows
-
-      - name: Verify Linux binary
-        run: file cee-exporter | grep -q "ELF 64-bit"
-
-      - name: Verify Windows binary
-        run: file cee-exporter.exe | grep -q "PE32+"
+  security:
+    uses: fjacquet/ci/.github/workflows/go-security.yml@v1

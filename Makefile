@@ -1,3 +1,7 @@
+# Canonical Go Makefile — fjacquet/ci standard interface
+# Go 1.24 compat: pin tool versions that don't require Go 1.25+
+.DEFAULT_GOAL := all
+
 BINARY_NAME    := cee-exporter
 BINARY_WINDOWS := cee-exporter.exe
 BINARY_DARWIN  := cee-exporter-darwin
@@ -11,11 +15,67 @@ VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || ec
 SYSTEMD_UNIT_SRC := deploy/systemd/cee-exporter.service
 SYSTEMD_UNIT_DST := /etc/systemd/system/cee-exporter.service
 
-.PHONY: all build build-windows build-darwin test test-race lint lint-full coverage clean docker-build docker-push docker-run install-systemd
+DIST  ?= dist
+COVER ?= coverage.out
 
-all: build build-windows build-darwin
+GOLANGCI_VERSION    ?= v2.12.2
+GORELEASER_VERSION  ?= v2.12.0
+GOVULNCHECK_VERSION ?= latest
+
+.PHONY: all clean install tools lint format test build vuln sbom security docs coverage-upload release ci \
+        build-windows build-darwin test-race lint-full coverage docker-build docker-push docker-run install-systemd
+
+# ── Canonical targets (called by fjacquet/ci reusable workflows) ────────────
+
+all: clean lint test build
+
+clean:
+	rm -rf $(DIST) site $(COVER) *.sarif $(BINARY_NAME) $(BINARY_WINDOWS) $(BINARY_DARWIN)
+
+install:
+	go mod download
+
+tools:
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
+
+lint:
+	golangci-lint run --timeout=5m
+
+format:
+	golangci-lint fmt
+
+test:
+	go test -race -coverprofile=$(COVER) -covermode=atomic ./...
 
 build:
+	go build -v ./...
+
+vuln:
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+sbom:
+	mkdir -p $(DIST)
+	go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest mod -json -output $(DIST)/sbom.cdx.json
+
+security:
+	uvx semgrep scan --config auto --error --skip-unknown-extensions
+
+docs:
+	uvx --with mkdocs-material --with pymdown-extensions mkdocs build --strict --site-dir site
+
+coverage-upload:
+	uvx --from codecov-cli codecov upload-process --file $(COVER) || true
+
+release:
+	goreleaser release --clean
+
+ci: lint test build vuln
+
+# ── Repo-specific targets (preserved) ───────────────────────────────────────
+
+build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 	  go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_NAME) $(CMD_PATH)
 
@@ -27,28 +87,18 @@ build-darwin:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=$(shell go env GOARCH) \
 	  go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_DARWIN) $(CMD_PATH)
 
-test:
-	go test ./...
-
 # Race detector requires CGO; run separately from the default make test which
 # uses CGO_ENABLED=0 for static binary builds.
 test-race:
 	CGO_ENABLED=1 go test -race ./...
 
-coverage:
-	go test -coverprofile=coverage.out ./...
-	go tool cover -func=coverage.out | tail -1
-
-lint:
-	go vet ./...
-
-# Full lint: golangci-lint with the repo config. Install with:
-#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+# Full lint: golangci-lint with the repo config.
 lint-full:
 	golangci-lint run --timeout=5m
 
-clean:
-	rm -f $(BINARY_NAME) $(BINARY_WINDOWS) $(BINARY_DARWIN)
+coverage:
+	go test -coverprofile=$(COVER) ./...
+	go tool cover -func=$(COVER) | tail -1
 
 # Requires root. Run as: sudo make install-systemd
 install-systemd: $(SYSTEMD_UNIT_SRC)
