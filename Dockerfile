@@ -41,5 +41,8 @@ EXPOSE 12228
 #   docker run -v ./config.toml:/etc/cee-exporter/config.toml ...
 # OR override GELF target via environment:
 #   -e CEE_LOG_LEVEL=debug
+# Run as non-root (numeric UID required on scratch — no /etc/passwd)
+USER 65532:65532
+
 ENTRYPOINT ["/cee-exporter"]
 CMD ["-config", "/etc/cee-exporter/config.toml"]
