@@ -7,7 +7,7 @@ require (
 	github.com/crewjam/rfc5424 v0.1.0
 	github.com/fjacquet/go-evtx v0.5.0
 	github.com/kardianos/service v1.2.4
-	golang.org/x/crypto v0.51.0
+	golang.org/x/crypto v0.52.0
 	golang.org/x/sys v0.45.0
 )
 
