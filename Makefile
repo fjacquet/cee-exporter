@@ -106,7 +106,9 @@ install-systemd: $(SYSTEMD_UNIT_SRC)
 	install -d -m 755 /etc/cee-exporter
 	install -m 644 $(SYSTEMD_UNIT_SRC) $(SYSTEMD_UNIT_DST)
 	systemctl daemon-reload
-	@echo "Unit installed. Place your config at /etc/cee-exporter/config.toml, then:"
+	@echo "Unit installed. Place your config, keeping it world-readable (DynamicUser"
+	@echo "requires this — config.toml has no secrets; put those in env instead):"
+	@echo "  install -m 644 config.toml /etc/cee-exporter/config.toml"
 	@echo "  systemctl enable --now cee-exporter"
 
 docker-build:

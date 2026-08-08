@@ -250,11 +250,12 @@ A systemd unit file is included for production deployments:
 ```bash
 # From a repo checkout:
 sudo make install-systemd
+sudo install -m 644 config.toml /etc/cee-exporter/config.toml
 
 # Or manually:
 sudo install -m 755 cee-exporter /usr/local/bin/cee-exporter
 sudo install -d -m 755 /etc/cee-exporter
-sudo install -m 640 config.toml /etc/cee-exporter/config.toml
+sudo install -m 644 config.toml /etc/cee-exporter/config.toml
 sudo install -m 644 deploy/systemd/cee-exporter.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now cee-exporter
@@ -267,6 +268,18 @@ journalctl -u cee-exporter -f
 The unit uses `DynamicUser=yes`, so there is no system account to create.
 systemd provisions a transient UID on each start and creates
 `/var/log/cee-exporter` and `/var/lib/cee-exporter` with the right ownership.
+
+**`config.toml` must stay world-readable (mode 644), not 640 or 600.**
+`DynamicUser=yes` runs the daemon under a transient per-start UID/GID that
+belongs to no group but its own, so a group-restricted config file is
+unreadable to it and the service crash-loops (`Restart=on-failure` restarting
+a process that immediately exits on a config-read error). This is safe
+because `config.toml` holds no secrets — only paths and settings, including
+paths to certificate/key files, never their contents. Anything actually
+sensitive (API tokens, ACME account credentials, etc.) belongs in
+`/etc/cee-exporter/env` instead, loaded via `EnvironmentFile=-` in the unit;
+keep that file root-only (`600`) since it is read by systemd itself before
+the process drops privileges, not by the dynamic user.
 
 ---
 
