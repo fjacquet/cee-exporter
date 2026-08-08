@@ -19,6 +19,7 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 	metrics.M.EventsDroppedTotal.Store(0)
 	metrics.M.WriterErrorsTotal.Store(0)
 	metrics.M.EventsWrittenTotal.Store(0)
+	metrics.M.EventsTruncatedTotal.Store(0)
 	metrics.M.SetQueueDepth(0)
 
 	// Seed known values.
@@ -27,6 +28,7 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 	metrics.M.WriterErrorsTotal.Store(1)
 	metrics.M.SetQueueDepth(15)
 	metrics.M.EventsWrittenTotal.Store(30)
+	metrics.M.EventsTruncatedTotal.Store(3)
 	metrics.M.RecordFsyncAt(time.Unix(1700000000, 0))
 
 	h := NewMetricsHandler()
@@ -48,6 +50,7 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 		"cee_writer_errors_total 1",
 		"cee_queue_depth 15",
 		"cee_events_written_total 30",
+		"cee_events_truncated_total 3",
 	}
 
 	// Assert the fsync gauge metric name appears.

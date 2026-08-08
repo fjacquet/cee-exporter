@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"os"
@@ -466,5 +467,46 @@ func TestEncodedLen(t *testing.T) {
 				t.Errorf("encodedLen(%q) = %d, want %d", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestEnforceEncodedBudget_TerminatesOnFixedPoint pins the termination
+// property directly. A value whose raw length sits in
+// (len(truncationMarker), 2*len(truncationMarker)] — 15 to 28 bytes with
+// today's 14-byte marker — does not shrink when halved and re-suffixed with
+// the marker: halving 20 bytes gives keep=10, and 10+14=24 is still >= 20.
+// Without the fixed-point escape, enforceEncodedBudget would spin on that
+// value forever, since it can never fall below maxEncodedFieldsBytes and
+// never satisfies the "longest <= len(truncationMarker)" escape either.
+//
+// This is exercised with many such fields — never reachable through the
+// real 11-field WindowsEvent shape today — so the test also serves as a
+// regression guard if maxFieldBytes, maxEncodedFieldsBytes, or the field
+// count ever change in a way that makes the fixed point reachable in
+// production.
+//
+// The check runs in a goroutine with its own timeout rather than relying on
+// `go test`'s overall timeout to catch a hang, so a regression fails fast
+// with a clear message instead of a generic test-binary timeout.
+func TestEnforceEncodedBudget_TerminatesOnFixedPoint(t *testing.T) {
+	const fieldCount = 4000 // encodes to far more than maxEncodedFieldsBytes
+	fields := make(map[string]string, fieldCount)
+	for i := 0; i < fieldCount; i++ {
+		// 20 bytes is inside the (14, 28] fixed-point range: halving never
+		// shrinks it once the marker is appended.
+		fields[fmt.Sprintf("f%d", i)] = strings.Repeat("a", 20)
+	}
+
+	done := make(chan bool, 1)
+	go func() {
+		done <- enforceEncodedBudget(fields)
+	}()
+
+	select {
+	case <-done:
+		// Returned — termination property holds.
+	case <-time.After(2 * time.Second):
+		t.Fatal("enforceEncodedBudget did not return within 2s: " +
+			"suspected infinite loop on the 15-28 byte fixed point")
 	}
 }

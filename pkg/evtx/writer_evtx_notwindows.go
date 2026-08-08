@@ -159,6 +159,19 @@ func enforceEncodedBudget(fields map[string]string) bool {
 		for keep > 0 && !utf8.RuneStart(fields[key][keep]) {
 			keep--
 		}
+		// For any value whose length sits in (len(truncationMarker),
+		// 2*len(truncationMarker)], halving it and appending the marker does
+		// not shrink it — it can even grow it, converging to a fixed point
+		// instead of vanishing. That range is unreachable with today's field
+		// count and caps, but this function must not rely on that staying
+		// true: without this check a future change to maxFieldBytes,
+		// maxEncodedFieldsBytes, or the field count could spin forever with
+		// no error and no log. Since key is already the longest remaining
+		// value, no shorter field can shrink either, so nothing further can
+		// be reclaimed.
+		if keep+len(truncationMarker) >= longest {
+			break
+		}
 		before := encodedLen(fields[key])
 		fields[key] = fields[key][:keep] + truncationMarker
 		total += encodedLen(fields[key]) - before
@@ -197,7 +210,7 @@ func windowsEventToFields(e WindowsEvent) map[string]string {
 		"ProcessName":       "",
 	}
 
-	// Second pass: the per-field cap bounds one long value, not twelve.
+	// Second pass: the per-field cap bounds one long value, not eleven.
 	if enforceEncodedBudget(fields) {
 		truncated = true
 	}
