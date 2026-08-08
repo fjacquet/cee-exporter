@@ -213,8 +213,8 @@ jobs:
           done
           exit $fail
 
-      # Verifies every Status cell in docs/PROMISES.md's tables starts with one
-      # of the four vocabulary terms the file's own preamble defines — Verified,
+      # Verifies every Status cell in docs/PROMISES.md's tables uses one of the
+      # four vocabulary terms the file's own preamble defines — Verified,
       # Verified (partial), Verified (manual), Unverified — optionally followed
       # by free-text explanation, so a new row can't invent a fifth status or
       # misspell one. Table cells are split on `|`, but a handful of cells
@@ -222,6 +222,24 @@ jobs:
       # pipe character inside a cell, e.g. a `grep 'foo\|bar'` example) — those
       # are swapped for a placeholder byte before splitting and restored after,
       # so that escaped pipe doesn't get mistaken for a column boundary.
+      #
+      # Each alternative below is anchored to a *closing* delimiter, not a bare
+      # prefix, specifically so a misspelling or an invented extension of a
+      # real term is rejected rather than silently passing through a `term*`
+      # glob (found in a 2026-08-08 review: `Verified*` matched "Verifiedd
+      # nonsense", and a bare-word `Verified` has no natural terminator other
+      # than an exact match, so it gets none — no `Verified*` alternative
+      # exists at all, only the literal word). The bold terms are each
+      # protected by their own closing `**`: `'**Verified (partial)**'*`
+      # requires the literal substring `(partial)**` to appear intact, so
+      # "**Verified (partially)**" fails to match (the required `)**` never
+      # occurs at that position) exactly as intended. The one shape needing a
+      # dedicated alternative is "**Unverified — <reason>**; <more text>",
+      # where the qualifier sits *inside* the bold markers before they close —
+      # `'**Unverified —'*` is safe on its own because the literal
+      # space-em-dash-space immediately after "Unverified" is itself a
+      # non-alphabetic character, so nothing can be inserted between the word
+      # and that boundary without breaking the match.
       - name: Verify docs/PROMISES.md status cells use the defined vocabulary
         run: |
           set -euo pipefail
@@ -230,7 +248,12 @@ jobs:
             [ "$cell" = "Status" ] && continue
             [ -z "$cell" ] && continue
             case "$cell" in
-              Verified*|'**Verified (partial)**'*|'**Verified (manual)**'*|'**Unverified'*|'**Verified**'*) ;;
+              'Verified') ;;
+              '**Verified**'|'**Verified**'*) ;;
+              '**Verified (partial)**'|'**Verified (partial)**'*) ;;
+              '**Verified (manual)**'|'**Verified (manual)**'*) ;;
+              '**Unverified**'|'**Unverified**'*) ;;
+              '**Unverified —'*) ;;
               *)
                 echo "::error::docs/PROMISES.md has a Status cell outside the defined vocabulary: $cell"
                 fail=1
