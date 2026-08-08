@@ -21,6 +21,11 @@ nav:
       - ADR-007 Windows Service: adr/ADR-007-windows-svc-x-sys.md
       - ADR-008 RFC5424 Syslog: adr/ADR-008-rfc5424-crewjam.md
       - ADR-009 BinaryEvtx Scratch: adr/ADR-009-binary-evtx-scratch.md
+      - ADR-010 Windows SCM: adr/ADR-010-kardianos-service-windows-scm.md
+      - ADR-011 TLS Automation: adr/ADR-011-tls-certificate-automation.md
+      - ADR-012 Flush Ticker Ownership: adr/ADR-012-flush-ticker-ownership.md
+      - ADR-013 Write-on-Close Model: adr/ADR-013-write-on-close-model.md
+      - ADR-014 go-evtx Extraction: adr/ADR-014-go-evtx-library-extraction.md
   - v2 Research: v2-research.md
 
 theme:

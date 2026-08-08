@@ -157,13 +157,14 @@ For architectural decisions, see `docs/adr/`.
 
 | Package | Version | Purpose | Notes |
 |---------|---------|---------|-------|
-| `github.com/kardianos/service` | v1.2.4 | Windows SCM integration | Supersedes x/sys direct (ADR-010) |
+| `github.com/kardianos/service` | v1.3.0 | Windows SCM integration | Supersedes x/sys direct (ADR-010) |
 | `github.com/crewjam/rfc5424` | v0.1.0 | SyslogWriter RFC 5424 messages | CGO-free (ADR-008) |
-| `github.com/elastic/go-lumber` | v0.1.1 | BeatsWriter Lumberjack v2 | CGO-free |
-| `github.com/prometheus/client_golang` | v1.23.2 | Prometheus /metrics | CGO-free (ADR-006) |
-| `golang.org/x/crypto` (promoted) | v0.48.0 | ACME autocert (TLS-ALPN-01) | Was indirect dep (ADR-011) |
+| `github.com/elastic/go-lumber` | v0.2.0 | BeatsWriter Lumberjack v2 | CGO-free |
+| `github.com/prometheus/client_golang` | v1.24.1 | Prometheus /metrics | CGO-free (ADR-006) |
+| `golang.org/x/crypto` (promoted) | v0.54.0 | ACME autocert (TLS-ALPN-01) | Was indirect dep (ADR-011) |
+| `github.com/fjacquet/go-evtx` | v0.5.1 | BinaryEvtxWriter EVTX binary encoding | Extracted from cee-exporter (ADR-014, supersedes ADR-009) |
 
-**No new dependencies for:** BinaryEvtxWriter (stdlib only), systemd unit (text artifact).
+**No new dependencies for:** systemd unit (text artifact).
 
 ---
 
