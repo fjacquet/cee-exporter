@@ -40,9 +40,11 @@ Requires Go 1.26.5. No CGO required.
 git clone https://github.com/fjacquet/cee-exporter.git
 cd cee-exporter
 
-make build          # Linux/amd64  → ./cee-exporter
+make build-linux    # Linux/amd64   → ./cee-exporter
 make build-windows  # Windows/amd64 → ./cee-exporter.exe
 ```
+
+(`make build` alone runs `go build -v ./...` to check compilation — it produces no binary.)
 
 ---
 
@@ -446,12 +448,22 @@ CEPA (Common Event Publishing Agent) is the PowerStore mechanism that sends file
 ## Health endpoint
 
 `GET /health` returns a JSON object with operational status. **The HTTP status
-code is always 200** — degradation is signalled only by the `"status"` field
-in the body (`"ok"` or `"degraded"`, the latter once any events have been
-dropped). There is no HTTP 503 response today: do not point a liveness/
-readiness probe or load-balancer health check at this endpoint expecting a
-non-200 on degradation — it will not fire. See
-[docs/PROMISES.md](PROMISES.md) for this gap's tracking status.
+code is always 200, deliberately** — degradation is signalled only by the
+`"status"` field in the body (`"ok"` or `"degraded"`, the latter once any
+events have been dropped). This is a design decision, not a gap: a 503 here
+would pull a probed pod out of its Kubernetes Service (readiness) or restart
+the container (liveness) exactly when the queue is overflowing, losing
+*every* event instead of the fraction already being dropped, and it would
+contradict the CEPA reliability principle that this daemon never tells
+PowerStore the endpoint is unreachable. Do not point a liveness/readiness
+probe or load-balancer health check at this endpoint expecting a non-200 on
+degradation — it will not fire, and it is not supposed to.
+
+For alerting on degradation, scrape `cee_queue_depth` and
+`cee_events_dropped_total` from `/metrics` instead (see
+[Prometheus metrics](#prometheus-metrics) below) — a rising queue depth or a
+nonzero, climbing drop counter is the actual signal. See
+[docs/PROMISES.md](PROMISES.md) for this endpoint's verification status.
 
 ```bash
 curl http://localhost:12228/health

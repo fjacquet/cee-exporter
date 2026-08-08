@@ -1,7 +1,7 @@
 # cee-exporter: Promise Remediation
 
 **Date:** 2026-08-08
-**Status:** Approved, not yet implemented
+**Status:** Release 1 (v4.1.3, truth) implemented on `feat/v4.1.3-truth`; Release 2 (v5.0, verified — sections V1-V5 below) not yet started
 **Repo:** `github.com/fjacquet/cee-exporter`
 **Releases:** v4.1.3 (truth), v5.0 (verified)
 **Companion spec:** `go-evtx/docs/superpowers/specs/2026-08-08-durability-and-format-correctness-design.md`
@@ -343,37 +343,28 @@ expected to arrive with their job.
 This is the mechanism that prevents the next five-month drift, and it is the
 only durable deliverable in either spec.
 
-### V5. `/health` HTTP 503 on degraded
+### Decided against: `/health` HTTP 503 on degraded
 
-Found during the v4.1.3 documentation review (2026-08-08): `docs/operator-guide.md`
+Raised during the v4.1.3 documentation review (2026-08-08) as a candidate V5,
+then rejected on the merits by the project owner, not deferred. Record why,
+so it isn't re-proposed without the reasoning behind it: `docs/operator-guide.md`
 had documented "HTTP 200 = healthy; HTTP 503 = degraded" for years, but
-`pkg/server/health.go:48` calls `w.WriteHeader(http.StatusOK)` unconditionally
-— degradation is signalled only by the JSON `"status"` field, never by the
-HTTP status code. No code anywhere in the repository returns 503. This is a
-behaviour gap, not a documentation gap: an operator who wires a Kubernetes
-liveness/readiness probe or a load-balancer health check to `/health`
-expecting a non-200 on degradation gets HTTP 200 forever, including while the
-queue is dropping events.
-
-v4.1.3 corrects the documentation and `docs/PROMISES.md` to describe current
-behaviour honestly (this branch does not change runtime behaviour — every
-behaviour change here has its own reviewed task). v5.0 should implement the
-503:
-
-```go
-if resp.Status == "degraded" {
-    w.WriteHeader(http.StatusServiceUnavailable)
-} else {
-    w.WriteHeader(http.StatusOK)
-}
-```
-
-with a test asserting `w.Code == http.StatusServiceUnavailable` on the
-degraded path (`TestHealth_DegradedWhenDropped` currently only asserts the
-JSON field). Decide at that point whether flipping the status code is itself
-a breaking change for any operator who has already built alerting on the
-current always-200 behaviour, and document the change in the CHANGELOG either
-way.
+`pkg/server/health.go:48` calls `w.WriteHeader(http.StatusOK)`
+unconditionally — degradation is signalled only by the JSON `"status"` field.
+That was a documentation defect, fixed on this branch. Actually returning 503
+on the degraded path would be a *worse* defect: `"degraded"` here means the
+async queue is overflowing, and a Kubernetes readiness probe returning 503
+pulls the pod out of the Service entirely — CEPA can no longer reach it at
+all, losing *every* event instead of the fraction the queue was already
+dropping. A liveness probe returning 503 restarts the container, discarding
+the in-memory queue while the actual cause (a slow downstream writer) goes
+untouched. Both responses make the failure strictly worse than the condition
+they detect, and both contradict the CEPA reliability principle already
+proven by `TestServeHTTP_ParseErrorStillACKs`: the handler ACKs 200 even on
+malformed input specifically so CEPA is never told this endpoint is
+unreachable. `/health` always returning 200 is intentional, not an oversight.
+Operators should alert on `cee_queue_depth` and `cee_events_dropped_total`
+via `/metrics` for degradation, not on the HTTP status of `/health`.
 
 ### v5.0 exit criteria
 
@@ -381,8 +372,6 @@ way.
 - `docs/PROMISES.md` covers every claim in README, PRD and `docs/index.md`.
 - No claim anywhere lacks either a verifying job or an explicit "unverified"
   label.
-- `/health` returns HTTP 503 on the degraded path, with a test asserting the
-  status code (V5).
 
 ## Risks
 
