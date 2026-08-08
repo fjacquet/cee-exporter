@@ -36,9 +36,16 @@ LogsDirectory=cee-exporter
 LogsDirectoryMode=0750
 
 # StateDirectory creates and chowns /var/lib/cee-exporter/ on each start.
-# Set acme_cache_dir = "/var/lib/cee-exporter/acme" in config.toml.
 StateDirectory=cee-exporter
 StateDirectoryMode=0750
+
+# CacheDirectory creates and chowns /var/cache/cee-exporter/ on each start —
+# this is what makes the config default (acme_cache_dir =
+# "/var/cache/cee-exporter/acme") writable under this unit with no operator
+# action. autocert.DirCache creates the "acme" subdirectory itself on first
+# write, once its parent is writable.
+CacheDirectory=cee-exporter
+CacheDirectoryMode=0750
 
 [Install]
 WantedBy=multi-user.target

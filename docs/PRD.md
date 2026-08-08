@@ -111,9 +111,15 @@ Full requirement list: see [requirements.md](requirements.md)
 | OUT-03 | SyslogWriter: RFC 5424 over UDP | 06 | ADR-008 |
 | OUT-04 | SyslogWriter: RFC 5424 over TCP (octet-counting) | 06 | ADR-008 |
 | OUT-05 | BinaryEvtxWriter: native `.evtx` on Linux | 07 | ADR-009 |
-| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 |
+| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — **not yet verified; no Windows Event Viewer available in CI or this environment. Tracked as go-evtx F6; see [docs/PROMISES.md](PROMISES.md)** |
 | TLS-03 | `tls_mode="acme"` auto-provisions via Let's Encrypt | 08 | ADR-011 |
 | TLS-04 | `tls_mode="self-signed"` for air-gapped deployments | 08 | ADR-011 |
+
+**Verification status:** see [docs/requirements.md](requirements.md) for the
+per-requirement traceability and [docs/PROMISES.md](PROMISES.md) for every
+user-facing claim's verifying job. Several v2.0 rows above — notably
+DEPLOY-03 through DEPLOY-05 (Windows Service) and OUT-06 above — have no
+automated check today; there is no Windows CI runner in this project.
 
 ---
 
@@ -170,9 +176,19 @@ For architectural decisions, see `docs/adr/`.
 
 ## Success Metrics
 
-- `go test ./...` passes with zero failures on Linux and Windows
-- `make build` and `make build-windows` produce runnable binaries
-- An operator can follow the README quickstart and see events in Graylog within 15 minutes
-- `cee-exporter.exe install` registers a service that survives reboot and restarts on failure
-- `.evtx` files generated on Linux open correctly in Windows Event Viewer
-- `curl :9228/metrics` returns Prometheus-formatted counters
+See [docs/PROMISES.md](PROMISES.md) for the verifying job behind each metric
+below; several are not yet checked by anything.
+
+- `go test ./...` passes with zero failures on Linux (CI-verified on every
+  push) — **not verified on Windows: there is no Windows CI runner**
+- `make build-linux` and `make build-windows` produce runnable binaries
+  (corrected from `make build`, which only runs `go build -v ./...` to check
+  compilation and produces no binary at all)
+- An operator can follow the README quickstart and see events in Graylog
+  within 15 minutes — **not verified by any automated or timed check**
+- `cee-exporter.exe install` registers a service that survives reboot and
+  restarts on failure — **not yet verified; no Windows CI runner**
+- `.evtx` files generated on Linux open correctly in Windows Event Viewer —
+  **not yet verified; tracked as go-evtx F6**
+- `curl :9228/metrics` returns Prometheus-formatted counters (verified —
+  `pkg/prometheus/handler_test.go`)

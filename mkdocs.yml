@@ -5,6 +5,17 @@ repo_url: https://github.com/fjacquet/cee-exporter
 repo_name: fjacquet/cee-exporter
 edit_uri: edit/main/docs/
 
+# SITE_FOOTER is exported by the fjacquet/ci mkdocs-publish composite action,
+# derived fresh from `git describe`/the triggering tag on every build — see
+# https://github.com/fjacquet/ci/blob/main/actions/mkdocs-publish/action.yml.
+# This replaces a hand-maintained `extra.version` key, which stated v4.1.1
+# after the project had already moved to v4.1.2: nothing in this theme ever
+# rendered `extra.version`, so the drift went unnoticed for a full release.
+# `copyright` IS rendered, in the site footer, by mkdocs-material — so this
+# value cannot go stale without the footer itself visibly saying so. Local
+# `make docs` runs without SITE_FOOTER set and falls back to the empty string.
+copyright: !ENV [SITE_FOOTER, ""]
+
 docs_dir: docs
 
 exclude_docs: |
@@ -13,6 +24,7 @@ exclude_docs: |
 nav:
   - Home: index.md
   - Operator Guide: operator-guide.md
+  - Promises: PROMISES.md
   - Product Requirements: PRD.md
   - Requirements Traceability: requirements.md
   - Architecture Decisions:
@@ -61,6 +73,3 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-
-extra:
-  version: v4.1.1

@@ -1,5 +1,7 @@
 # Feature Landscape — cee-exporter v2.0
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Domain:** Go audit-event daemon — operations and output expansion
 **Researched:** 2026-03-03
 **Scope:** Six new features added to existing v1.0 daemon

@@ -1,5 +1,7 @@
 # Technology Stack
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Project:** cee-exporter v2.0
 **Researched:** 2026-03-03
 **Milestone:** v2.0 — Operations & Output Expansion (6 new capabilities)

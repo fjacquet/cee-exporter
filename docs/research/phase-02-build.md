@@ -1,5 +1,7 @@
 # Phase 2: Build - Research
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Researched:** 2026-03-02
 **Domain:** Go Makefile, cross-compilation (Linux + Windows), go vet, go test
 **Confidence:** HIGH

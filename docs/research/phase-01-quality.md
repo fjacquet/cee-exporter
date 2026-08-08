@@ -1,5 +1,7 @@
 # Phase 1: Quality - Research
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Researched:** 2026-03-02
 **Domain:** Go unit testing (stdlib), http.MaxBytesReader bug fix, table-driven tests, concurrent queue testing
 **Confidence:** HIGH

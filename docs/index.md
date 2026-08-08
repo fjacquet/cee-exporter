@@ -71,8 +71,21 @@ flowchart TD
 | Default output | GELF UDP → localhost:12201 |
 | Binary size | ~6 MB (stripped, CGO_ENABLED=0) |
 | Dependencies | Fully static binary (CGO disabled) |
-| Platforms | Linux/amd64, Windows/amd64 |
-| Go version | 1.24+ |
+| Platforms | Linux, Windows, macOS — amd64 and arm64 (see table below) |
+| Go version | 1.26.5 |
+
+## Supported platforms
+
+| Platform | Architectures | Release artifact |
+|---|---|---|
+| Linux | amd64, arm64 | `tar.gz` |
+| Windows | amd64, arm64 | `zip` |
+| macOS | amd64, arm64 | `tar.gz` |
+
+The Win32 EventLog writer (`evtx` on Windows) is Windows-only. `SIGHUP`-triggered
+EVTX rotation (see [Operator Guide](operator-guide.md#triggering-rotation-manually))
+is non-Windows only — the signal does not exist on Windows, so the handler is
+compiled out there.
 
 ## Output writers
 
@@ -102,3 +115,6 @@ flowchart TD
   - [ADR-009](adr/ADR-009-binary-evtx-scratch.md) — BinaryEvtxWriter from scratch
   - [ADR-010](adr/ADR-010-kardianos-service-windows-scm.md) — kardianos/service for Windows SCM
   - [ADR-011](adr/ADR-011-tls-certificate-automation.md) — Three-mode TLS (off/manual/acme/self-signed)
+  - [ADR-012](adr/ADR-012-flush-ticker-ownership.md) — Flush ticker ownership inside BinaryEvtxWriter
+  - [ADR-013](adr/ADR-013-write-on-close-model.md) — Write-on-close model
+  - [ADR-014](adr/ADR-014-go-evtx-library-extraction.md) — go-evtx extracted to its own module

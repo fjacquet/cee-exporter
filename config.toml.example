@@ -55,6 +55,8 @@ tls_mode = "off"
 #
 # type = "gelf"   → GELF JSON over UDP/TCP to Graylog (recommended for Linux)
 # type = "evtx"   → Binary .evtx file (Windows: Win32 API; Linux: BinaryEvtxWriter)
+# type = "syslog" → RFC 5424 structured syslog over UDP or TCP
+# type = "beats"  → Lumberjack v2 to Logstash / Graylog Beats Input (± TLS)
 # type = "multi"  → Fan-out to multiple backends simultaneously
 # ─────────────────────────────────────────────────────────────────────────────
 [output]
@@ -92,6 +94,39 @@ gelf_tls      = false   # only applies when gelf_protocol = "tcp"
 #   Send SIGHUP to trigger an immediate rotation at any time.
 #   Default: 0
 # rotation_interval_h = 0
+
+# Syslog output (RFC 5424, uncomment to enable directly or via type = "multi")
+#
+# syslog_host     — Syslog receiver hostname/IP.
+#   Default: "localhost"
+# syslog_host = "syslog.corp.local"
+#
+# syslog_port — Syslog receiver port.
+#   Default: 514
+# syslog_port = 514
+#
+# syslog_protocol — "udp" or "tcp". TCP uses RFC 6587 octet-counting framing.
+#   Default: "udp"
+# syslog_protocol = "udp"
+#
+# syslog_app_name — APP-NAME field in the RFC 5424 header.
+#   Default: "cee-exporter"
+# syslog_app_name = "cee-exporter"
+
+# Beats / Lumberjack v2 output (uncomment to enable directly or via type = "multi")
+#
+# beats_host — Logstash or Graylog Beats Input hostname/IP.
+#   Default: "localhost"
+# beats_host = "logstash.corp.local"
+#
+# beats_port — Beats Input port.
+#   Default: 5044 (the Logstash/Graylog Beats Input standard port)
+# beats_port = 5044
+#
+# beats_tls — Wrap the connection in TLS. The receiver must have a TLS-enabled
+#   Beats Input configured.
+#   Default: false
+# beats_tls = false
 
 # Multi-target example (fan-out to both GELF and EVTX)
 # type    = "multi"

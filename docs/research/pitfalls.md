@@ -1,5 +1,7 @@
 # Domain Pitfalls
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Domain:** Go daemon — v2 feature additions (ops + output writers)
 **Project:** cee-exporter
 **Researched:** 2026-03-03

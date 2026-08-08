@@ -1,5 +1,7 @@
 # Phase 7: BinaryEvtxWriter - Research
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Researched:** 2026-03-03
 **Domain:** Windows EVTX binary file format — pure-Go serialization on Linux
 **Confidence:** MEDIUM (format well-documented; no Go writer library exists — must implement from spec)

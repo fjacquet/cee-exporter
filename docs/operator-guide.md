@@ -34,7 +34,7 @@ cee-exporter.exe -config config.toml
 
 ### Build from source
 
-Requires Go 1.21+. No CGO required.
+Requires Go 1.26.5. No CGO required.
 
 ```bash
 git clone https://github.com/fjacquet/cee-exporter.git
@@ -72,36 +72,11 @@ addr = "0.0.0.0:12228"
 
 ### Full config reference
 
-```toml
-# Optional: override the hostname embedded in every event.
-# Defaults to os.Hostname() if not set.
-hostname = ""
-
-[listen]
-addr      = "0.0.0.0:12228"  # TCP address and port to listen on
-tls       = false             # Enable HTTPS/TLS
-cert_file = ""                # Path to TLS certificate (PEM)
-key_file  = ""                # Path to TLS private key (PEM)
-
-[output]
-type          = "gelf"        # Output type: "gelf" | "evtx" | "multi"
-targets       = []            # For type="multi": list of types to fan-out to
-evtx_path     = ""            # For type="evtx": path to .evtx output directory
-gelf_host     = "localhost"   # GELF receiver hostname/IP
-gelf_port     = 12201         # GELF receiver port
-gelf_protocol = "udp"         # "tcp" or "udp"
-gelf_tls      = false         # Wrap TCP in TLS (requires gelf_protocol = "tcp")
-
-[queue]
-capacity = 100000             # Maximum events buffered in memory
-workers  = 4                  # Concurrent writer goroutines
-
-[logging]
-level  = "info"               # debug | info | warn | error
-format = "json"               # json | text
-```
-
-### TLS config reference
+`ListenConfig` also accepts the legacy `tls = true` + `cert_file`/`key_file`
+combination for backward compatibility: if `tls_mode` is left unset, that
+combination is automatically migrated to `tls_mode = "manual"` at startup
+(`main.go`'s `migrateListenConfig`). New configs should set `tls_mode`
+directly — the fields below are the current, non-deprecated names.
 
 ```toml
 # Optional: override the hostname embedded in every event.
@@ -202,6 +177,22 @@ rotation_interval_h = 24
 On Windows this same configuration routes to the Win32 EventLog API and
 `evtx_path` is ignored — the platform decides, there is no separate type.
 
+### Triggering rotation manually
+
+On non-Windows platforms, `SIGHUP` rotates the active `.evtx` file immediately —
+the current chunk is finalised, the file is renamed to a timestamped archive,
+and a fresh file is opened.
+
+```bash
+systemctl reload cee-exporter   # if RestartMode is configured for reload
+# or:
+kill -HUP "$(pidof cee-exporter)"
+```
+
+Only the EVTX writer implements rotation. Sending `SIGHUP` while a network
+backend is configured is a no-op. `SIGHUP` is not a Windows signal; the handler
+is compiled out there.
+
 ---
 
 ## Windows Service management
@@ -210,6 +201,10 @@ On Windows, `cee-exporter.exe` can register itself with the Windows Service Cont
 Manager (SCM) for automatic startup and restart on failure.
 
 > Run all service management commands from an **Administrator** command prompt.
+
+> **Verification status:** this project has no Windows CI runner, so
+> `install`/`uninstall`/crash-restart behaviour is correct by code inspection
+> only, not exercised by any automated test. See [docs/PROMISES.md](PROMISES.md).
 
 ```powershell
 # Register the service (Delayed Auto-Start, restarts on failure after 5 s)
@@ -303,8 +298,11 @@ Available metrics:
 | `cee_events_received_total` | Counter | Events received from PowerStore |
 | `cee_events_written_total` | Counter | Events successfully forwarded |
 | `cee_events_dropped_total` | Counter | Events dropped (queue full) |
+| `cee_events_truncated_total` | Counter | Events with at least one field capped before the EVTX writer |
 | `cee_writer_errors_total` | Counter | Writer backend errors |
 | `cee_queue_depth` | Gauge | Current event queue depth |
+| `cee_last_fsync_unix_seconds` | Gauge | Unix timestamp of the last successful fsync to the EVTX file. 0 = none yet; alert when `time() - this > flush_interval_s * 2` |
+| `cee_build_info` | Gauge | Always 1; labelled with `version` and `go_version` — join on it to correlate other metrics with a release |
 
 Example Prometheus scrape config:
 

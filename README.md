@@ -10,15 +10,19 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/fjacquet/cee-exporter)](https://goreportcard.com/report/github.com/fjacquet/cee-exporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Go daemon that receives Dell PowerStore CEPA audit events (HTTP PUT / XML) and forwards them as GELF to Graylog or as native Windows EventLog entries. No external dependencies — single static binary.
+Go daemon that receives Dell PowerStore CEPA audit events (HTTP PUT / XML) and forwards them to a SIEM (GELF, syslog, or Beats) or writes them as Windows EventLog entries — native `ReportEvent` calls on Windows, binary `.evtx` files everywhere else. No external dependencies — single static binary.
 
 ## Features
 
 - CEPA protocol compliance — RegisterRequest handshake, heartbeat ACK within 3 s
 - GELF 1.1 output over UDP or TCP → Graylog (Linux primary path)
-- Win32 EventLog via `ReportEvent` API on Windows
+- RFC 5424 syslog output over UDP or TCP
+- Beats/Lumberjack v2 output → Logstash or Graylog, with optional TLS
+- Win32 EventLog via `ReportEvent` API on Windows; native `.evtx` files on other platforms
 - Multi-target fan-out: write to multiple backends simultaneously
-- HTTPS/TLS listener with certificate expiry warnings
+- TLS listener with four modes: off, manual (operator-supplied cert), ACME (automatic Let's Encrypt), and self-signed (runtime-generated, air-gapped-friendly); certificate expiry surfaced via `/health` with a startup warning when fewer than 30 days remain
+- Prometheus `/metrics` endpoint on a dedicated port (default 9228)
+- Windows Service registration (`cee-exporter.exe install`) and a hardened Linux systemd unit
 - Async queue — ACKs the HTTP request immediately, processes events in background
 - Structured JSON logging (`slog`) and `/health` endpoint
 
@@ -61,14 +65,17 @@ curl http://localhost:12228/health
 
 ## Building from Source
 
-Requires Go 1.21+, no CGO.
+Requires Go 1.26.5, no CGO.
 
 ```bash
-make build          # Linux/amd64 → ./cee-exporter
+make build-linux    # Linux/amd64   → ./cee-exporter
 make build-windows  # Windows/amd64 → ./cee-exporter.exe
+make build-darwin   # macOS/native  → ./cee-exporter-darwin
 make test
 make lint
 ```
+
+(`make build` alone runs `go build -v ./...` to check compilation — it produces no binary.)
 
 ## Documentation
 

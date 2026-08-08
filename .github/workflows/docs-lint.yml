@@ -72,12 +72,21 @@ jobs:
       #   line) still leaves a co-located phantom key, in either spelling of
       #   the link, standing and failing the build.
       #
-      #   acme_staging: the only legitimate occurrence is inside
+      #   acme_staging: the only legitimate occurrences are inside
       #   ADR-011-tls-certificate-automation.md's own Consequences section
-      #   (the preserved original claim plus its correction banner) — no
-      #   other file's line ever combines "acme_staging" with a mention of
-      #   ADR-011, so a straight file-path anchor is precise here and does
-      #   not need substring surgery.
+      #   (the preserved original claim plus its correction banner) and
+      #   docs/PROMISES.md's row naming both retired phantom keys by name —
+      #   no other file's line ever combines "acme_staging" with a mention of
+      #   either of those two files, so a straight file-path anchor is
+      #   precise here and does not need substring surgery.
+      #
+      #   docs/PROMISES.md itself names both "binary-evtx" and "acme_staging"
+      #   in one row, as the worked example of what this guard exists to
+      #   catch — the row does not re-document either as a usable config
+      #   value, so it is exempted from the binary-evtx scan the same way
+      #   docs/research/** and docs/superpowers/** are (blanket, single-file),
+      #   and from the acme_staging scan the same way ADR-011 is (path
+      #   anchor).
       - name: Reject documented-but-nonexistent config keys
         run: |
           set -euo pipefail
@@ -93,6 +102,7 @@ jobs:
           if grep -rn 'binary-evtx' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
                --exclude-dir=research --exclude-dir=superpowers --exclude-dir=archive \
+               --exclude=PROMISES.md \
              | sed -E 's#\(adr/ADR-004-binary-evtx-deferred\.md\)##g; s#\(ADR-004-binary-evtx-deferred\.md\)##g; s#\(adr/ADR-009-binary-evtx-scratch\.md\)##g; s#\(ADR-009-binary-evtx-scratch\.md\)##g' \
              | grep 'binary-evtx'; then
             echo "::error::'binary-evtx' is not a valid output type. Use 'evtx'."
@@ -100,13 +110,15 @@ jobs:
           fi
 
           # acme_staging — no such field in ListenConfig. Anchored to the
-          # start of the line so only hits whose SOURCE FILE is ADR-011 are
-          # exempt — a line in any other file that merely mentions ADR-011's
-          # filename as text does not match this anchor and still fails.
+          # start of the line so only hits whose SOURCE FILE is ADR-011 or
+          # PROMISES.md are exempt — a line in any other file that merely
+          # mentions one of those filenames as text does not match this
+          # anchor and still fails.
           if grep -rn 'acme_staging' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
                --exclude-dir=research --exclude-dir=superpowers --exclude-dir=archive \
-             | grep -v '^docs/adr/ADR-011-tls-certificate-automation\.md:'; then
+             | grep -v '^docs/adr/ADR-011-tls-certificate-automation\.md:' \
+             | grep -v '^docs/PROMISES\.md:'; then
             echo "::error::'acme_staging' does not exist in ListenConfig."
             fail=1
           fi

@@ -1,5 +1,7 @@
 # Phase 8: TLS Certificate Automation with Let's Encrypt - Research
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented (for example, an `acme_staging` config option — see [ADR-011](../adr/ADR-011-tls-certificate-automation.md)). For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Researched:** 2026-03-03
 **Domain:** TLS/ACME certificate automation in Go, Dell PowerStore CEPA protocol constraints
 **Confidence:** MEDIUM-HIGH (CEPA TLS support is MEDIUM; Go autocert is HIGH from official docs)
