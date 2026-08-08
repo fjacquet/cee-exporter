@@ -1,5 +1,7 @@
 # Phase 5: Windows Service - Research
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Researched:** 2026-03-03
 **Domain:** Windows Service Control Manager (SCM) integration in Go — CGO_ENABLED=0
 **Confidence:** HIGH

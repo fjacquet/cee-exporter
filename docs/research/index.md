@@ -7,6 +7,12 @@ and code examples verified for a specific feature area.
 Research was conducted on **2026-03-03** with high confidence ratings derived from direct
 codebase inspection and official library documentation.
 
+> **This archive is historical.** It records what was investigated and recommended
+> at the time, before implementation decisions were finalized — it is not current
+> operator guidance. Some recommendations here (for example, an `acme_staging`
+> config option) were never implemented. For current configuration, see the
+> [Operator Guide](../operator-guide.md).
+
 ---
 
 ## Project-level research

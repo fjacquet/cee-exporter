@@ -5,6 +5,10 @@ project_name: cee-exporter
 before:
   hooks:
     - go mod tidy
+    # The scratch image needs a CA bundle in the build context. The system
+    # bundle exists at this path on the Linux release runner; the curl
+    # fallback covers macOS and any host without it.
+    - sh -c "cp /etc/ssl/certs/ca-certificates.crt . 2>/dev/null || curl -sSfLo ca-certificates.crt https://curl.se/ca/cacert.pem"
 
 builds:
   - id: cee-exporter
@@ -22,7 +26,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w
+      - -s -w -X main.version={{ .Version }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
@@ -33,6 +37,7 @@ archives:
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
       - README.md
+      - LICENSE
     format_overrides:
       - goos: windows
         formats:
@@ -41,6 +46,32 @@ archives:
 checksum:
   name_template: checksums.txt
   algorithm: sha256
+
+# dockers_v2 (goreleaser >= 2.12) builds a single multi-arch manifest via
+# buildx directly — the older dockers:/docker_manifests: pair is deprecated
+# and the Makefile already pins GORELEASER_VERSION to 2.12.0, so we target
+# the current mechanism instead of the one being phased out.
+dockers_v2:
+  - id: cee-exporter
+    ids:
+      - cee-exporter
+    dockerfile: Dockerfile.goreleaser
+    images:
+      - ghcr.io/fjacquet/cee-exporter
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    extra_files:
+      - ca-certificates.crt
+    labels:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.source: "{{ .GitURL }}"
+      org.opencontainers.image.licenses: MIT
 
 sboms:
   - id: cyclonedx-gomod

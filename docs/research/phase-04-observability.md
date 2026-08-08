@@ -1,5 +1,7 @@
 # Phase 4: Observability & Linux Service - Research
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Researched:** 2026-03-03
 **Domain:** Prometheus /metrics endpoint (prometheus/client_golang), systemd unit file hardening
 **Confidence:** HIGH

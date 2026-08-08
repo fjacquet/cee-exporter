@@ -34,15 +34,17 @@ cee-exporter.exe -config config.toml
 
 ### Build from source
 
-Requires Go 1.21+. No CGO required.
+Requires Go 1.26.5. No CGO required.
 
 ```bash
 git clone https://github.com/fjacquet/cee-exporter.git
 cd cee-exporter
 
-make build          # Linux/amd64  → ./cee-exporter
+make build-linux    # Linux/amd64   → ./cee-exporter
 make build-windows  # Windows/amd64 → ./cee-exporter.exe
 ```
+
+(`make build` alone runs `go build -v ./...` to check compilation — it produces no binary.)
 
 ---
 
@@ -72,36 +74,11 @@ addr = "0.0.0.0:12228"
 
 ### Full config reference
 
-```toml
-# Optional: override the hostname embedded in every event.
-# Defaults to os.Hostname() if not set.
-hostname = ""
-
-[listen]
-addr      = "0.0.0.0:12228"  # TCP address and port to listen on
-tls       = false             # Enable HTTPS/TLS
-cert_file = ""                # Path to TLS certificate (PEM)
-key_file  = ""                # Path to TLS private key (PEM)
-
-[output]
-type          = "gelf"        # Output type: "gelf" | "evtx" | "multi"
-targets       = []            # For type="multi": list of types to fan-out to
-evtx_path     = ""            # For type="evtx": path to .evtx output directory
-gelf_host     = "localhost"   # GELF receiver hostname/IP
-gelf_port     = 12201         # GELF receiver port
-gelf_protocol = "udp"         # "tcp" or "udp"
-gelf_tls      = false         # Wrap TCP in TLS (requires gelf_protocol = "tcp")
-
-[queue]
-capacity = 100000             # Maximum events buffered in memory
-workers  = 4                  # Concurrent writer goroutines
-
-[logging]
-level  = "info"               # debug | info | warn | error
-format = "json"               # json | text
-```
-
-### TLS config reference
+`ListenConfig` also accepts the legacy `tls = true` + `cert_file`/`key_file`
+combination for backward compatibility: if `tls_mode` is left unset, that
+combination is automatically migrated to `tls_mode = "manual"` at startup
+(`main.go`'s `migrateListenConfig`). New configs should set `tls_mode`
+directly — the fields below are the current, non-deprecated names.
 
 ```toml
 # Optional: override the hostname embedded in every event.
@@ -116,12 +93,12 @@ key_file      = ""               # tls_mode="manual": path to TLS private key (P
 acme_domains  = []               # tls_mode="acme": domain names for Let's Encrypt
 acme_email    = ""               # tls_mode="acme": contact email for Let's Encrypt
 acme_cache_dir = "/var/cache/cee-exporter/acme"  # tls_mode="acme": cert cache dir
-acme_staging  = false            # tls_mode="acme": use LE staging (dev/testing)
+acme_challenge_addr = ":443"     # tls_mode="acme": TLS-ALPN-01 challenge listener addr; must stay :443
 
 [output]
 type           = "gelf"         # Output type — see table below
 targets        = []             # type="multi": list of types to fan-out to
-evtx_path      = ""             # type="evtx" or "binary-evtx": output path
+evtx_path      = ""             # type="evtx": output path (non-Windows only)
 # GELF
 gelf_host      = "localhost"
 gelf_port      = 12201
@@ -146,7 +123,8 @@ level  = "info"                 # debug | info | warn | error
 format = "json"                 # json | text
 
 [metrics]
-addr = "0.0.0.0:9228"          # Prometheus /metrics listener
+enabled = true                 # Serve /metrics at all
+addr    = "0.0.0.0:9228"       # Prometheus /metrics listener
 ```
 
 ### Output types
@@ -154,10 +132,9 @@ addr = "0.0.0.0:9228"          # Prometheus /metrics listener
 | Type | Description | Platform |
 |------|-------------|----------|
 | `gelf` | GELF 1.1 JSON over UDP or TCP → Graylog | All |
-| `evtx` | Win32 `ReportEvent` → Windows Application Event Log | Windows |
+| `evtx` | Win32 EventLog API on Windows; native `.evtx` files on all other platforms | All |
 | `syslog` | RFC 5424 structured syslog over UDP or TCP (RFC 6587 framing for TCP) | All |
 | `beats` | Lumberjack v2 to Logstash / Graylog Beats Input (± TLS) | All |
-| `binary-evtx` | Native `.evtx` files readable by Windows Event Viewer | Non-Windows |
 | `multi` | Fan-out to any combination of the above | All |
 
 ### Multi-target example
@@ -188,15 +165,37 @@ beats_tls  = true
 
 Logstash must have a [Beats input](https://www.elastic.co/guide/en/logstash/current/plugins-inputs-beats.html) configured on port 5044. Graylog also supports the Beats protocol via its Beats Input plugin.
 
-### Binary EVTX output (Linux)
+### EVTX output (rotation and retention)
 
 ```toml
 [output]
-type      = "binary-evtx"
+type      = "evtx"
 evtx_path = "/var/log/cee-exporter/audit.evtx"
+
+flush_interval_s    = 15
+max_file_size_mb    = 100
+max_file_count      = 10
+rotation_interval_h = 24
 ```
 
-Generates a native Windows `.evtx` file that can be opened directly in Windows Event Viewer or parsed by forensics tools (Splunk, Elastic Agent, Velociraptor). Only available on non-Windows platforms — on Windows, use `type = "evtx"` for direct Win32 Event Log writing.
+On Windows this same configuration routes to the Win32 EventLog API and
+`evtx_path` is ignored — the platform decides, there is no separate type.
+
+### Triggering rotation manually
+
+On non-Windows platforms, `SIGHUP` rotates the active `.evtx` file immediately —
+the current chunk is finalised, the file is renamed to a timestamped archive,
+and a fresh file is opened.
+
+```bash
+systemctl reload cee-exporter   # if RestartMode is configured for reload
+# or:
+kill -HUP "$(pidof cee-exporter)"
+```
+
+Only the EVTX writer implements rotation. Sending `SIGHUP` while a network
+backend is configured is a no-op. `SIGHUP` is not a Windows signal; the handler
+is compiled out there.
 
 ---
 
@@ -206,6 +205,10 @@ On Windows, `cee-exporter.exe` can register itself with the Windows Service Cont
 Manager (SCM) for automatic startup and restart on failure.
 
 > Run all service management commands from an **Administrator** command prompt.
+
+> **Verification status:** this project has no Windows CI runner, so
+> `install`/`uninstall`/crash-restart behaviour is correct by code inspection
+> only, not exercised by any automated test. See [docs/PROMISES.md](PROMISES.md).
 
 ```powershell
 # Register the service (Delayed Auto-Start, restarts on failure after 5 s)
@@ -248,22 +251,38 @@ cee-exporter registers with these recovery settings automatically at install:
 A systemd unit file is included for production deployments:
 
 ```bash
-# Copy the binary and unit file
-install -m 755 cee-exporter /usr/local/bin/
-install -m 644 systemd/cee-exporter.service /etc/systemd/system/
+# From a repo checkout:
+sudo make install-systemd
+sudo install -m 644 config.toml /etc/cee-exporter/config.toml
 
-# Place your config
-mkdir -p /etc/cee-exporter
-cp config.toml /etc/cee-exporter/config.toml
+# Or manually:
+sudo install -m 755 cee-exporter /usr/local/bin/cee-exporter
+sudo install -d -m 755 /etc/cee-exporter
+sudo install -m 644 config.toml /etc/cee-exporter/config.toml
+sudo install -m 644 deploy/systemd/cee-exporter.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now cee-exporter
 
-# Enable and start
-systemctl daemon-reload
-systemctl enable --now cee-exporter
-
-# Check status
+# Verify:
 systemctl status cee-exporter
 journalctl -u cee-exporter -f
 ```
+
+The unit uses `DynamicUser=yes`, so there is no system account to create.
+systemd provisions a transient UID on each start and creates
+`/var/log/cee-exporter` and `/var/lib/cee-exporter` with the right ownership.
+
+**`config.toml` must stay world-readable (mode 644), not 640 or 600.**
+`DynamicUser=yes` runs the daemon under a transient per-start UID/GID that
+belongs to no group but its own, so a group-restricted config file is
+unreadable to it and the service crash-loops (`Restart=on-failure` restarting
+a process that immediately exits on a config-read error). This is safe
+because `config.toml` holds no secrets — only paths and settings, including
+paths to certificate/key files, never their contents. Anything actually
+sensitive (API tokens, ACME account credentials, etc.) belongs in
+`/etc/cee-exporter/env` instead, loaded via `EnvironmentFile=-` in the unit;
+keep that file root-only (`600`) since it is read by systemd itself before
+the process drops privileges, not by the dynamic user.
 
 ---
 
@@ -283,8 +302,11 @@ Available metrics:
 | `cee_events_received_total` | Counter | Events received from PowerStore |
 | `cee_events_written_total` | Counter | Events successfully forwarded |
 | `cee_events_dropped_total` | Counter | Events dropped (queue full) |
+| `cee_events_truncated_total` | Counter | Events with at least one field capped before the EVTX writer |
 | `cee_writer_errors_total` | Counter | Writer backend errors |
 | `cee_queue_depth` | Gauge | Current event queue depth |
+| `cee_last_fsync_unix_seconds` | Gauge | Unix timestamp of the last successful fsync to the EVTX file. 0 = none yet; alert when `time() - this > flush_interval_s * 2` |
+| `cee_build_info` | Gauge | Always 1; labelled with `version` and `go_version` — join on it to correlate other metrics with a release |
 
 Example Prometheus scrape config:
 
@@ -359,11 +381,10 @@ CEPA listener on 12228. The certificate is automatically renewed 30 days before 
 - Port 443/TCP must be reachable from the internet
 - `acme_cache_dir` must be on persistent storage (mount a volume if using Docker)
 - On Linux: the systemd unit must have `AmbientCapabilities=CAP_NET_BIND_SERVICE`
-- During development: set `acme_staging = true` to avoid Let's Encrypt rate limits
 
-```toml
-acme_staging = true  # Remove this line for production
-```
+There is no staging toggle. `tls_mode = "acme"` always uses the Let's Encrypt
+production directory, which is rate-limited. For development, use
+`tls_mode = "self-signed"` instead.
 
 ### Mode: `self-signed` — runtime-generated certificate
 
@@ -426,28 +447,55 @@ CEPA (Common Event Publishing Agent) is the PowerStore mechanism that sends file
 
 ## Health endpoint
 
-`GET /health` returns a JSON object with operational status. HTTP 200 = healthy; HTTP 503 = degraded.
+`GET /health` returns a JSON object with operational status. **The HTTP status
+code is always 200, deliberately** — degradation is signalled only by the
+`"status"` field in the body (`"ok"` or `"degraded"`, the latter once any
+events have been dropped). This is a design decision, not a gap: a 503 here
+would pull a probed pod out of its Kubernetes Service (readiness) or restart
+the container (liveness) exactly when the queue is overflowing, losing
+*every* event instead of the fraction already being dropped, and it would
+contradict the CEPA reliability principle that this daemon never tells
+PowerStore the endpoint is unreachable. Do not point a liveness/readiness
+probe or load-balancer health check at this endpoint expecting a non-200 on
+degradation — it will not fire, and it is not supposed to.
+
+For alerting on degradation, scrape `cee_queue_depth` and
+`cee_events_dropped_total` from `/metrics` instead (see
+[Prometheus metrics](#prometheus-metrics) below) — a rising queue depth or a
+nonzero, climbing drop counter is the actual signal. See
+[docs/PROMISES.md](PROMISES.md) for this endpoint's verification status.
 
 ```bash
 curl http://localhost:12228/health
 ```
 
-Example response:
+Example response (field names and nesting match `pkg/server/health.go`'s
+`healthResponse` struct exactly):
 
 ```json
 {
   "status": "ok",
-  "uptime": "2h34m",
-  "writer_type": "gelf",
-  "writer_addr": "192.168.1.50:12201",
-  "tls_enabled": false,
+  "uptime_seconds": 9240,
+  "queue_depth": 0,
   "events_received_total": 14823,
   "events_written_total": 14823,
   "events_dropped_total": 0,
-  "queue_depth": 0,
-  "last_event_at": "2026-03-03T08:15:42Z"
+  "last_event_at": "2026-03-03T08:15:42Z",
+  "writer": {
+    "type": "gelf",
+    "target": "192.168.1.50:12201",
+    "healthy": true
+  },
+  "tls": {
+    "enabled": false
+  }
 }
 ```
+
+When TLS is enabled, `tls` additionally carries `cert_expiry` (`YYYY-MM-DD`)
+and `days_remaining`, computed fresh on every request — see the cert-expiry
+note above; the same computation also emits the `tls_cert_expiry_soon`
+warning log line when fewer than 30 days remain.
 
 ---
 

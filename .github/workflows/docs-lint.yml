@@ -1,0 +1,298 @@
+name: Docs Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  no-phantom-config:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Guards against reintroducing config keys the code does not accept.
+      # Both of these were documented for months: type = "binary-evtx" is
+      # rejected at startup, and acme_staging silently no-ops. This job checks
+      # only these two specific, previously-real phantom keys returning — it
+      # is not a general "no undocumented config key" scanner, and the second
+      # step below checks only that five output *type values* have a case in
+      # buildWriter, not that every documented *key* exists in some struct.
+      # A brand-new phantom key, under either check, would not be caught here.
+      #
+      # config.toml.example is passed to grep -r alongside a directory (docs/),
+      # and GNU grep applies --include filters to explicitly-named files too,
+      # not only to files found while walking a directory — so config.toml.example
+      # needs its own --include='*.example' glob, or grep silently skips it
+      # while still matching config.toml's own contents (found in a 2026-08-08
+      # whole-branch review: the guard scanned the config file operators rarely
+      # touch and skipped the template they actually copy — the exact failure
+      # mode Task 6 existed to close). Both checks below carry the fix.
+      #
+      # Exemptions below are per-FILE, not per-directory-as-a-whole, and each
+      # names exactly why. This matters: docs/v2-research.md and docs/adr/ are
+      # linked from docs/index.md's "Documentation" list (mkdocs also builds
+      # every .md under docs_dir regardless of nav membership), so they are
+      # published, reachable pages, not blanket-exempt just for being "docs".
+      # Only docs/research/** and docs/superpowers/** are excluded wholesale:
+      #   docs/research/** — dated phase-by-phase research archive; every file
+      #                       in it (all 14, as of 2026-08-08) carries a
+      #                       banner marking it historical, not current
+      #                       guidance (the tree is not yet in mkdocs nav).
+      #   docs/superpowers/** — planning/spec working docs that describe the
+      #                          bug this very workflow guards against.
+      #   docs/archive/** — the retired .planning/ process archive (moved
+      #                     2026-08-08). Its RESEARCH/PLAN/SUMMARY files
+      #                     predate both phantom keys being caught and
+      #                     legitimately describe the pre-fix design (e.g.
+      #                     "binary-evtx" as the originally planned output
+      #                     type name, "acme_staging" as a once-proposed
+      #                     field). mkdocs excludes this tree from the built
+      #                     site via exclude_docs, so it is not published
+      #                     guidance either. See docs/archive/planning/README.md.
+      # Everything else, including docs/adr/ and docs/v2-research.md, IS
+      # scanned. Two distinct exemption shapes are used below, chosen per
+      # where the legitimate occurrence actually lives (verified by running
+      # the greps, not assumed) — a *file-content* match is not the same
+      # thing as a *file-path* match, and conflating them either reopens a
+      # co-location bypass or turns the guard permanently red on a real link:
+      #
+      #   binary-evtx: ADR-004-binary-evtx-deferred.md and
+      #   ADR-009-binary-evtx-scratch.md never use the literal lowercase
+      #   "binary-evtx" string in their own body (only "BinaryEvtxWriter"),
+      #   so anchoring to *those files'* path prefix would exempt nothing —
+      #   the real hits are the markdown links to them from docs/index.md and
+      #   docs/v2-research.md. Anchoring by *source file* there would exempt
+      #   those files wholesale, hiding a phantom key placed anywhere else on
+      #   the same page — including docs/index.md, one of the two files this
+      #   guard exists to protect. So this check strips only the exact link
+      #   target substring "(adr/ADR-00{4,9}-...-....md)" from each hit line
+      #   and re-checks what's left: a bare link disappears, but
+      #   `type = "binary-evtx"` sitting next to that same link on one line
+      #   survives and still fails the build.
+      #
+      #   Two link-target spellings exist for each of those two ADRs: the
+      #   `adr/`-prefixed form used by every file outside docs/adr/ (e.g.
+      #   docs/index.md, which sits at docs_dir root), and the bare form
+      #   used by a same-directory link from another file inside docs/adr/
+      #   itself (e.g. ADR-014 linking to sibling ADR-009 as
+      #   "(ADR-009-binary-evtx-scratch.md)", with no `adr/` prefix, because
+      #   that IS the correct relative path from one docs/adr/ file to
+      #   another). Both spellings are stripped, independently, per ADR — a
+      #   real cross-reference in either style must not fail the build, and
+      #   stripping only the link-target substring (never the rest of the
+      #   line) still leaves a co-located phantom key, in either spelling of
+      #   the link, standing and failing the build.
+      #
+      #   acme_staging: the only legitimate occurrence outside docs/PROMISES.md
+      #   is inside ADR-011-tls-certificate-automation.md's own Consequences
+      #   section (the preserved original claim plus its correction banner) —
+      #   no other file's line ever combines "acme_staging" with a mention of
+      #   that file, so a straight file-path anchor is precise there and does
+      #   not need substring surgery.
+      #
+      #   docs/PROMISES.md itself names both "binary-evtx" and "acme_staging"
+      #   in one row, as the worked example of what this guard exists to
+      #   catch — the row does not re-document either as a usable config
+      #   value. A blanket file exemption for PROMISES.md would be the one
+      #   imprecise exemption in the guard: it would exempt PROMISES.md's
+      #   authority itself, the exact file this guard's own citations are
+      #   supposed to be trustworthy against, so a *future* row re-documenting
+      #   either string as usable would slip through uncaught. So both checks
+      #   below use the identical substring-stripping idiom — the same one
+      #   used for the two ADR links above — mirrored at each other: the
+      #   binary-evtx check strips only `type = "binary-evtx"` from lines that
+      #   are BOTH from docs/PROMISES.md AND already mention "acme_staging",
+      #   and the acme_staging check strips only `acme_staging` from lines
+      #   that are BOTH from docs/PROMISES.md AND already mention
+      #   "binary-evtx". Both anchor to the same one worked-example row this
+      #   file is expected to contain — it's one mechanism mirrored, not two —
+      #   so a phantom-key mention added anywhere else in PROMISES.md, not
+      #   co-located with its counterpart string on the same line, still
+      #   fails the build. This removes PROMISES.md's exemption specifically
+      #   from the whole-file to the single-row class, matching the ADR-004/
+      #   ADR-009 link-stripping precision above. It is not true that no
+      #   whole-file exemption remains anywhere in this guard — docs/research/**,
+      #   docs/superpowers/**, and docs/archive/** are still excluded wholesale
+      #   (see above), and ADR-011's acme_staging occurrence is still exempted
+      #   by a file-path anchor, not row-level surgery, because its legitimate
+      #   content is a whole section, not one line. What changed is narrower:
+      #   docs/PROMISES.md is no longer among the whole-file exemptions.
+      #   (A prior version of this comment claimed "no whole-file exemption
+      #   remains in this guard" — that overstated the fix; corrected
+      #   2026-08-08 in the same review round that added the --include='*.example'
+      #   fix above.)
+      - name: Reject documented-but-nonexistent config keys
+        run: |
+          set -euo pipefail
+          fail=0
+
+          # type = "binary-evtx" — not in buildWriter's switch. Strips only
+          # the exact markdown link target for the two historical ADRs, in
+          # both the adr/-prefixed and bare-filename spellings, then
+          # re-checks the remainder of each line — so a phantom-key line
+          # placed next to one of those links (e.g. in docs/index.md itself,
+          # or in another docs/adr/*.md file linking to a sibling ADR)
+          # still fails, while the links themselves do not.
+          if grep -rn 'binary-evtx' docs/ README.md config.toml config.toml.example \
+               --include='*.md' --include='*.toml' --include='*.example' \
+               --exclude-dir=research --exclude-dir=superpowers --exclude-dir=archive \
+             | sed -E 's#\(adr/ADR-004-binary-evtx-deferred\.md\)##g; s#\(ADR-004-binary-evtx-deferred\.md\)##g; s#\(adr/ADR-009-binary-evtx-scratch\.md\)##g; s#\(ADR-009-binary-evtx-scratch\.md\)##g' \
+             | sed -E '/^docs\/PROMISES\.md:.*acme_staging/ s/`type = "binary-evtx"`//g' \
+             | grep 'binary-evtx'; then
+            echo "::error::'binary-evtx' is not a valid output type. Use 'evtx'."
+            fail=1
+          fi
+
+          # acme_staging — no such field in ListenConfig. ADR-011's own
+          # occurrence is exempted by a file-path anchor (its whole
+          # Consequences section is the legitimate content, not one line).
+          # docs/PROMISES.md's occurrence is exempted by stripping only the
+          # exact known-safe substring from the one line that is BOTH from
+          # docs/PROMISES.md AND already mentions "binary-evtx" — the mirror
+          # of the binary-evtx check's PROMISES.md exemption below. A line in
+          # any other file, or a PROMISES.md line that doesn't also name
+          # binary-evtx, does not match and still fails.
+          if grep -rn 'acme_staging' docs/ README.md config.toml config.toml.example \
+               --include='*.md' --include='*.toml' --include='*.example' \
+               --exclude-dir=research --exclude-dir=superpowers --exclude-dir=archive \
+             | grep -v '^docs/adr/ADR-011-tls-certificate-automation\.md:' \
+             | sed -E '/^docs\/PROMISES\.md:.*binary-evtx/ s/`acme_staging`//g' \
+             | grep 'acme_staging'; then
+            echo "::error::'acme_staging' does not exist in ListenConfig."
+            fail=1
+          fi
+
+          exit $fail
+
+      # Every documented output type must appear in buildWriter's switch.
+      - name: Verify documented output types exist in code
+        run: |
+          set -euo pipefail
+          for t in gelf evtx multi syslog beats; do
+            grep -q "case \"$t\":" cmd/cee-exporter/main.go \
+              || { echo "::error::documented type '$t' has no case in buildWriter"; exit 1; }
+          done
+
+      # Found by a 2026-08-08 whole-branch review: a fabricated docs/PROMISES.md
+      # row citing `pkg/evtx/crypto_test.go::TestAtRestEncryption` — a file that
+      # does not exist — passed every check above (make ci, make docs,
+      # no-phantom-config). Nothing validated a single word of PROMISES.md's
+      # own content; its accuracy was a fact about the people who wrote it, not
+      # about the machinery. This step closes the single most common shape a
+      # future false citation will take: extract every `\bTest[A-Z]...`
+      # substring from docs/PROMISES.md and docs/requirements.md (the fuller
+      # per-requirement traceability PROMISES.md itself points readers to, and
+      # an equally citation-bearing document) and fail if any does not name a
+      # real `func` in some `*_test.go` file.
+      #
+      # The pattern requires a word boundary before "Test" and an uppercase
+      # letter immediately after it — Go's own convention for a recognized
+      # test function (`func TestXxx`, `Xxx` not starting lowercase) — rather
+      # than the unanchored `Test[A-Za-z0-9_]*` this started as, which would
+      # match the ordinary word "Testing" anywhere it appears in either file
+      # and fail the build on a false alarm with no real citation involved.
+      # Verified this still extracts the identical 31/29 name sets from
+      # docs/PROMISES.md/docs/requirements.md, rejects "Testing", and still
+      # matches a real citation sitting on the same line as that word.
+      #
+      # One name is allowed to not resolve: TestBinaryEvtxWriter_Rotate, cited
+      # in PROMISES.md's SIGHUP row as the test that would exist if EVTX
+      # rotation were verified, and explicitly isn't — evidence of an absence,
+      # not a citation of a verifying job. Add to the allowlist only for a
+      # citation of that same shape, with a comment saying why, the same as
+      # every other exemption in this file.
+      #
+      # Known gaps, both benign today: this validates function *names*, not
+      # file *paths* — a citation naming a real function that actually lives
+      # in a different file than the one written next to it would still pass
+      # — and a real name written with no separator immediately before or
+      # after other identifier characters (e.g. two names run together as one
+      # word) is extracted as that single longer token, not the real name
+      # inside it, so it is checked as written rather than as intended.
+      # Neither has occurred in this file to date.
+      - name: Verify docs/PROMISES.md and docs/requirements.md cite real tests
+        run: |
+          set -euo pipefail
+          fail=0
+          allowlist=" TestBinaryEvtxWriter_Rotate "
+          for f in docs/PROMISES.md docs/requirements.md; do
+            for name in $(grep -oE '\bTest[A-Z][A-Za-z0-9_]*' "$f" | sort -u); do
+              case "$allowlist" in
+                *" $name "*) continue ;;
+              esac
+              if ! grep -rq "func ${name}(" --include='*_test.go' .; then
+                echo "::error::$f cites '$name', which is not a func in any *_test.go file"
+                fail=1
+              fi
+            done
+          done
+          exit $fail
+
+      # Verifies every Status cell in docs/PROMISES.md's tables uses one of the
+      # four vocabulary terms the file's own preamble defines — Verified,
+      # Verified (partial), Verified (manual), Unverified — optionally followed
+      # by free-text explanation, so a new row can't invent a fifth status or
+      # misspell one. Table cells are split on `|`, but a handful of cells
+      # contain a literal, backslash-escaped `\|` (markdown's own escape for a
+      # pipe character inside a cell, e.g. a `grep 'foo\|bar'` example) — those
+      # are swapped for a placeholder byte before splitting and restored after,
+      # so that escaped pipe doesn't get mistaken for a column boundary.
+      #
+      # Each alternative below is anchored to a *closing* delimiter, not a bare
+      # prefix, specifically so a misspelling or an invented extension of a
+      # real term is rejected rather than silently passing through a `term*`
+      # glob (found in a 2026-08-08 review: `Verified*` matched "Verifiedd
+      # nonsense", and a bare-word `Verified` has no natural terminator other
+      # than an exact match, so it gets none — no `Verified*` alternative
+      # exists at all, only the literal word). The bold terms are each
+      # protected by their own closing `**`: `'**Verified (partial)**'*`
+      # requires the literal substring `(partial)**` to appear intact, so
+      # "**Verified (partially)**" fails to match (the required `)**` never
+      # occurs at that position) exactly as intended. The one shape needing a
+      # dedicated alternative is "**Unverified — <reason>**; <more text>",
+      # where the qualifier sits *inside* the bold markers before they close —
+      # `'**Unverified —'*` is safe on its own because the literal
+      # space-em-dash-space immediately after "Unverified" is itself a
+      # non-alphabetic character, so nothing can be inserted between the word
+      # and that boundary without breaking the match.
+      #
+      # The row extractor below matters as much as the vocabulary it checks
+      # against, found in the same review: `/^\| /` (pipe-then-space) rejects
+      # three ordinary markdown row shapes outright, so they never reach the
+      # vocabulary check at all — `|c|s|v|Bogus|` (no space after the leading
+      # pipe), ` | c | s | v | Bogus |` (markdown permits up to three leading
+      # spaces before a table row), and, worst, `| c | s | v |  |` (an EMPTY
+      # status cell — a new claim landing with no job at all, exactly the
+      # failure this file exists to prevent, previously skipped twice over: by
+      # the strict `/^\| /` anchor, and again by the `[ -z "$cell" ]` guard
+      # below). Matches 0-3 leading spaces before the pipe, the range markdown
+      # itself allows, and separately excludes the table's own separator row
+      # (`|---|---|---|---|`) — which the old `/^\| /` pattern excluded only
+      # as an accident of also requiring a space right after the first pipe,
+      # a property the separator row happens not to have. The `[ -z ]` skip
+      # is gone: an empty cell now falls through to the vocabulary `case` and
+      # fails it, as it should.
+      - name: Verify docs/PROMISES.md status cells use the defined vocabulary
+        run: |
+          set -euo pipefail
+          fail=0
+          while IFS= read -r cell; do
+            [ "$cell" = "Status" ] && continue
+            case "$cell" in
+              'Verified') ;;
+              '**Verified**'|'**Verified**'*) ;;
+              '**Verified (partial)**'|'**Verified (partial)**'*) ;;
+              '**Verified (manual)**'|'**Verified (manual)**'*) ;;
+              '**Unverified**'|'**Unverified**'*) ;;
+              '**Unverified —'*) ;;
+              *)
+                echo "::error::docs/PROMISES.md has a Status cell outside the defined vocabulary: $cell"
+                fail=1
+                ;;
+            esac
+          done < <(sed 's/\\|/\x01/g' docs/PROMISES.md | awk -F'|' '/^[[:space:]]{0,3}\|/ && !/^[[:space:]]{0,3}\|[[:space:]]*-/ && NF>=5 {print $(NF-1)}' | sed 's/\x01/\\|/g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          exit $fail

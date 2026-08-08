@@ -1,6 +1,11 @@
 # ADR-009: Implement BinaryEvtxWriter from scratch (no library exists)
 
-**Status:** accepted
+**Status:** Superseded by [ADR-014](ADR-014-go-evtx-library-extraction.md)
+
+> The decision recorded below was reversed. The writer was extracted to the
+> `github.com/fjacquet/go-evtx` library in commit `29ed067`. In particular the
+> claim at the end of this document that no new production dependencies were
+> added to `go.mod` is no longer true.
 
 ## Context
 

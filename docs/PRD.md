@@ -81,7 +81,7 @@ syslog receivers, native Windows Event Log, or standalone `.evtx` files on Linux
 
 ## Functional Requirements
 
-Full requirement list: see [REQUIREMENTS.md](.planning/REQUIREMENTS.md)
+Full requirement list: see [requirements.md](requirements.md)
 
 ### v1.0 (delivered)
 
@@ -111,9 +111,15 @@ Full requirement list: see [REQUIREMENTS.md](.planning/REQUIREMENTS.md)
 | OUT-03 | SyslogWriter: RFC 5424 over UDP | 06 | ADR-008 |
 | OUT-04 | SyslogWriter: RFC 5424 over TCP (octet-counting) | 06 | ADR-008 |
 | OUT-05 | BinaryEvtxWriter: native `.evtx` on Linux | 07 | ADR-009 |
-| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 |
+| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — **not yet verified; no Windows Event Viewer available in CI or this environment. Tracked as go-evtx F6; see [docs/PROMISES.md](PROMISES.md)** |
 | TLS-03 | `tls_mode="acme"` auto-provisions via Let's Encrypt | 08 | ADR-011 |
 | TLS-04 | `tls_mode="self-signed"` for air-gapped deployments | 08 | ADR-011 |
+
+**Verification status:** see [docs/requirements.md](requirements.md) for the
+per-requirement traceability and [docs/PROMISES.md](PROMISES.md) for every
+user-facing claim's verifying job. Several v2.0 rows above — notably
+DEPLOY-03 through DEPLOY-05 (Windows Service) and OUT-06 above — have no
+automated check today; there is no Windows CI runner in this project.
 
 ---
 
@@ -121,10 +127,10 @@ Full requirement list: see [REQUIREMENTS.md](.planning/REQUIREMENTS.md)
 
 - **Latency:** HTTP handler must ACK within 3 seconds (CEPA heartbeat constraint)
 - **Throughput:** Queue capacity 100,000 events default; handles VCAPS batches of thousands per PUT
-- **Portability:** Single binary; CGO_ENABLED=0; compiles for linux/amd64 and windows/amd64
+- **Portability:** Single binary; CGO_ENABLED=0; compiles for linux, windows, and macOS on amd64 and arm64 (see the platform table in `docs/index.md`)
 - **Reliability:** TCP GELF/Beats reconnects automatically; failed backend does not block others (MultiWriter)
 - **Observability:** Health endpoint, Prometheus metrics, and structured logs on every received batch
-- **Security:** All new writer transport supports TLS; CEPA listener TLS documented with protocol caveat
+- **Security:** GELF and Beats writer transport supports TLS; the syslog writer does not (`SyslogConfig` has no TLS field — RFC 5425 TLS transport is deferred, see `docs/requirements.md`'s Deferred Requirements table, `OUT-F03`) — see [docs/PROMISES.md](PROMISES.md); CEPA listener TLS documented with protocol caveat
 
 ---
 
@@ -157,21 +163,32 @@ For architectural decisions, see `docs/adr/`.
 
 | Package | Version | Purpose | Notes |
 |---------|---------|---------|-------|
-| `github.com/kardianos/service` | v1.2.4 | Windows SCM integration | Supersedes x/sys direct (ADR-010) |
+| `github.com/kardianos/service` | v1.3.0 | Windows SCM integration | Supersedes x/sys direct (ADR-010) |
 | `github.com/crewjam/rfc5424` | v0.1.0 | SyslogWriter RFC 5424 messages | CGO-free (ADR-008) |
-| `github.com/elastic/go-lumber` | v0.1.1 | BeatsWriter Lumberjack v2 | CGO-free |
-| `github.com/prometheus/client_golang` | v1.23.2 | Prometheus /metrics | CGO-free (ADR-006) |
-| `golang.org/x/crypto` (promoted) | v0.48.0 | ACME autocert (TLS-ALPN-01) | Was indirect dep (ADR-011) |
+| `github.com/elastic/go-lumber` | v0.2.0 | BeatsWriter Lumberjack v2 | CGO-free |
+| `github.com/prometheus/client_golang` | v1.24.1 | Prometheus /metrics | CGO-free (ADR-006) |
+| `golang.org/x/crypto` (promoted) | v0.54.0 | ACME autocert (TLS-ALPN-01) | Was indirect dep (ADR-011) |
+| `github.com/fjacquet/go-evtx` | v0.6.0 | BinaryEvtxWriter EVTX binary encoding | Extracted from cee-exporter (ADR-014, supersedes ADR-009) |
 
-**No new dependencies for:** BinaryEvtxWriter (stdlib only), systemd unit (text artifact).
+**No new dependencies for:** systemd unit (text artifact).
 
 ---
 
 ## Success Metrics
 
-- `go test ./...` passes with zero failures on Linux and Windows
-- `make build` and `make build-windows` produce runnable binaries
-- An operator can follow the README quickstart and see events in Graylog within 15 minutes
-- `cee-exporter.exe install` registers a service that survives reboot and restarts on failure
-- `.evtx` files generated on Linux open correctly in Windows Event Viewer
-- `curl :9228/metrics` returns Prometheus-formatted counters
+See [docs/PROMISES.md](PROMISES.md) for the verifying job behind each metric
+below; several are not yet checked by anything.
+
+- `go test ./...` passes with zero failures on Linux (CI-verified on every
+  push) — **not verified on Windows: there is no Windows CI runner**
+- `make build-linux` and `make build-windows` produce runnable binaries
+  (corrected from `make build`, which only runs `go build -v ./...` to check
+  compilation and produces no binary at all)
+- An operator can follow the README quickstart and see events in Graylog
+  within 15 minutes — **not verified by any automated or timed check**
+- `cee-exporter.exe install` registers a service that survives reboot and
+  restarts on failure — **not yet verified; no Windows CI runner**
+- `.evtx` files generated on Linux open correctly in Windows Event Viewer —
+  **not yet verified; tracked as go-evtx F6**
+- `curl :9228/metrics` returns Prometheus-formatted counters (verified —
+  `pkg/prometheus/handler_test.go`)

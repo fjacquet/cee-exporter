@@ -7,6 +7,168 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.3] - 2026-08-08
+
+Documentation and truth pass: closes a five-month gap between what the docs
+claimed and what the code actually did. See `docs/PROMISES.md` for the
+mechanism that is meant to prevent this from recurring.
+
+### Added
+
+- `LICENSE` (MIT) at the repo root and in every release archive — the README
+  badge had claimed MIT-licensed for months with no `LICENSE` file present
+- Build-stamped `-X main.version` reaches the running binary on every build
+  path (Makefile, Dockerfile, goreleaser); `cee_build_info` Prometheus gauge
+  exposes `version` and `go_version` labels
+- Docker image publishing wired into the release pipeline via goreleaser's
+  `dockers_v2` (multi-arch `linux/amd64` + `linux/arm64`, `Dockerfile.goreleaser`)
+- `docs/PROMISES.md` — maps every user-facing claim to the job that verifies
+  it; a claim with no job is labelled Unverified rather than left looking proven
+- Tests for the two CEPA protocol guarantees that were previously correct
+  only "by inspection": `TestServeHTTP_RegisterRequest_EmptyBody` (CEPA-01)
+  and `TestServeHTTP_ACKsBeforeQueueWork` / `TestServeHTTP_LargeBatchACKsWellUnder3s`
+  (the 3-second heartbeat ACK ordering)
+- `docs/requirements.md` — canonical, verification-checked requirement
+  traceability list, consolidated from the retired `.planning/` milestone documents
+- `CacheDirectory=cee-exporter` in the systemd unit, so the default
+  `acme_cache_dir` is writable out of the box under `tls_mode="acme"`
+  without operator action
+- CI guard (`docs-lint.yml`) rejecting documented-but-nonexistent config
+  keys (`type = "binary-evtx"`, `acme_staging`) from ever being reintroduced
+- Archive banners on the 13 uncaveated files under `docs/research/`, so a
+  direct link or search hit lands on the same "historical, not current
+  guidance" warning already shown at `docs/research/index.md`
+
+### Changed
+
+- `pkg/evtx/writer_windows.go` doc comment corrected: the event source is
+  registered via `InstallAsEventCreate`, which only carries message
+  definitions for event IDs 1–1000. IDs 4660/4663/4670 render as
+  "The description for Event ID … cannot be found" in Event Viewer and any
+  forwarder built on the Event Log API — the previous comment's claim that
+  IDs were "pre-registered via the message DLL path" and that "SIEM content
+  packs for 4663/4660/4670 work" was false
+- `.planning/` moved to `docs/archive/planning/`, excluded from the built
+  documentation site (`mkdocs.yml` `exclude_docs: archive/`)
+- `BinaryEvtxWriter.Close` made idempotent (a second call no longer propagates
+  a `go-evtx` "close of closed channel" panic); oversized event fields are now
+  capped before being handed to `go-evtx`, tracked via the new
+  `cee_events_truncated_total` counter, instead of risking record corruption
+- `docs/adr/ADR-014-go-evtx-library-extraction.md` written to record the
+  `BinaryEvtxWriter` → `github.com/fjacquet/go-evtx` extraction (already
+  shipped in `[4.0.0]`, commit `29ed067`) as an ADR for the first time;
+  `ADR-009` marked **Superseded by ADR-014** — it had stood at "Accepted"
+  with a "no new production dependencies" claim that stopped being true a
+  full milestone ago; `docs/PRD.md`'s dependency table corrected to match
+  `go.mod`
+
+### Fixed
+
+- Phantom config keys purged: `type = "binary-evtx"` (rejected at startup —
+  the real value is `evtx`) and `acme_staging` (never implemented; silently
+  ignored) were documented in the operator guide and config template for
+  months
+- Documentation reconciled with the shipped feature set: the README and
+  `docs/index.md` covered only GELF and Win32, omitting syslog, Beats,
+  Prometheus, ACME/self-signed TLS, and Windows Service; the stated Go
+  requirement (1.21+ / 1.24+ in different places) was three versions behind
+  `go.mod`'s 1.26.5; the platform table listed two targets against
+  goreleaser's six; `config.toml.example` was missing the syslog and Beats
+  fields `config.toml` already documented; the operator guide carried two
+  contradicting "full config reference" blocks; SIGHUP-triggered EVTX
+  rotation was implemented and documented nowhere; the metrics table listed
+  five of the eight series the code exposes
+
+## [4.1.2] - 2026-07-12
+
+### Changed
+
+- Go toolchain and dependencies updated to Go 1.26.5
+
+## [4.1.1] - 2026-06-20
+
+### Added
+
+- `.goreleaser.yaml` release configuration (`main: ./cmd/cee-exporter`)
+- Logo shown in the README; favicon and logo wired into the docs site
+
+### Changed
+
+- CI standardised on `fjacquet/ci` reusable workflows; `golangci-lint-action`
+  bumped v6 → v9 for v2 config support; the `security` job made advisory
+  (non-blocking)
+
+### Fixed
+
+- `LICENSE` dropped from the release archive template (the file did not
+  exist in the repo at the time — see `[4.1.3]`, which adds the file itself)
+
+## [4.1.0] - 2026-04-18
+
+### Added
+
+- `.golangci.yml` and CI wiring for `golangci-lint` plus the `-race` detector
+- Favicon and logo assets under `public/`
+
+### Changed
+
+- Shared writer helpers (`sendWithRetry`, `ShortMessage`, `hostPort`) and
+  `MultiWriter.Rotate()` extracted for reuse across writers
+- Additional test coverage: `MultiWriter`, shared writer helpers, the health
+  handler
+
+### Fixed
+
+- Stricter `RegisterRequest` detection
+- Write deadlines added to network writer connections
+- Directory-rename CEPA event mapping corrected
+- Leaked `net.Conn` connections on GELF/syslog reconnect now closed before
+  the replacement connection is assigned
+- `server.readBody` no longer compares `err.Error() == "EOF"`; uses
+  `errors.Is` and `io.ReadAll(http.MaxBytesReader(...))` instead of a manual
+  chunk loop, so truncated request bodies surface as proper errors instead
+  of silent partial reads
+
+## [4.0.0] - 2026-03-05
+
+### Added
+
+- File rotation: `max_file_size_mb`, `max_file_count`, `rotation_interval_h`,
+  and immediate manual rotation via `SIGHUP` (non-Windows)
+- Periodic fsync with the `cee_last_fsync_unix_seconds` gauge; open-handle
+  incremental flush model (replacing write-on-close)
+- Startup validation of `[output]` config (`validateOutputConfig`)
+- ADR-012 (flush ticker ownership) and ADR-013 (write-on-close model)
+
+### Changed
+
+- `BinaryEvtxWriter`'s EVTX binary encoding extracted into the standalone
+  `github.com/fjacquet/go-evtx` module; cee-exporter's writer became a thin
+  adapter over it
+
+## [3.0.0] - 2026-03-04
+
+### Added
+
+- TLS certificate automation: `tls_mode` config field with four modes —
+  `off`, `manual`, `acme` (automatic Let's Encrypt via TLS-ALPN-01), and
+  `self-signed` (runtime-generated ECDSA certificate)
+- `SyslogWriter` — RFC 5424 over UDP and TCP (RFC 6587 octet-counting framing)
+- `BeatsWriter` — Lumberjack v2 to Logstash/Graylog, with TLS
+- `BinaryEvtxWriter` — native `.evtx` file writer for non-Windows platforms,
+  implemented from scratch (no pure-Go EVTX writer library existed)
+- Windows Service (SCM) `install`/`uninstall` via `kardianos/service`, with
+  automatic restart-on-failure
+- Prometheus `/metrics` endpoint on a dedicated port (default 9228)
+- Hardened Linux systemd unit (`deploy/systemd/cee-exporter.service`),
+  `install-systemd` Makefile target
+
+### Fixed
+
+- EVTX chunk `HeaderSize` set to the correct offset so parsers can find
+  records
+- BinXML `NameNode` offset/hashing bug corrected
+
 ## [1.0.0] - 2026-03-03
 
 ### Added

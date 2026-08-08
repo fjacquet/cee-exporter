@@ -5,12 +5,28 @@ repo_url: https://github.com/fjacquet/cee-exporter
 repo_name: fjacquet/cee-exporter
 edit_uri: edit/main/docs/
 
+# SITE_FOOTER is exported by the fjacquet/ci mkdocs-publish composite action,
+# derived fresh from `git describe`/the triggering tag on every build — see
+# https://github.com/fjacquet/ci/blob/main/actions/mkdocs-publish/action.yml.
+# This replaces a hand-maintained `extra.version` key, which stated v4.1.1
+# after the project had already moved to v4.1.2: nothing in this theme ever
+# rendered `extra.version`, so the drift went unnoticed for a full release.
+# `copyright` IS rendered, in the site footer, by mkdocs-material — so this
+# value cannot go stale without the footer itself visibly saying so. Local
+# `make docs` runs without SITE_FOOTER set and falls back to the empty string.
+copyright: !ENV [SITE_FOOTER, ""]
+
 docs_dir: docs
+
+exclude_docs: |
+  archive/
 
 nav:
   - Home: index.md
   - Operator Guide: operator-guide.md
+  - Promises: PROMISES.md
   - Product Requirements: PRD.md
+  - Requirements Traceability: requirements.md
   - Architecture Decisions:
       - ADR-001 Language (Go): adr/ADR-001-language-go.md
       - ADR-002 GELF Primary Output: adr/ADR-002-gelf-primary-linux.md
@@ -21,6 +37,11 @@ nav:
       - ADR-007 Windows Service: adr/ADR-007-windows-svc-x-sys.md
       - ADR-008 RFC5424 Syslog: adr/ADR-008-rfc5424-crewjam.md
       - ADR-009 BinaryEvtx Scratch: adr/ADR-009-binary-evtx-scratch.md
+      - ADR-010 Windows SCM: adr/ADR-010-kardianos-service-windows-scm.md
+      - ADR-011 TLS Automation: adr/ADR-011-tls-certificate-automation.md
+      - ADR-012 Flush Ticker Ownership: adr/ADR-012-flush-ticker-ownership.md
+      - ADR-013 Write-on-Close Model: adr/ADR-013-write-on-close-model.md
+      - ADR-014 go-evtx Extraction: adr/ADR-014-go-evtx-library-extraction.md
   - v2 Research: v2-research.md
 
 theme:
@@ -52,6 +73,3 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-
-extra:
-  version: v4.1.1

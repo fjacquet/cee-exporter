@@ -7,12 +7,19 @@
 // log on first start.  The source registration requires administrator
 // privileges; subsequent writes do not.
 //
-// IMPORTANT: Event IDs above 1000 silently fail with some Windows
-// configurations.  We use IDs in the range 4656–4670 to match the Windows
-// Security audit taxonomy and pre-register them via the message DLL path.
-// Because we rely on the generic Application log (not the Security log, which
-// requires auditpol), the Event Viewer will show the raw insertion strings
-// without message substitution — which is acceptable for SIEM ingestion.
+// IMPORTANT: the event source is registered with InstallAsEventCreate, which
+// points EventMessageFile at EventCreate.exe. That resource only carries
+// message definitions for event IDs 1-1000, so the IDs written here
+// (4660/4663/4670) cannot be resolved: Event Viewer and every forwarder built
+// on the Event Log API render "The description for Event ID N from source
+// PowerStore-CEPA cannot be found", with the real payload appended as the
+// insertion string.
+//
+// SIEM content packs keyed on the rendered Security-event text therefore do
+// NOT work against this output today. Use the GELF, syslog or beats backends
+// for SIEM ingestion. A message resource compiled into the executable is
+// planned for v5.0; see docs/superpowers/specs/2026-08-08-promise-remediation-design.md
+// section V1.
 package evtx
 
 import (
@@ -33,8 +40,11 @@ type Win32EventLogWriter struct {
 // NewWin32EventLogWriter registers the event source (if needed) and opens it.
 func NewWin32EventLogWriter() (*Win32EventLogWriter, error) {
 	// InstallAsEventCreate registers the source using the built-in
-	// "EventCreate.exe" message file, which supports event IDs 1–1000.
-	// For IDs 4656–4670 we register with a custom supportedTypes mask only.
+	// "EventCreate.exe" message file, which only has message text for event
+	// IDs 1-1000. The eventlog.Info|Warning|Error argument sets which event
+	// *types* this source may log — it does not register message text for
+	// IDs 4660/4663/4670, which are outside EventCreate.exe's range. See the
+	// package-level comment above for what this means for the rendered event.
 	err := eventlog.InstallAsEventCreate(win32SourceName, eventlog.Info|eventlog.Warning|eventlog.Error)
 	if err != nil {
 		// Already registered is not an error.
@@ -51,8 +61,11 @@ func NewWin32EventLogWriter() (*Win32EventLogWriter, error) {
 }
 
 // WriteEvent writes a single event via ReportEvent.
-// The insertion strings are formatted to match the expected Windows Security
-// event layout so that SIEM content packs for event IDs 4663/4660/4670 work.
+// The insertion strings are formatted to match the layout of a Windows
+// Security audit event, but this does NOT make SIEM content packs for event
+// IDs 4663/4660/4670 work against this writer today — see the package-level
+// comment above. The formatting is aspirational groundwork for the v5.0
+// message-resource fix, not a working compatibility claim.
 func (w *Win32EventLogWriter) WriteEvent(_ context.Context, e WindowsEvent) error {
 	msg := formatWin32Message(e)
 

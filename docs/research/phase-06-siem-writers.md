@@ -1,5 +1,7 @@
 # Phase 6: SIEM Writers — Research
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Researched:** 2026-03-03
 **Domain:** Go syslog RFC 5424 writer + Lumberjack v2 (Beats) client, CGO_ENABLED=0, cross-platform
 **Confidence:** HIGH

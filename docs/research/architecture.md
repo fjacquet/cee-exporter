@@ -1,5 +1,7 @@
 # Architecture Research
 
+> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
+
 **Domain:** Go daemon — CEPA audit event bridge, v2 feature integration
 **Researched:** 2026-03-03
 **Confidence:** HIGH (existing code read directly; new feature patterns verified via official docs and pkg.go.dev)

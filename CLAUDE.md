@@ -4,26 +4,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-```bash
-make build          # Linux/amd64 binary → ./cee-exporter (CGO_ENABLED=0, static)
-make build-windows  # Windows/amd64 binary → ./cee-exporter.exe
-make test           # go test ./...
-make lint           # go vet ./...
-make clean          # remove both binaries
+Requires Go 1.26.5 (see `go.mod`).
 
-make docker-build   # build ghcr.io/fjacquet/cee-exporter:VERSION
-make docker-push    # build + push to GHCR
+The canonical targets are the `fjacquet/ci` standard interface — the reusable
+CI workflows call these names, so keep their behaviour stable.
+
+```bash
+make ci             # lint + test + build + vuln — the gate CI runs. Use this.
+make lint           # golangci-lint run --timeout=5m  (NOT go vet)
+make test           # go test -race -coverprofile=coverage.out ./...
+make build          # go build -v ./...  — compiles, produces NO binary
+make format         # golangci-lint fmt
+make vuln           # govulncheck ./...
+make docs           # mkdocs build --strict  (fails on any broken doc link)
+make sbom           # CycloneDX SBOM → dist/
+make release        # goreleaser release --clean
+```
+
+Binaries come from the repo-specific targets, not `make build`:
+
+```bash
+make build-linux    # Linux/amd64   → ./cee-exporter        (CGO_ENABLED=0, static)
+make build-windows  # Windows/amd64 → ./cee-exporter.exe
+make build-darwin   # macOS/native  → ./cee-exporter-darwin
+make clean          # remove dist/, site/, coverage, *.sarif and all three binaries
+```
+
+```bash
+make docker-build   # build ghcr.io/fjacquet/cee-exporter:VERSION locally
+make docker-push    # local convenience only — releases publish via goreleaser
 make docker-run     # run container with ./config.toml mounted
+make install-systemd  # sudo; installs the unit (DynamicUser, no useradd needed)
 
 # Single test
 go test ./pkg/server/ -run TestReadBodyOversized
-
-# With race detector (requires CGO — not available via make test)
-go test -race ./...
-
-# Full linter (project uses golangci-lint in addition to go vet)
-golangci-lint run
 ```
+
+All build targets stamp the version: `-ldflags "-X main.version=$(VERSION)"`.
+A binary reporting `dev` means the stamp did not reach it.
 
 ## Architecture
 
@@ -43,12 +61,18 @@ CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg
   - `writer_syslog.go` — RFC 5424 syslog over UDP or TCP (all platforms)
   - `writer_beats.go` — Elastic Beats protocol over TCP (all platforms)
   - `writer_windows.go` — Win32 `ReportEvent` API (`//go:build windows`)
-  - `writer_evtx_notwindows.go` — `BinaryEvtxWriter` producing EVTX BinXML files (`//go:build !windows`)
+  - `writer_evtx_notwindows.go` — `BinaryEvtxWriter` (`//go:build !windows`). A thin adapter: all EVTX BinXML encoding lives in the external `github.com/fjacquet/go-evtx` library (see ADR-014). This file only maps `WindowsEvent` to `map[string]string` and forwards.
   - `writer_multi.go` — fan-out to multiple backends; forwards `Rotate()` to backends that support it
   - `writer_native_windows.go` / `writer_native_notwindows.go` — `NewNativeEvtxWriter` platform factory
   - Network writers share helpers in `writer.go`: `hostPort` (IPv6-safe host:port), `ShortMessage` (standard message format), `sendWithRetry` (reconnect-once retry loop)
-- **`pkg/metrics`** — atomic in-process counters (events received/written/dropped).
+- **`pkg/metrics`** — atomic in-process counters (events received/written/dropped/truncated, writer errors, queue depth, last fsync). Package-level singleton `metrics.M`.
+- **`pkg/prometheus`** — `/metrics` endpoint on its own port (default `0.0.0.0:9228`, see ADR-006). Uses a private registry so Go runtime metrics stay out of the scrape.
+- **`pkg/server/health.go`** — `GET /health` JSON status, including queue depth.
 - **`pkg/log`** — slog initialisation.
+
+The only non-stdlib runtime dependency in the event path is
+`github.com/fjacquet/go-evtx`, which owns the EVTX binary format. Format bugs
+are fixed there and consumed here via a version bump — see ADR-014.
 
 ## Platform file naming
 
@@ -62,6 +86,18 @@ CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg
 - **No `time.Sleep`** for synchronisation in queue tests — use channel signals or `Stop()` drain guarantees.
 - **Global state isolation** — reset `metrics.M` atomic counters before tests that assert on them.
 
+## Linter gotchas
+
+`.golangci.yml` (v2 format) enables `errcheck`, `govet`, `ineffassign`,
+`staticcheck`, `unused`, `misspell`, `errorlint`, `copyloopvar`, `unconvert`
+and `nilerr`. Two bite most often:
+
+- **`errorlint` runs with `comparison: true`** — never compare errors with `==`
+  or `!=`, including in tests. Use `errors.Is`. Only `errcheck` is excluded for
+  `_test.go`; every other linter applies to test files too.
+- **`nilerr`** — returning `nil` on a path where `err != nil` is a build failure,
+  not a warning.
+
 ## CEPA protocol constraints
 
 - RegisterRequest handshake: HTTP 200 OK, **empty body** (enforced in `server.go`).
@@ -70,21 +106,25 @@ CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg
 
 ## CGO and static linking
 
-All targets set `CGO_ENABLED=0`. Consequences:
+The **binary** targets (`build-linux`, `build-windows`, `build-darwin`) and the
+release/Docker builds set `CGO_ENABLED=0`. `make test` does not, which is why it
+can and does run `-race`.
 
-- `-race` detector cannot be used in `make test` (requires CGO); run `go test -race ./...` separately when needed.
-- Cross-compilation from Linux to Windows requires no C toolchain.
+- Cross-compilation to Windows requires no C toolchain.
 - `golang.org/x/sys/windows` uses syscall (not CGO) — Win32 API calls work without a C compiler.
+- The Docker builder image must be at least `golang:1.26-alpine`. The official
+  Go images ship `GOTOOLCHAIN=local`, so a builder older than the `go` directive
+  in `go.mod` fails unconditionally rather than downloading a toolchain.
 
 ## Docker
 
-Final image is `scratch` (binary + CA certs only). Mount config at `/etc/cee-exporter/config.toml`. Image is published to `ghcr.io/fjacquet/cee-exporter`.
+Final image is `scratch` (binary + CA certs only). Mount config at `/etc/cee-exporter/config.toml`. `ghcr.io/fjacquet/cee-exporter` (`linux/amd64` + `linux/arm64`) is published by the release pipeline via goreleaser's `dockers_v2:` block (`Dockerfile.goreleaser`, which packages the prebuilt binaries) — not by `make docker-push`, which remains a local-only convenience target.
 
 ## GitHub Actions
 
-- `ci.yml` — test + lint + build (Linux + Windows) on every push/PR to `main`.
-- `docs.yml` — deploys mkdocs-material site to `gh-pages` on docs/README changes.
-- `release.yml` — triggered by `v*` tags: builds binaries, pushes Docker image to GHCR, creates GitHub Release with attached archives.
+- `ci.yml` — delegates to the reusable `fjacquet/ci` workflows (`go-ci.yml`, `go-security.yml`), which run `make ci` on `ubuntu-24.04`. **Linux only — there is no Windows job, and CI does not cross-compile for Windows either**: `make ci`'s `go build -v ./...` runs on a Linux runner, where `//go:build windows` excludes `writer_windows.go` and `service_windows.go` from the build entirely — they are not merely uncompiled-and-discarded, the compiler never sees them. The only thing *in CI* that ever builds them is `release.yml`'s goreleaser run on a `v*` tag (`goos: windows` in `.goreleaser.yaml`) — `make build-windows` also builds them, but that's a local/manual target, not something any workflow runs. Nothing — not CI, not the release build, not a local `make build-windows` — ever executes them. A Windows-only change can be green on every CI check and still be broken.
+- `docs.yml` — deploys mkdocs-material to `gh-pages` on docs/README changes. Runs `mkdocs build --strict`, so a single broken internal link fails the build.
+- `release.yml` — triggered by `v*` tags: goreleaser builds binaries for linux/darwin/windows × amd64/arm64 and publishes the multi-arch image to GHCR.
 
 <!-- rtk-instructions v2 -->
 # RTK (Rust Token Killer) - Token-Optimized Commands

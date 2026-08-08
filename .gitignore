@@ -3,6 +3,9 @@
 /cee-exporter-darwin
 /cee-exporter.exe
 
+# CA bundle staged into the build context by the goreleaser before: hook
+/ca-certificates.crt
+
 # Go test & coverage artifacts
 *.test
 coverage.out

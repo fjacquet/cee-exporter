@@ -1,6 +1,5 @@
+<!-- Source: .planning/milestones/v3.0-phases/07-binaryevtxwriter/07-RESEARCH.md (cee-exporter repo, archived 2026-08-08) -->
 # Phase 7: BinaryEvtxWriter - Research
-
-> **Historical research — not current guidance.** Recorded before implementation was finalized; some recommendations here were never implemented. For current configuration and behavior, see the [Operator Guide](../operator-guide.md).
 
 **Researched:** 2026-03-03
 **Domain:** Windows EVTX binary file format — pure-Go serialization on Linux

@@ -18,6 +18,11 @@ type Store struct {
 	EventsDroppedTotal  atomic.Int64
 	WriterErrorsTotal   atomic.Int64
 
+	// EventsTruncatedTotal counts events with at least one field capped before
+	// handing off to the EVTX writer. An oversized field would otherwise reach
+	// go-evtx's record-size limit.
+	EventsTruncatedTotal atomic.Int64
+
 	// Current queue depth — set, not incremented
 	queueDepth atomic.Int64
 
@@ -67,24 +72,26 @@ func (s *Store) LastFsyncUnix() int64 {
 
 // Snapshot returns an immutable point-in-time copy of the counters.
 type Snapshot struct {
-	EventsReceivedTotal int64
-	EventsWrittenTotal  int64
-	EventsDroppedTotal  int64
-	WriterErrorsTotal   int64
-	QueueDepth          int64
-	LastEventAt         time.Time
-	LastFsyncUnix       int64
+	EventsReceivedTotal  int64
+	EventsWrittenTotal   int64
+	EventsDroppedTotal   int64
+	WriterErrorsTotal    int64
+	EventsTruncatedTotal int64
+	QueueDepth           int64
+	LastEventAt          time.Time
+	LastFsyncUnix        int64
 }
 
 // Snapshot captures the current metrics.
 func (s *Store) Snapshot() Snapshot {
 	return Snapshot{
-		EventsReceivedTotal: s.EventsReceivedTotal.Load(),
-		EventsWrittenTotal:  s.EventsWrittenTotal.Load(),
-		EventsDroppedTotal:  s.EventsDroppedTotal.Load(),
-		WriterErrorsTotal:   s.WriterErrorsTotal.Load(),
-		QueueDepth:          s.QueueDepth(),
-		LastEventAt:         s.LastEventAt(),
-		LastFsyncUnix:       s.LastFsyncUnix(),
+		EventsReceivedTotal:  s.EventsReceivedTotal.Load(),
+		EventsWrittenTotal:   s.EventsWrittenTotal.Load(),
+		EventsDroppedTotal:   s.EventsDroppedTotal.Load(),
+		WriterErrorsTotal:    s.WriterErrorsTotal.Load(),
+		EventsTruncatedTotal: s.EventsTruncatedTotal.Load(),
+		QueueDepth:           s.QueueDepth(),
+		LastEventAt:          s.LastEventAt(),
+		LastFsyncUnix:        s.LastFsyncUnix(),
 	}
 }

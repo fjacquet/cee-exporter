@@ -12,14 +12,18 @@ package evtx
 import (
 	"context"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/fjacquet/cee-exporter/pkg/metrics"
 	goevtx "github.com/fjacquet/go-evtx"
 )
 
@@ -308,5 +312,201 @@ func TestBinaryEvtxWriter_ChunkLayout(t *testing.T) {
 	if sig != evtxRecordSignature {
 		t.Errorf("first record signature at offset %d: got 0x%08x, want 0x%08x",
 			recordFileOffset, sig, evtxRecordSignature)
+	}
+}
+
+// testWindowsEvent returns a minimal valid event for writer tests.
+func testWindowsEvent() WindowsEvent {
+	return WindowsEvent{
+		EventID:      4663,
+		ProviderName: "Microsoft-Windows-Security-Auditing",
+		Computer:     "testhost",
+		TimeCreated:  time.Now(),
+		ObjectType:   "File",
+		ObjectName:   "/mnt/share/file.txt",
+		AccessMask:   "0x2",
+	}
+}
+
+// TestBinaryEvtxWriter_CloseIdempotent verifies that a second Close cannot
+// propagate go-evtx's 'close of closed channel' panic into the daemon.
+func TestBinaryEvtxWriter_CloseIdempotent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit.evtx")
+	w, err := NewBinaryEvtxWriter(path, goevtx.RotationConfig{})
+	if err != nil {
+		t.Fatalf("NewBinaryEvtxWriter: %v", err)
+	}
+	if err := w.WriteEvent(context.Background(), testWindowsEvent()); err != nil {
+		t.Fatalf("WriteEvent: %v", err)
+	}
+
+	first := w.Close()
+	if first != nil {
+		t.Fatalf("first Close: %v", first)
+	}
+	// Must not panic, and must report the first call's result.
+	// errors.Is rather than != : the repo enables errorlint with
+	// comparison: true, which rejects direct error comparison.
+	if second := w.Close(); !errors.Is(second, first) {
+		t.Fatalf("second Close = %v, want %v (same as first)", second, first)
+	}
+}
+
+// TestTruncateField verifies the cap that keeps a filesystem-controlled path
+// from reaching go-evtx's oversized-record corruption path.
+func TestTruncateField(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantTrunc bool
+		wantLen   int
+	}{
+		{"short", "/mnt/share/file.txt", false, len("/mnt/share/file.txt")},
+		{"exactly at cap", strings.Repeat("a", maxFieldBytes), false, maxFieldBytes},
+		{"one over cap", strings.Repeat("a", maxFieldBytes+1), true, maxFieldBytes},
+		{"far over cap", strings.Repeat("a", 70000), true, maxFieldBytes},
+		// NOTE: brief specified maxFieldBytes-1 here, but that is arithmetically
+		// wrong for these constants: maxFieldBytes(8192) - len(truncationMarker)(14)
+		// = 8178, which is even, so it already lands on an "é" (2-byte rune)
+		// boundary — zero bytes need to be dropped, giving exactly maxFieldBytes.
+		// Verified by direct execution of the verbatim algorithm; see task-4-report.md.
+		{"multibyte not split", strings.Repeat("é", maxFieldBytes), true, maxFieldBytes},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, truncated := truncateField(tt.input)
+			if truncated != tt.wantTrunc {
+				t.Errorf("truncated = %v, want %v", truncated, tt.wantTrunc)
+			}
+			if len(got) != tt.wantLen {
+				t.Errorf("len = %d, want %d", len(got), tt.wantLen)
+			}
+			if tt.wantTrunc && !strings.HasSuffix(got, truncationMarker) {
+				t.Errorf("truncated value %q lacks the %q marker", got[len(got)-40:], truncationMarker)
+			}
+		})
+	}
+}
+
+// TestWindowsEventToFields_CapsOversizedObjectName verifies the cap is applied
+// on the real path and counted, so an over-long filesystem path cannot corrupt
+// the .evtx file.
+func TestWindowsEventToFields_CapsOversizedObjectName(t *testing.T) {
+	metrics.M.EventsTruncatedTotal.Store(0)
+
+	e := testWindowsEvent()
+	e.ObjectName = strings.Repeat("A", 70000)
+
+	fields := windowsEventToFields(e)
+	if len(fields["ObjectName"]) > maxFieldBytes {
+		t.Fatalf("ObjectName is %d bytes, want <= %d", len(fields["ObjectName"]), maxFieldBytes)
+	}
+
+	// Budget in ENCODED bytes — go-evtx writes UTF-16LE, so raw len() is not
+	// the quantity that has to fit.
+	total := 0
+	for _, v := range fields {
+		total += encodedLen(v)
+	}
+	if total > maxEncodedFieldsBytes {
+		t.Fatalf("encoded fields %d bytes exceeds budget %d", total, maxEncodedFieldsBytes)
+	}
+	if got := metrics.M.EventsTruncatedTotal.Load(); got != 1 {
+		t.Fatalf("EventsTruncatedTotal = %d, want 1", got)
+	}
+}
+
+// TestWindowsEventToFields_AllFieldsMaxed is the worst case: every field at the
+// per-field cap. The encoded total must still fit inside one go-evtx record,
+// otherwise the per-field cap alone is not a sufficient guard.
+func TestWindowsEventToFields_AllFieldsMaxed(t *testing.T) {
+	metrics.M.EventsTruncatedTotal.Store(0)
+
+	big := strings.Repeat("A", maxFieldBytes)
+	e := WindowsEvent{
+		EventID:         4663,
+		ProviderName:    big,
+		Computer:        big,
+		TimeCreated:     time.Now(),
+		SubjectUserSID:  big,
+		SubjectUsername: big,
+		SubjectDomain:   big,
+		SubjectLogonID:  big,
+		ObjectType:      big,
+		ObjectName:      big,
+		HandleID:        big,
+		Accesses:        big,
+		AccessMask:      big,
+	}
+
+	total := 0
+	for _, v := range windowsEventToFields(e) {
+		total += encodedLen(v)
+	}
+	if total > maxEncodedFieldsBytes {
+		t.Fatalf("worst case encodes to %d bytes, exceeding the %d budget: "+
+			"lower maxFieldBytes or add a total-budget pass", total, maxEncodedFieldsBytes)
+	}
+}
+
+// TestEncodedLen verifies the UTF-16LE accounting the budget relies on.
+func TestEncodedLen(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want int
+	}{
+		{"empty", "", 4},        // prefix + terminator only
+		{"ascii", "abc", 4 + 6}, // 2 bytes per code unit
+		{"latin1", "é", 4 + 2},  // one BMP code unit
+		{"non-BMP", "😀", 4 + 4}, // surrogate pair: two code units
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := encodedLen(tt.in); got != tt.want {
+				t.Errorf("encodedLen(%q) = %d, want %d", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestEnforceEncodedBudget_TerminatesOnFixedPoint pins the termination
+// property directly. A value whose raw length sits in
+// (len(truncationMarker), 2*len(truncationMarker)] — 15 to 28 bytes with
+// today's 14-byte marker — does not shrink when halved and re-suffixed with
+// the marker: halving 20 bytes gives keep=10, and 10+14=24 is still >= 20.
+// Without the fixed-point escape, enforceEncodedBudget would spin on that
+// value forever, since it can never fall below maxEncodedFieldsBytes and
+// never satisfies the "longest <= len(truncationMarker)" escape either.
+//
+// This is exercised with many such fields — never reachable through the
+// real 11-field WindowsEvent shape today — so the test also serves as a
+// regression guard if maxFieldBytes, maxEncodedFieldsBytes, or the field
+// count ever change in a way that makes the fixed point reachable in
+// production.
+//
+// The check runs in a goroutine with its own timeout rather than relying on
+// `go test`'s overall timeout to catch a hang, so a regression fails fast
+// with a clear message instead of a generic test-binary timeout.
+func TestEnforceEncodedBudget_TerminatesOnFixedPoint(t *testing.T) {
+	const fieldCount = 4000 // encodes to far more than maxEncodedFieldsBytes
+	fields := make(map[string]string, fieldCount)
+	for i := 0; i < fieldCount; i++ {
+		// 20 bytes is inside the (14, 28] fixed-point range: halving never
+		// shrinks it once the marker is appended.
+		fields[fmt.Sprintf("f%d", i)] = strings.Repeat("a", 20)
+	}
+
+	done := make(chan bool, 1)
+	go func() {
+		done <- enforceEncodedBudget(fields)
+	}()
+
+	select {
+	case <-done:
+		// Returned — termination property holds.
+	case <-time.After(2 * time.Second):
+		t.Fatal("enforceEncodedBudget did not return within 2s: " +
+			"suspected infinite loop on the 15-28 byte fixed point")
 	}
 }

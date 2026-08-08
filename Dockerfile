@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — Build
 # ─────────────────────────────────────────────────────────────────────────────
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # ca-certificates: needed at build time for go mod download (HTTPS) and
 # copied to the final scratch image to support TLS listener cert validation.
@@ -19,7 +19,7 @@ COPY . .
 ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X main.version=${VERSION}" \
     -o cee-exporter ./cmd/cee-exporter
 
 # ─────────────────────────────────────────────────────────────────────────────

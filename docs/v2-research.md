@@ -1,5 +1,7 @@
 # v2.0 Research Notes
 
+> **Historical research — not current guidance.** Recorded 2026-03-03, before implementation was finalized; some recommendations here were never implemented — see [ADR-011](adr/ADR-011-tls-certificate-automation.md)'s correction note for one example. For current configuration and behavior, see the [Operator Guide](operator-guide.md).
+
 Research conducted 2026-03-03 before milestone planning. Covers technology stack
 selection, feature design, architecture integration, and known pitfalls for the six
 new capabilities added in v2.0, plus Phase 8 TLS automation.
@@ -235,7 +237,9 @@ Key constraints:
 
 Key ACME operational constraints:
 
-- Let's Encrypt rate limit: 5 duplicate certificates per 7 days — use `acme_staging = true` during development.
+- Let's Encrypt rate limit: 5 duplicate certificates per 7 days. There is no staging
+  toggle — for development, use `tls_mode = "self-signed"` instead of hitting the
+  production ACME directory repeatedly.
 - `DirCache` must be on persistent storage (mount a volume in Docker).
 - Port 443 binding requires `AmbientCapabilities=CAP_NET_BIND_SERVICE` in the systemd unit.
 - Windows services binding to 443 require SYSTEM account or `netsh http add urlacl`.
