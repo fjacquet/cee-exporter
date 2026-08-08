@@ -173,7 +173,7 @@ IDs renumbered `TLS-03`–`TLS-07` — see [ID renumbering](#id-renumbering-note
 | EXT-02 | go-evtx exposes a low-level `WriteRaw(chunk []byte) error` API | **Unverified from this repo** | cee-exporter does not call `WriteRaw`; go-evtx's own test suite is external, not observable here. |
 | EXT-03 | go-evtx exposes a high-level `WriteRecord(eventID int, fields map[string]string) error` API | Delivered | `pkg/evtx/writer_evtx_notwindows.go:49` calls `b.w.WriteRecord(...)` |
 | EXT-04 | Existing pkg/evtx EVTX tests are ported to go-evtx and pass in its CI | **Unverified from this repo** | External repository/CI, not observable from here. |
-| EXT-05 | cee-exporter's BinaryEvtxWriter becomes a thin adapter over go-evtx | Delivered | `pkg/evtx/writer_evtx_notwindows.go` (49-line adapter delegating to `goevtx.New`/`WriteRecord`/`Close`/`Rotate`) |
+| EXT-05 | cee-exporter's BinaryEvtxWriter becomes a thin adapter over go-evtx | Delivered | `pkg/evtx/writer_evtx_notwindows.go` — a translation-layer adapter delegating to `goevtx.New`/`WriteRecord`/`Close`/`Rotate`, plus the defensive field-truncation and idempotent-`Close` guards Task 4 added on top. (A line count was cited here before this correction; it read 49 at extraction, then went stale at 228 once Task 4 landed — a measurement that rots the moment the file is next edited. Describing the shape instead of counting lines is the fix, not a fresher number.) |
 
 ### Durability (FLUSH)
 
