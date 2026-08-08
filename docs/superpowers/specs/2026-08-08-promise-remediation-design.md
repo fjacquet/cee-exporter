@@ -147,9 +147,9 @@ superseded, and remove the matching false claim at `docs/PRD.md:166`.
   metrics table at `operator-guide.md:281-287`.
 - **`docs/PRD.md:158-164`** dependency versions are stale for
   `kardianos/service`, `elastic/go-lumber` and `golang.org/x/crypto`.
-- **`docs/PRD.md:84`** links a non-existent `.planning/REQUIREMENTS.md`. Create
-  it from the requirement IDs already scattered through the PRD, or remove the
-  link.
+- **`docs/PRD.md:84`** links a non-existent `.planning/REQUIREMENTS.md`.
+  Resolved by T8, which synthesises `docs/requirements.md` from the
+  per-milestone requirement files; repoint the link there.
 - **`CHANGELOG.md`** stops at `[1.0.0] - 2026-03-03`. Reconstruct entries for
   v3.0, v4.0, v4.1, v4.1.1 and v4.1.2 from the tags.
 - **`mkdocs.yml`** nav (`:10-24`) omits ADR-010 through ADR-013 and all eleven
@@ -158,7 +158,45 @@ superseded, and remove the matching false claim at `docs/PRD.md:166`.
   hand-maintaining it: have `docs.yml` substitute `github.ref_name` into
   `extra.version` at build time so it cannot drift again.
 
-### T8. Honesty pass
+### T8. Consolidate `.planning/`
+
+The phase-driven planning process is retired, but `.planning/` holds 117
+tracked files (1.5 MB) containing real knowledge alongside dead process
+scaffolding.
+
+Composition:
+
+| Group | Volume | Disposition |
+|---|---|---|
+| `*-PLAN.md`, `*-SUMMARY.md`, `*-VERIFICATION.md` | 77 files, ~14,700 lines | Process residue. Archive. |
+| `*-RESEARCH.md` | 13 files, ~7,200 lines | The durable knowledge. Distil before archiving. |
+| `.planning/research/*.md` | 5 files | Already superseded — `docs/research/` versions are larger and expanded (pitfalls: 970 lines vs 365). Archive as-is. |
+| Per-milestone `REQUIREMENTS.md` | 3 files | Source material for the missing aggregate. |
+
+Three actions:
+
+1. **Distil the RESEARCH files, splitting by ownership.** A large share of the
+   value is EVTX binary-format knowledge — BinXML encoding, chunk layout,
+   rotation design, the pitfalls catalogue — which now belongs to **go-evtx**,
+   not to its consumer. Move that material into go-evtx's docs. CEPA protocol
+   behaviour, VCAPS batching, deployment and operational findings stay here.
+   Cross-link rather than duplicate.
+2. **Synthesise `docs/requirements.md`** from the three per-milestone
+   `REQUIREMENTS.md` files plus the requirement IDs already scattered through
+   the PRD. This resolves the broken `docs/PRD.md:84` link recorded in T7 —
+   the content always existed, the aggregate never did. Point the PRD at the
+   new file.
+3. **Archive the remainder in place.** Move what is left to
+   `docs/archive/planning/` with an index README stating the process is retired
+   and pointing to where each distilled topic now lives. Exclude the archive
+   from `mkdocs.yml` nav so it does not appear in the published site, and
+   confirm `docs.yml` does not fail on unreferenced files.
+
+Nothing is deleted from the working tree. The cost is 1.5 MB of retired process
+documents remaining visible in the repository; the benefit is that no knowledge
+depends on someone thinking to read git history.
+
+### T9. Honesty pass
 
 Downgrade every compatibility and status claim that no CI job proves. In
 particular the Windows Event Viewer and Velociraptor claims become "not yet
@@ -166,7 +204,7 @@ verified" until the go-evtx F6 jobs are green, and the
 `writer_windows.go:10-15` comment stops asserting that message DLL
 pre-registration happens — it does not.
 
-### T9. Defensive hardening against go-evtx, independent of its release
+### T10. Defensive hardening against go-evtx, independent of its release
 
 Both of these land in v4.1.3 regardless of go-evtx's schedule, because they
 protect the consumer against the current v0.5.1:
@@ -196,6 +234,8 @@ than letting it pass as a write success.
 - Startup log and `/metrics` both report the real version.
 - Every remaining claim in README and PRD is either true today or explicitly
   marked unverified.
+- `docs/PRD.md` links a `docs/requirements.md` that exists, and `.planning/` no
+  longer sits at the repo root.
 
 ## Release 2 — v5.0, verified
 
