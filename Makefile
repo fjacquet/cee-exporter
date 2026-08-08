@@ -101,12 +101,13 @@ coverage:
 	go tool cover -func=$(COVER) | tail -1
 
 # Requires root. Run as: sudo make install-systemd
+# The unit uses DynamicUser, so no system account needs to be created.
 install-systemd: $(SYSTEMD_UNIT_SRC)
-	@echo "NOTE: Create the cee-exporter system user first if it does not exist:"
-	@echo "  useradd --system --no-create-home --shell /usr/sbin/nologin cee-exporter"
+	install -d -m 755 /etc/cee-exporter
 	install -m 644 $(SYSTEMD_UNIT_SRC) $(SYSTEMD_UNIT_DST)
 	systemctl daemon-reload
-	@echo "Unit installed. Run: systemctl enable --now cee-exporter"
+	@echo "Unit installed. Place your config at /etc/cee-exporter/config.toml, then:"
+	@echo "  systemctl enable --now cee-exporter"
 
 docker-build:
 	docker build --build-arg VERSION=$(VERSION) \

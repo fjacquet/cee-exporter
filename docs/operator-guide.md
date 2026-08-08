@@ -248,22 +248,25 @@ cee-exporter registers with these recovery settings automatically at install:
 A systemd unit file is included for production deployments:
 
 ```bash
-# Copy the binary and unit file
-install -m 755 cee-exporter /usr/local/bin/
-install -m 644 systemd/cee-exporter.service /etc/systemd/system/
+# From a repo checkout:
+sudo make install-systemd
 
-# Place your config
-mkdir -p /etc/cee-exporter
-cp config.toml /etc/cee-exporter/config.toml
+# Or manually:
+sudo install -m 755 cee-exporter /usr/local/bin/cee-exporter
+sudo install -d -m 755 /etc/cee-exporter
+sudo install -m 640 config.toml /etc/cee-exporter/config.toml
+sudo install -m 644 deploy/systemd/cee-exporter.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now cee-exporter
 
-# Enable and start
-systemctl daemon-reload
-systemctl enable --now cee-exporter
-
-# Check status
+# Verify:
 systemctl status cee-exporter
 journalctl -u cee-exporter -f
 ```
+
+The unit uses `DynamicUser=yes`, so there is no system account to create.
+systemd provisions a transient UID on each start and creates
+`/var/log/cee-exporter` and `/var/lib/cee-exporter` with the right ownership.
 
 ---
 
