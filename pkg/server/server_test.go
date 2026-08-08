@@ -295,20 +295,26 @@ func TestServeHTTP_ValidBatchEnqueues(t *testing.T) {
 // writer to finish.
 //
 // This is the brief's weaker fallback, not the strict "WriteHeader precedes
-// the enqueue loop" ordering — deliberately, because that stronger claim is
-// not externally observable. ServeHTTP runs synchronously and Enqueue is a
-// non-blocking select, so by the time ServeHTTP returns, WriteHeader has
-// necessarily already run — wherever the statement sits in the function
-// body — and nothing enqueue-related can have delayed it. A test that only
-// inspects state after ServeHTTP returns therefore cannot tell "header
-// written before the loop" apart from "header written after the loop, but
-// the loop never blocks anyway". (Verified directly: moving the real
-// WriteHeader call to after the entire enqueue loop still passes this
-// test — see the commit that added this comment for the mutation.)
+// the enqueue loop" ordering. That stronger claim is not vacuous — it can be
+// observed deterministically (e.g. a zero-worker queue plus sampling q.Len()
+// from inside WriteHeader would catch a reordering with no goroutines or
+// timing involved) — but it is not observable by a test that, like this one,
+// only inspects state after ServeHTTP returns: ServeHTTP runs synchronously
+// and Enqueue cannot block, so by the time ServeHTTP returns, WriteHeader
+// has necessarily already run wherever the statement sits in the function
+// body. Such a test cannot tell "header written before the loop" apart from
+// "header written after the loop, but the loop never blocked anyway".
+// (Verified directly: moving the real WriteHeader call to after the entire
+// enqueue loop still passes this test.) The stronger ordering was left
+// unpursued deliberately, not for lack of a way to observe it: the parse
+// step already has to complete before the header regardless and dominates
+// the handler's cost (~233ms of ~245ms for a 2000-event batch under -race),
+// so header-after-loop would only add the loop's own ~12ms (~5%) — a real
+// but small latency risk, not the load-bearing part of the 3s budget.
 //
-// What *is* externally observable, and is what's asserted below, is that
-// the ACK was delivered before the write it triggered was done — via a
-// channel-enforced happens-before chain, not a timing race:
+// What *is* asserted below is that the ACK was delivered before the write it
+// triggered was done — via a channel-enforced happens-before chain, not a
+// timing race:
 //   - stubWriter's `started` signal cannot fire until the queue's worker
 //     goroutine actually dequeues the event and enters WriteEvent.
 //   - With `block` unclosed, WriteEvent cannot proceed past that point, so
@@ -322,10 +328,15 @@ func TestServeHTTP_ValidBatchEnqueues(t *testing.T) {
 // outstanding when ServeHTTP returns, not that acceptance into the channel
 // is slow.
 //
-// Every blocking wait below has a bounded fallback (waitOrFatal, or the
-// unconditional block release via t.Cleanup) so that if this property ever
-// regresses, the test fails in milliseconds with a message instead of
-// hanging until go test's default 10-minute timeout.
+// ServeHTTP itself runs in a goroutine, guarded by waitOrFatal on `returned`:
+// this is what catches the async guarantee breaking outright (e.g. Enqueue
+// made to write synchronously) — without it, that regression would hang
+// ServeHTTP itself before the test ever regained control to fail. Every
+// other blocking wait below has the same bounded fallback (waitOrFatal, or
+// the unconditional block release via t.Cleanup), so a regression fails with
+// a message in at most a few seconds instead of hanging until go test's
+// default 10-minute timeout: the two select/default checks fail immediately,
+// the waitOrFatal calls fail within their 5s deadline.
 func TestServeHTTP_ACKsBeforeQueueWork(t *testing.T) {
 	resetEventsReceived(t)
 
@@ -346,7 +357,20 @@ func TestServeHTTP_ACKsBeforeQueueWork(t *testing.T) {
 	rec := newHeaderRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(singleEventXML))
 
-	h.ServeHTTP(rec, req)
+	// Run ServeHTTP in a goroutine rather than calling it inline: if the
+	// async guarantee under test broke entirely (e.g. Enqueue started
+	// writing synchronously), ServeHTTP itself would never return, and a
+	// direct call would hang the test goroutine before any assertion below
+	// could run. waitOrFatal bounds that instead of leaving it to go test's
+	// default 10-minute timeout. Once `returned` closes, ServeHTTP has
+	// provably returned — the same precondition the header check below
+	// relies on — so reading `rec` afterwards is race-free.
+	returned := make(chan struct{})
+	go func() {
+		defer close(returned)
+		h.ServeHTTP(rec, req)
+	}()
+	waitOrFatal(t, returned, "ServeHTTP did not return while queue work was outstanding — the ACK is blocked by the writer")
 
 	select {
 	case <-rec.headerWritten:
