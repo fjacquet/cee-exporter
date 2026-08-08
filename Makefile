@@ -6,11 +6,11 @@ BINARY_NAME    := cee-exporter
 BINARY_WINDOWS := cee-exporter.exe
 BINARY_DARWIN  := cee-exporter-darwin
 CMD_PATH       := ./cmd/cee-exporter
-LDFLAGS        := -s -w
 
 REGISTRY       := ghcr.io/fjacquet
 IMAGE          := $(REGISTRY)/cee-exporter
 VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS        := -s -w -X main.version=$(VERSION)
 
 SYSTEMD_UNIT_SRC := deploy/systemd/cee-exporter.service
 SYSTEMD_UNIT_DST := /etc/systemd/system/cee-exporter.service

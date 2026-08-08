@@ -40,6 +40,15 @@ import (
 	"github.com/fjacquet/cee-exporter/pkg/server"
 )
 
+// version is the build-stamped release identifier, set at link time:
+//
+//	go build -ldflags "-X main.version=v4.1.3"
+//
+// An unstamped build reports "dev". It must never be a hardcoded release
+// number: operators correlate fleet deployments by this value in the logs and
+// in the cee_build_info metric.
+var version = "dev"
+
 // ----------------------------------------------------------------------------
 // Configuration
 // ----------------------------------------------------------------------------
@@ -200,7 +209,7 @@ func run(ctx context.Context) {
 	}
 
 	slog.Info("cee_exporter_starting",
-		"version", "1.0.0",
+		"version", version,
 		"go_version", runtime.Version(),
 		"os", runtime.GOOS,
 		"hostname", hostname,
@@ -314,7 +323,7 @@ func run(ctx context.Context) {
 
 	if cfg.Metrics.Enabled {
 		go func() {
-			if err := ceeprometheus.Serve(cfg.Metrics.Addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := ceeprometheus.Serve(cfg.Metrics.Addr, version, runtime.Version()); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				slog.Error("metrics_server_error", "error", err)
 			}
 		}()

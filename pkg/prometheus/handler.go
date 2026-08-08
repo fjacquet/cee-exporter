@@ -11,12 +11,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// NewMetricsHandler returns an http.Handler that serves Prometheus text-format
-// metrics for the four core cee-exporter counters plus one bonus counter.
+// newRegistry builds a private registry holding the core cee_* collectors.
 //
-// A private prometheus.Registry is used — not prometheus.DefaultRegisterer —
-// so the scrape output contains only cee_* metrics and no Go runtime data.
-func NewMetricsHandler() http.Handler {
+// A private registry — not prometheus.DefaultRegisterer — keeps Go runtime
+// metrics out of the scrape output.
+func newRegistry() *prometheus.Registry {
 	reg := prometheus.NewRegistry()
 
 	reg.MustRegister(
@@ -66,16 +65,40 @@ func NewMetricsHandler() http.Handler {
 		),
 	)
 
+	return reg
+}
+
+// NewMetricsHandler returns an http.Handler that serves Prometheus text-format
+// metrics for the four core cee-exporter counters plus one bonus counter.
+//
+// A private prometheus.Registry is used — not prometheus.DefaultRegisterer —
+// so the scrape output contains only cee_* metrics and no Go runtime data.
+func NewMetricsHandler() http.Handler {
+	return promhttp.HandlerFor(newRegistry(), promhttp.HandlerOpts{})
+}
+
+// NewMetricsHandlerWithBuildInfo returns the standard metrics handler plus a
+// cee_build_info gauge, fixed at 1 and labelled with the build-stamped version
+// and the Go toolchain version. This is the conventional Prometheus idiom for
+// exposing build metadata: join on it to correlate metrics with a release.
+func NewMetricsHandlerWithBuildInfo(version, goVersion string) http.Handler {
+	reg := newRegistry()
+	reg.MustRegister(prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name:        "cee_build_info",
+			Help:        "Build metadata. Always 1; read the labels.",
+			ConstLabels: prometheus.Labels{"version": version, "go_version": goVersion},
+		},
+		func() float64 { return 1 },
+	))
 	return promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
 }
 
-// Serve starts a dedicated HTTP server on addr and registers the /metrics
-// endpoint.  It uses a private ServeMux so that http.DefaultServeMux is not
-// exposed.  The caller should decide what to do with the returned error;
-// http.ErrServerClosed is expected on graceful shutdown.
-func Serve(addr string) error {
+// Serve starts a dedicated HTTP server on addr and registers /metrics,
+// including the cee_build_info gauge for the given build.
+func Serve(addr, version, goVersion string) error {
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", NewMetricsHandler())
+	mux.Handle("/metrics", NewMetricsHandlerWithBuildInfo(version, goVersion))
 
 	srv := &http.Server{
 		Addr:    addr,

@@ -66,3 +66,24 @@ func TestMetricsHandler_AllRequiredMetrics(t *testing.T) {
 		t.Error("unexpected Go runtime metric in output; handler must use a private registry")
 	}
 }
+
+// TestBuildInfoMetric verifies cee_build_info is exposed with version labels,
+// so the running version is visible to Prometheus and not only in the logs.
+func TestBuildInfoMetric(t *testing.T) {
+	h := NewMetricsHandlerWithBuildInfo("v4.1.3-test", "go1.26.5")
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "cee_build_info") {
+		t.Fatalf("cee_build_info missing from scrape output:\n%s", body)
+	}
+	if !strings.Contains(body, `version="v4.1.3-test"`) {
+		t.Errorf("version label missing from cee_build_info:\n%s", body)
+	}
+	if !strings.Contains(body, `go_version="go1.26.5"`) {
+		t.Errorf("go_version label missing from cee_build_info:\n%s", body)
+	}
+}
