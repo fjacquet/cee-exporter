@@ -79,6 +79,12 @@ must mount this path as a persistent volume to avoid hitting Let's Encrypt rate 
   unit must include `AmbientCapabilities=CAP_NET_BIND_SERVICE`.
 - The Let's Encrypt staging URL must be used during development (`acme_staging = true`
   config option) to avoid the 5-cert-per-7-days rate limit.
+
+  > **Correction (2026-08-08):** `acme_staging` was never implemented — no such field
+  > exists in `ListenConfig`, and this document is not being revised to remove the
+  > claim above because ADRs record the decision as made, not as later corrected.
+  > There is no staging toggle. For development, use `tls_mode = "self-signed"`
+  > instead; it needs no network access and sidesteps the rate limit entirely.
 - Self-signed mode produces browser-untrusted certificates (expected) — suitable for
   machine-to-machine scenarios where the CA can be added to the trust store.
 - TLS on port 12228 with CEPA source: clearly documented that this does NOT encrypt

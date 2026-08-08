@@ -18,43 +18,55 @@ jobs:
       # Both of these were documented for months: type = "binary-evtx" is
       # rejected at startup, and acme_staging silently no-ops.
       #
-      # Excluded, on purpose, as frozen historical records rather than
-      # operator-facing documentation — none of them are reachable from
-      # docs/index.md's "Documentation" list as current guidance, and none
-      # of them are docs/operator-guide.md or docs/index.md, which are the
-      # only files this check exists to protect:
-      #   docs/adr/       — ADRs are immutable once accepted (Nygard
-      #                     convention); superseded by a new ADR, never edited.
-      #   docs/research/  — dated phase-by-phase research archive, kept
-      #                     verbatim as a record of what was investigated.
-      #   docs/v2-research.md — same: point-in-time research notes.
-      #   docs/superpowers/    — planning/spec working docs that describe
-      #                          the bug this very workflow guards against.
-      # This exclusion list is path-based and narrow: it does not touch
-      # docs/operator-guide.md, docs/index.md, README.md, or any config.toml*,
-      # so a phantom key reintroduced into real operator docs still fails.
+      # Exemptions below are per-FILE, not per-directory-as-a-whole, and each
+      # names exactly why. This matters: docs/v2-research.md and docs/adr/ are
+      # linked from docs/index.md's "Documentation" list (mkdocs also builds
+      # every .md under docs_dir regardless of nav membership), so they are
+      # published, reachable pages, not blanket-exempt just for being "docs".
+      # Only docs/research/** and docs/superpowers/** are excluded wholesale:
+      #   docs/research/** — dated phase-by-phase research archive, banner-
+      #                       marked at docs/research/index.md as historical,
+      #                       not current guidance (not yet in mkdocs nav).
+      #   docs/superpowers/** — planning/spec working docs that describe the
+      #                          bug this very workflow guards against.
+      # Everything else, including docs/adr/ and docs/v2-research.md, IS
+      # scanned. Two specific historical files still legitimately contain
+      # these strings and get a narrow, filename-anchored exemption instead
+      # of a directory-wide one, so a bare mention like "see ADR-004"
+      # elsewhere — or a brand-new ADR making the same mistake — still fails:
+      #   docs/adr/ADR-004-binary-evtx-deferred.md,
+      #   docs/adr/ADR-009-binary-evtx-scratch.md — name the BinaryEvtxWriter
+      #     feature; other files link to them by exact filename and those
+      #     links must survive (docs/index.md, docs/v2-research.md).
+      #   docs/adr/ADR-011-tls-certificate-automation.md — its Consequences
+      #     section originally claimed `acme_staging = true` was real. ADRs
+      #     are not edited after acceptance, so that line is preserved
+      #     verbatim as the historical record with a correction banner added
+      #     directly beneath it; both necessarily still contain the string.
       - name: Reject documented-but-nonexistent config keys
         run: |
           set -euo pipefail
           fail=0
 
-          # type = "binary-evtx" — not in buildWriter's switch. The final
-          # grep -v strips docs/index.md's ADR-004/ADR-009 link lines —
-          # those name real historical ADR files, not a config value.
+          # type = "binary-evtx" — not in buildWriter's switch. Anchored to
+          # the full filenames (not "ADR-004"/"ADR-009" alone) so a comment
+          # like "type = \"binary-evtx\" # see ADR-004" elsewhere cannot
+          # smuggle a real phantom-key line past this filter.
           if grep -rn 'binary-evtx' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
-               --exclude-dir=adr --exclude-dir=research --exclude-dir=superpowers \
-               --exclude=v2-research.md \
-             | grep -v 'ADR-004\|ADR-009'; then
+               --exclude-dir=research --exclude-dir=superpowers \
+             | grep -vE '(ADR-004-binary-evtx-deferred|ADR-009-binary-evtx-scratch)\.md'; then
             echo "::error::'binary-evtx' is not a valid output type. Use 'evtx'."
             fail=1
           fi
 
-          # acme_staging — no such field in ListenConfig.
+          # acme_staging — no such field in ListenConfig. Anchored to
+          # ADR-011's exact filename, the one historical record annotated
+          # with a correction banner; every other file must be clean.
           if grep -rn 'acme_staging' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
-               --exclude-dir=adr --exclude-dir=research --exclude-dir=superpowers \
-               --exclude=v2-research.md; then
+               --exclude-dir=research --exclude-dir=superpowers \
+             | grep -v 'ADR-011-tls-certificate-automation\.md'; then
             echo "::error::'acme_staging' does not exist in ListenConfig."
             fail=1
           fi
