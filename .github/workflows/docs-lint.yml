@@ -50,6 +50,19 @@ jobs:
       #   `type = "binary-evtx"` sitting next to that same link on one line
       #   survives and still fails the build.
       #
+      #   Two link-target spellings exist for each of those two ADRs: the
+      #   `adr/`-prefixed form used by every file outside docs/adr/ (e.g.
+      #   docs/index.md, which sits at docs_dir root), and the bare form
+      #   used by a same-directory link from another file inside docs/adr/
+      #   itself (e.g. ADR-014 linking to sibling ADR-009 as
+      #   "(ADR-009-binary-evtx-scratch.md)", with no `adr/` prefix, because
+      #   that IS the correct relative path from one docs/adr/ file to
+      #   another). Both spellings are stripped, independently, per ADR — a
+      #   real cross-reference in either style must not fail the build, and
+      #   stripping only the link-target substring (never the rest of the
+      #   line) still leaves a co-located phantom key, in either spelling of
+      #   the link, standing and failing the build.
+      #
       #   acme_staging: the only legitimate occurrence is inside
       #   ADR-011-tls-certificate-automation.md's own Consequences section
       #   (the preserved original claim plus its correction banner) — no
@@ -62,14 +75,16 @@ jobs:
           fail=0
 
           # type = "binary-evtx" — not in buildWriter's switch. Strips only
-          # the exact markdown link target for the two historical ADRs, then
+          # the exact markdown link target for the two historical ADRs, in
+          # both the adr/-prefixed and bare-filename spellings, then
           # re-checks the remainder of each line — so a phantom-key line
-          # placed next to one of those links (e.g. in docs/index.md itself)
-          # still fails, while the bare links themselves do not.
+          # placed next to one of those links (e.g. in docs/index.md itself,
+          # or in another docs/adr/*.md file linking to a sibling ADR)
+          # still fails, while the links themselves do not.
           if grep -rn 'binary-evtx' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
                --exclude-dir=research --exclude-dir=superpowers \
-             | sed -E 's#\(adr/ADR-004-binary-evtx-deferred\.md\)##g; s#\(adr/ADR-009-binary-evtx-scratch\.md\)##g' \
+             | sed -E 's#\(adr/ADR-004-binary-evtx-deferred\.md\)##g; s#\(ADR-004-binary-evtx-deferred\.md\)##g; s#\(adr/ADR-009-binary-evtx-scratch\.md\)##g; s#\(ADR-009-binary-evtx-scratch\.md\)##g' \
              | grep 'binary-evtx'; then
             echo "::error::'binary-evtx' is not a valid output type. Use 'evtx'."
             fail=1

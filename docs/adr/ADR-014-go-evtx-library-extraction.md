@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-009 chose to implement `BinaryEvtxWriter`
+[ADR-009](ADR-009-binary-evtx-scratch.md) chose to implement `BinaryEvtxWriter`
 from scratch inside cee-exporter, on the grounds that no pure-Go EVTX writer
 library existed. That implementation grew, across Phases 7 through 9, into a
 substantial body of format-specific code: BinXML template encoding, chunk
@@ -41,11 +41,12 @@ rotation, and flush-ticker lifecycle to the library.
 
 The extraction landed in commit `29ed067`
 ("feat(08.5-02): replace BinaryEvtxWriter with go-evtx adapter"), which cut
-`writer_evtx_notwindows.go` from 546+ lines of format logic down to a 76-line
-adapter and removed `evtx_binformat.go` and its test file entirely — that
-code, and its tests, now live in go-evtx. The dependency has since been
-bumped through `v0.2.0` (Phase 9's `RotationConfig`/flush-ticker wiring) to
-the `v0.5.1` currently in `go.mod`.
+`writer_evtx_notwindows.go` from 542 lines of format logic (the file at
+`29ed067`'s parent, `b4c0155`) down to a 68-line adapter, and removed
+`evtx_binformat.go` and its test file entirely — that code, and its tests,
+now live in go-evtx. The dependency has since been bumped through `v0.2.0`
+(Phase 9's `RotationConfig`/flush-ticker wiring) to the `v0.5.1` currently
+in `go.mod`.
 
 ## Consequences
 
@@ -79,16 +80,20 @@ the `v0.5.1` currently in `go.mod`.
   `windowsEventToFields` (capping any filesystem-controlled field before it
   reaches go-evtx, and guarding `BinaryEvtxWriter.Close` against go-evtx's
   non-idempotent `Close`) precisely because the upstream defect could not be
-  fixed on cee-exporter's own timeline. `writer_evtx_notwindows.go` is
-  larger today than the 76 lines the extraction produced, but that growth is
-  defensive translation-layer code guarding against a library defect, not a
-  reversion to encoding EVTX format internals in this repo.
+  fixed on cee-exporter's own timeline. `writer_evtx_notwindows.go` is 228
+  lines today — far more than the 68 lines the extraction itself produced.
+  None of that growth is a reversion to encoding EVTX format internals in
+  this repo: 8 lines were unrelated feature work two commits later
+  (`be78c36`, adding `Rotate()` and SIGHUP support), and the rest is this
+  release's defensive hardening (`65f36c5`, `1857973`) — capping oversized
+  fields and guarding against double `Close`.
 
 ## Supersedes
 
-ADR-009. Its "No new production dependencies added to `go.mod`" claim
-(ADR-009, Consequences) is void: as of this decision,
-`github.com/fjacquet/go-evtx` is a direct production dependency.
+[ADR-009](ADR-009-binary-evtx-scratch.md). Its "No new production
+dependencies added to `go.mod`" claim (ADR-009, Consequences) is void: as of
+this decision, `github.com/fjacquet/go-evtx` is a direct production
+dependency.
 
 ## References
 
