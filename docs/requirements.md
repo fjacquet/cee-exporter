@@ -29,11 +29,11 @@ those map to the IDs used here.
 
 | ID | Requirement | Status | Verified by |
 |----|-------------|--------|-------------|
-| CEPA-01 | Listener completes the RegisterRequest handshake with HTTP 200 OK and strictly empty body | **Unverified** | Nothing exercises `Handler.ServeHTTP` end-to-end for this path. `pkg/parser/parser_test.go::TestIsRegisterRequest` tests only handshake *detection*; `pkg/server/server_test.go` tests only the `readBody` helper. The behavior is correct by inspection (`pkg/server/server.go:60-68`) but untested. |
+| CEPA-01 | Listener completes the RegisterRequest handshake with HTTP 200 OK and strictly empty body | Delivered | `pkg/server/server_test.go::TestServeHTTP_RegisterRequest_EmptyBody` (added in `77aec66`) asserts the response body is exactly zero bytes, not merely visually empty, across two payload shapes. Updated 2026-08-08 — this row previously said nothing exercised `Handler.ServeHTTP` end-to-end; that stopped being true when this test landed. |
 | CEPA-02 | Listener responds to heartbeat PUT requests within 3 seconds | **Unverified** | Nothing measures response latency. The ACK-before-processing ordering is correct by inspection (`pkg/server/server.go:94-116`) but untested. |
 | CEPA-03 | Listener parses single-event CEE XML payloads into CEPAEvent structs | Delivered | `pkg/parser/parser_test.go::TestParse` ("single_event" case) |
 | CEPA-04 | Listener parses VCAPS bulk batch XML payloads (EventBatch) | Delivered | `pkg/parser/parser_test.go::TestParse` ("vcaps_batch_two_events" case) |
-| CEPA-05 | HTTP handler ACKs immediately and delegates event processing to an async queue | **Unverified** (partial) | Queue delegation itself is tested (`pkg/queue/queue_test.go::TestEnqueue`); no test asserts the HTTP response is written *before* `Enqueue` runs — the actual CEPA-critical ordering. |
+| CEPA-05 | HTTP handler ACKs immediately and delegates event processing to an async queue | Delivered | `pkg/server/server_test.go::TestServeHTTP_ACKsBeforeQueueWork` (added in `77aec66`) proves `ServeHTTP` returns a written 200 while the queued write is provably still in progress, via a channel-enforced happens-before chain — not the strict "WriteHeader precedes the enqueue loop" ordering, which the test's own doc comment explains is not observable from outside `ServeHTTP` (see `docs/PROMISES.md` for the full wording). `TestServeHTTP_LargeBatchACKsWellUnder3s` additionally covers a 2000-event VCAPS batch. Updated 2026-08-08 — this row previously said no test asserts the response is written before `Enqueue` runs; that stopped being true when these tests landed. |
 
 ### Semantic Mapping
 

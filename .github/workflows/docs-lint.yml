@@ -24,9 +24,10 @@ jobs:
       # every .md under docs_dir regardless of nav membership), so they are
       # published, reachable pages, not blanket-exempt just for being "docs".
       # Only docs/research/** and docs/superpowers/** are excluded wholesale:
-      #   docs/research/** — dated phase-by-phase research archive, banner-
-      #                       marked at docs/research/index.md as historical,
-      #                       not current guidance (not yet in mkdocs nav).
+      #   docs/research/** — dated phase-by-phase research archive; every file
+      #                       in it (all 14, as of 2026-08-08) carries a
+      #                       banner marking it historical, not current
+      #                       guidance (the tree is not yet in mkdocs nav).
       #   docs/superpowers/** — planning/spec working docs that describe the
       #                          bug this very workflow guards against.
       #   docs/archive/** — the retired .planning/ process archive (moved
@@ -83,10 +84,22 @@ jobs:
       #   docs/PROMISES.md itself names both "binary-evtx" and "acme_staging"
       #   in one row, as the worked example of what this guard exists to
       #   catch — the row does not re-document either as a usable config
-      #   value, so it is exempted from the binary-evtx scan the same way
-      #   docs/research/** and docs/superpowers/** are (blanket, single-file),
-      #   and from the acme_staging scan the same way ADR-011 is (path
-      #   anchor).
+      #   value. Per a 2026-08-08 review finding, a blanket `--exclude` here
+      #   would be the one imprecise exemption in the file: it would exempt
+      #   PROMISES.md's authority itself, the exact file this guard's own
+      #   citations are supposed to be trustworthy against, so a *future* row
+      #   re-documenting "binary-evtx" as usable would slip through uncaught.
+      #   Instead the binary-evtx check strips only the exact known-safe
+      #   substring — `type = "binary-evtx"` — from lines that are BOTH from
+      #   docs/PROMISES.md AND already mention "acme_staging" (i.e. only the
+      #   one worked-example row this file is expected to contain), the same
+      #   substring-stripping idiom used for the two ADR links above. Any
+      #   other binary-evtx mention added to PROMISES.md, in a row that does
+      #   not also name acme_staging on the same line, still fails the build.
+      #   The acme_staging check keeps the coarser path anchor (matching
+      #   ADR-011's own exemption shape) since that check has no equivalent
+      #   single-row precision available without the same substring surgery;
+      #   revisit if PROMISES.md ever needs a second row naming acme_staging.
       - name: Reject documented-but-nonexistent config keys
         run: |
           set -euo pipefail
@@ -102,8 +115,8 @@ jobs:
           if grep -rn 'binary-evtx' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
                --exclude-dir=research --exclude-dir=superpowers --exclude-dir=archive \
-               --exclude=PROMISES.md \
              | sed -E 's#\(adr/ADR-004-binary-evtx-deferred\.md\)##g; s#\(ADR-004-binary-evtx-deferred\.md\)##g; s#\(adr/ADR-009-binary-evtx-scratch\.md\)##g; s#\(ADR-009-binary-evtx-scratch\.md\)##g' \
+             | sed -E '/^docs\/PROMISES\.md:.*acme_staging/ s/`type = "binary-evtx"`//g' \
              | grep 'binary-evtx'; then
             echo "::error::'binary-evtx' is not a valid output type. Use 'evtx'."
             fail=1

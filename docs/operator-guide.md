@@ -91,6 +91,7 @@ key_file      = ""               # tls_mode="manual": path to TLS private key (P
 acme_domains  = []               # tls_mode="acme": domain names for Let's Encrypt
 acme_email    = ""               # tls_mode="acme": contact email for Let's Encrypt
 acme_cache_dir = "/var/cache/cee-exporter/acme"  # tls_mode="acme": cert cache dir
+acme_challenge_addr = ":443"     # tls_mode="acme": TLS-ALPN-01 challenge listener addr; must stay :443
 
 [output]
 type           = "gelf"         # Output type — see table below
@@ -120,7 +121,8 @@ level  = "info"                 # debug | info | warn | error
 format = "json"                 # json | text
 
 [metrics]
-addr = "0.0.0.0:9228"          # Prometheus /metrics listener
+enabled = true                 # Serve /metrics at all
+addr    = "0.0.0.0:9228"       # Prometheus /metrics listener
 ```
 
 ### Output types
@@ -443,28 +445,45 @@ CEPA (Common Event Publishing Agent) is the PowerStore mechanism that sends file
 
 ## Health endpoint
 
-`GET /health` returns a JSON object with operational status. HTTP 200 = healthy; HTTP 503 = degraded.
+`GET /health` returns a JSON object with operational status. **The HTTP status
+code is always 200** — degradation is signalled only by the `"status"` field
+in the body (`"ok"` or `"degraded"`, the latter once any events have been
+dropped). There is no HTTP 503 response today: do not point a liveness/
+readiness probe or load-balancer health check at this endpoint expecting a
+non-200 on degradation — it will not fire. See
+[docs/PROMISES.md](PROMISES.md) for this gap's tracking status.
 
 ```bash
 curl http://localhost:12228/health
 ```
 
-Example response:
+Example response (field names and nesting match `pkg/server/health.go`'s
+`healthResponse` struct exactly):
 
 ```json
 {
   "status": "ok",
-  "uptime": "2h34m",
-  "writer_type": "gelf",
-  "writer_addr": "192.168.1.50:12201",
-  "tls_enabled": false,
+  "uptime_seconds": 9240,
+  "queue_depth": 0,
   "events_received_total": 14823,
   "events_written_total": 14823,
   "events_dropped_total": 0,
-  "queue_depth": 0,
-  "last_event_at": "2026-03-03T08:15:42Z"
+  "last_event_at": "2026-03-03T08:15:42Z",
+  "writer": {
+    "type": "gelf",
+    "target": "192.168.1.50:12201",
+    "healthy": true
+  },
+  "tls": {
+    "enabled": false
+  }
 }
 ```
+
+When TLS is enabled, `tls` additionally carries `cert_expiry` (`YYYY-MM-DD`)
+and `days_remaining`, computed fresh on every request — see the cert-expiry
+note above; the same computation also emits the `tls_cert_expiry_soon`
+warning log line when fewer than 30 days remain.
 
 ---
 

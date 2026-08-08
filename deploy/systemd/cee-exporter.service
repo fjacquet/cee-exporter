@@ -7,8 +7,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 # DynamicUser provisions a transient unprivileged UID/GID for each start, so no
-# useradd step is needed. Combined with LogsDirectory and StateDirectory below,
-# systemd creates and chowns every path the daemon writes to.
+# useradd step is needed. Combined with LogsDirectory, StateDirectory, and
+# CacheDirectory below, systemd creates and chowns every path the daemon
+# writes to.
 DynamicUser=yes
 WorkingDirectory=/etc/cee-exporter
 ExecStart=/usr/local/bin/cee-exporter -config /etc/cee-exporter/config.toml
@@ -21,7 +22,8 @@ EnvironmentFile=-/etc/cee-exporter/env
 # File descriptor limit for high-throughput CEPA ingestion
 LimitNOFILE=65536
 
-# Filesystem hardening — daemon only needs write access to its log dir
+# Filesystem hardening — daemon only needs write access to its log, state,
+# and cache dirs (LogsDirectory/StateDirectory/CacheDirectory below)
 ProtectSystem=strict
 PrivateTmp=true
 NoNewPrivileges=true

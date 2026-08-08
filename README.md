@@ -20,7 +20,7 @@ Go daemon that receives Dell PowerStore CEPA audit events (HTTP PUT / XML) and f
 - Beats/Lumberjack v2 output → Logstash or Graylog, with optional TLS
 - Win32 EventLog via `ReportEvent` API on Windows; native `.evtx` files on other platforms
 - Multi-target fan-out: write to multiple backends simultaneously
-- TLS listener with four modes: off, manual (operator-supplied cert), ACME (automatic Let's Encrypt), and self-signed (runtime-generated, air-gapped-friendly); certificate expiry surfaced via `/health` with a startup warning when fewer than 30 days remain
+- TLS listener with four modes: off, manual (operator-supplied cert), ACME (automatic Let's Encrypt), and self-signed (runtime-generated, air-gapped-friendly); certificate expiry surfaced via `/health` on every request, with a warning logged when fewer than 30 days remain
 - Prometheus `/metrics` endpoint on a dedicated port (default 9228)
 - Windows Service registration (`cee-exporter.exe install`) and a hardened Linux systemd unit
 - Async queue — ACKs the HTTP request immediately, processes events in background

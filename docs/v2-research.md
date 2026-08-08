@@ -1,5 +1,7 @@
 # v2.0 Research Notes
 
+> **Historical research — not current guidance.** Recorded 2026-03-03, before implementation was finalized; some recommendations here were never implemented — see [ADR-011](adr/ADR-011-tls-certificate-automation.md)'s correction note for one example. For current configuration and behavior, see the [Operator Guide](operator-guide.md).
+
 Research conducted 2026-03-03 before milestone planning. Covers technology stack
 selection, feature design, architecture integration, and known pitfalls for the six
 new capabilities added in v2.0, plus Phase 8 TLS automation.
