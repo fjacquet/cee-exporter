@@ -79,10 +79,9 @@ flowchart TD
 | Type | Description | Platform |
 |------|-------------|----------|
 | `gelf` | GELF 1.1 JSON over UDP or TCP → Graylog | All |
-| `evtx` | Win32 `ReportEvent` → Windows Application Event Log | Windows |
+| `evtx` | Win32 EventLog API on Windows; native `.evtx` files on all other platforms | All |
 | `syslog` | RFC 5424 structured syslog over UDP or TCP | All |
 | `beats` | Lumberjack v2 to Logstash / Graylog Beats Input (± TLS) | All |
-| `binary-evtx` | Native `.evtx` files readable by Windows Event Viewer | Non-Windows |
 | `multi` | Fan-out to any combination of the above | All |
 
 ## Documentation

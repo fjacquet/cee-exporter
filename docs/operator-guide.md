@@ -116,12 +116,11 @@ key_file      = ""               # tls_mode="manual": path to TLS private key (P
 acme_domains  = []               # tls_mode="acme": domain names for Let's Encrypt
 acme_email    = ""               # tls_mode="acme": contact email for Let's Encrypt
 acme_cache_dir = "/var/cache/cee-exporter/acme"  # tls_mode="acme": cert cache dir
-acme_staging  = false            # tls_mode="acme": use LE staging (dev/testing)
 
 [output]
 type           = "gelf"         # Output type — see table below
 targets        = []             # type="multi": list of types to fan-out to
-evtx_path      = ""             # type="evtx" or "binary-evtx": output path
+evtx_path      = ""             # type="evtx": output path (non-Windows only)
 # GELF
 gelf_host      = "localhost"
 gelf_port      = 12201
@@ -154,10 +153,9 @@ addr = "0.0.0.0:9228"          # Prometheus /metrics listener
 | Type | Description | Platform |
 |------|-------------|----------|
 | `gelf` | GELF 1.1 JSON over UDP or TCP → Graylog | All |
-| `evtx` | Win32 `ReportEvent` → Windows Application Event Log | Windows |
+| `evtx` | Win32 EventLog API on Windows; native `.evtx` files on all other platforms | All |
 | `syslog` | RFC 5424 structured syslog over UDP or TCP (RFC 6587 framing for TCP) | All |
 | `beats` | Lumberjack v2 to Logstash / Graylog Beats Input (± TLS) | All |
-| `binary-evtx` | Native `.evtx` files readable by Windows Event Viewer | Non-Windows |
 | `multi` | Fan-out to any combination of the above | All |
 
 ### Multi-target example
@@ -188,15 +186,21 @@ beats_tls  = true
 
 Logstash must have a [Beats input](https://www.elastic.co/guide/en/logstash/current/plugins-inputs-beats.html) configured on port 5044. Graylog also supports the Beats protocol via its Beats Input plugin.
 
-### Binary EVTX output (Linux)
+### EVTX output (rotation and retention)
 
 ```toml
 [output]
-type      = "binary-evtx"
+type      = "evtx"
 evtx_path = "/var/log/cee-exporter/audit.evtx"
+
+flush_interval_s    = 15
+max_file_size_mb    = 100
+max_file_count      = 10
+rotation_interval_h = 24
 ```
 
-Generates a native Windows `.evtx` file that can be opened directly in Windows Event Viewer or parsed by forensics tools (Splunk, Elastic Agent, Velociraptor). Only available on non-Windows platforms — on Windows, use `type = "evtx"` for direct Win32 Event Log writing.
+On Windows this same configuration routes to the Win32 EventLog API and
+`evtx_path` is ignored — the platform decides, there is no separate type.
 
 ---
 
@@ -375,11 +379,10 @@ CEPA listener on 12228. The certificate is automatically renewed 30 days before 
 - Port 443/TCP must be reachable from the internet
 - `acme_cache_dir` must be on persistent storage (mount a volume if using Docker)
 - On Linux: the systemd unit must have `AmbientCapabilities=CAP_NET_BIND_SERVICE`
-- During development: set `acme_staging = true` to avoid Let's Encrypt rate limits
 
-```toml
-acme_staging = true  # Remove this line for production
-```
+There is no staging toggle. `tls_mode = "acme"` always uses the Let's Encrypt
+production directory, which is rate-limited. For development, use
+`tls_mode = "self-signed"` instead.
 
 ### Mode: `self-signed` — runtime-generated certificate
 
