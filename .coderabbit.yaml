@@ -1,0 +1,51 @@
+# CodeRabbit configuration.
+#
+# docs/archive/ holds retired planning material that was moved here with
+# `git mv`, history intact and content unchanged. A move of that size (117
+# files in one commit) pushes a PR over CodeRabbit's file-count threshold and
+# it skips the review entirely — so the archive is filtered out and the
+# review lands on the files that actually changed.
+#
+# The archive is also excluded from the built docs site (see `exclude_docs`
+# in mkdocs.yml), so nothing here is user-facing.
+
+language: en-GB
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+
+  path_filters:
+    - "!docs/archive/**"
+
+  path_instructions:
+    - path: "docs/PROMISES.md"
+      instructions: >-
+        This file maps every user-facing claim to the job that verifies it.
+        A row citing a test or CI job that does not verify its claim is a
+        serious defect, not a nitpick — that is the exact failure this file
+        exists to prevent. Check that cited test names look plausible against
+        the repo's test files, that a Verified row is not making a broader
+        claim than its cited job supports, and that Unverified rows are not
+        quietly upgraded. Flag any claim whose "Where stated" column points
+        at a document that does not contain it.
+    - path: "**/*_test.go"
+      instructions: >-
+        Assess whether each test could actually fail if the behaviour it
+        names broke. Flag tests that assert nothing meaningful, that pass
+        because of a recorder default rather than handler behaviour, or whose
+        doc comment claims a stronger property than the assertions establish.
+        This repo uses stdlib testing only — no testify. Synchronisation via
+        channels, never time.Sleep.
+    - path: ".github/workflows/**"
+      instructions: >-
+        docs-lint.yml is a guard against false claims returning to the
+        documentation. Check its greps and exemptions for holes: an exemption
+        broader than its comment describes, a --include filter that silently
+        skips a file the guard claims to cover, or a pattern that a plausible
+        bad input would slip past.
+
+chat:
+  auto_reply: true
