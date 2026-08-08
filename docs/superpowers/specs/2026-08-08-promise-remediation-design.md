@@ -212,12 +212,27 @@ protect the consumer against the current v0.5.1:
 - Guard `BinaryEvtxWriter.Close` (`writer_evtx_notwindows.go:45`) so a double
   close cannot propagate go-evtx's `close of closed channel` panic into the
   daemon.
-- Cap encoded field length in `windowsEventToFields` before handing off, so a
+- Cap field length in `windowsEventToFields` before handing off, so a
   filesystem-controlled `ObjectName` cannot reach the oversized-record
-  corruption path. Truncate any single field at 32,768 bytes and the total
-  encoded record at 64,996 (go-evtx's chunk payload capacity), append an
-  explicit `…[truncated]` marker, and increment a new
-  `cee_events_truncated_total` counter.
+  corruption path.
+
+  The budget must be measured in **encoded** bytes. go-evtx writes UTF-16LE
+  with a 2-byte length prefix and terminator, so an ASCII value of *n* bytes
+  costs 2*n*+4 on the wire and a non-BMP rune costs four. Budgeting against Go
+  string length under-counts by more than half and would pass records that
+  go-evtx then rejects.
+
+  Two passes are needed, because a per-field cap does not bound a set: twelve
+  fields at 8 KiB each encode to roughly 196 KB against a ~61 KB budget.
+  First cap any single value at 8,192 bytes — far above `PATH_MAX` — then, if
+  the encoded total still exceeds `64,996 − 4,096` (record capacity less a
+  reserve for BinXML template and framing overhead), repeatedly halve the
+  longest remaining value until it fits. Halving the longest preserves the
+  short fields that carry the event's identity — SID, logon ID, access mask —
+  over the one that is merely long.
+
+  Append an explicit `…[truncated]` marker without splitting a multi-byte
+  rune, and increment a new `cee_events_truncated_total` counter.
 
 Deferred to the v0.6.0 bump, which is its own small change and does not gate
 v4.1.3: surface `ErrRecordTooLarge` as a counted drop via `metrics.M` rather
@@ -250,11 +265,24 @@ real payload appended as an insertion string.
 
 Author a `.mc` message file defining messages for 4660, 4663 and 4670 whose
 single insertion string `%1` carries the formatted body already produced by
-`formatWin32Message`. Compile it with `windres` into a `.syso` committed to the
-package directory. The Go linker links `.syso` files automatically, so this
-works under `CGO_ENABLED=0` and adds no artifact to distribute and no path for
-an operator to get wrong — the message resource lives inside
-`cee-exporter.exe`.
+`formatWin32Message`.
+
+Compiling it takes **two** steps, not one — `windres` does not read `.mc`:
+
+```sh
+# 1. Message compiler: .mc -> .rc + .bin message tables
+windmc -h . -r . messages.mc        # GNU binutils; mc.exe on MSVC
+
+# 2. Resource compiler: .rc -> linkable object
+windres -i messages.rc -O coff -o rsrc_windows_amd64.syso
+```
+
+The `.syso` is committed to the package directory. The Go linker picks up
+`.syso` files automatically, so this works under `CGO_ENABLED=0`, adds no
+artifact to distribute, and gives an operator no path to get wrong — the
+message resource lives inside `cee-exporter.exe`. The filename must carry the
+`_windows_amd64` suffix so it is not linked into non-Windows builds, and a
+second `_windows_arm64` copy is needed for that release target.
 
 Then replace `InstallAsEventCreate` with:
 
@@ -262,6 +290,16 @@ Then replace `InstallAsEventCreate` with:
 exe, err := os.Executable()
 eventlog.Install(win32SourceName, exe, true, eventlog.Info|eventlog.Warning|eventlog.Error)
 ```
+
+**Upgrade path.** `eventlog.Install` does not repoint a source that already
+exists. Every host that has ever run a previous version has a
+`PowerStore-CEPA` source whose `EventMessageFile` points at `EventCreate.exe`,
+and it would keep rendering the placeholder text forever. On startup, read the
+registered `EventMessageFile` value and, when it does not match the current
+executable, remove and reinstall the source. Log the re-registration. This
+needs administrator rights, exactly as first-time registration does; when the
+rights are absent, log a warning naming the consequence rather than failing to
+start.
 
 Update the `writer_windows.go:10-15` comment to describe what the code now
 actually does.
