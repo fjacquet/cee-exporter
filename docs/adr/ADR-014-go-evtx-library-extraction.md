@@ -45,8 +45,8 @@ The extraction landed in commit `29ed067`
 `29ed067`'s parent, `b4c0155`) down to a 68-line adapter, and removed
 `evtx_binformat.go` and its test file entirely — that code, and its tests,
 now live in go-evtx. The dependency has since been bumped through `v0.2.0`
-(Phase 9's `RotationConfig`/flush-ticker wiring) to the `v0.5.1` currently
-in `go.mod`.
+(Phase 9's `RotationConfig`/flush-ticker wiring), `v0.5.1`, to the `v0.6.0`
+currently in `go.mod` (Task 12, same day as this ADR).
 
 ## Consequences
 
@@ -88,6 +88,23 @@ in `go.mod`.
   release's defensive hardening (`65f36c5`, `1857973`) — capping oversized
   fields and guarding against double `Close`.
 
+  > **Update (2026-08-08, Task 12):** go-evtx `v0.6.0` shipped the same day
+  > as the paragraph above was written, and this repo bumped to it the same
+  > day. `WriteRecord` now returns `ErrRecordTooLarge` instead of silently
+  > truncating an oversized record, `Close()` is now idempotent, a failed
+  > `rotate()` now sets a permanent error on the writer instead of silently
+  > discarding every subsequent event, and archive filenames now carry
+  > nanosecond resolution so two rotations in the same second no longer
+  > overwrite each other. The two-repository coordination cost described
+  > above is not being retracted — it is what just happened: the fix landed
+  > upstream first, and this repo could not benefit from it until this
+  > version bump. The defensive caps and the `Close` guard in
+  > `writer_evtx_notwindows.go` were deliberately kept rather than removed
+  > (see that file's own comments) as defense-in-depth against a class of
+  > defect this dependency has already shipped once, not because the v0.6.0
+  > fix is believed incomplete; the 228-line figure above does not shrink as
+  > a result of this bump.
+
 ## Supersedes
 
 [ADR-009](ADR-009-binary-evtx-scratch.md). Its "No new production
@@ -101,6 +118,10 @@ dependency.
 - `docs/superpowers/specs/2026-08-08-promise-remediation-design.md` — the
   2026-08-08 audit that surfaced the unrecorded reversal and the go-evtx
   `v0.5.1` truncation defect
+- [go-evtx v0.6.0 release notes](https://github.com/fjacquet/go-evtx/releases/tag/v0.6.0)
+  and `CHANGELOG.md` — the durability release fixing the truncation defect
+  above plus the non-idempotent `Close`, the failed-rotation silent-discard
+  path, and the sub-second archive-name collision
 - Companion spec in the go-evtx repository:
   `go-evtx/docs/superpowers/specs/2026-08-08-durability-and-format-correctness-design.md`
 - [ADR-012](ADR-012-flush-ticker-ownership.md), [ADR-013](ADR-013-write-on-close-model.md) —
