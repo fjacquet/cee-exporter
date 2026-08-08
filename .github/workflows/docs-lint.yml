@@ -183,11 +183,21 @@ jobs:
       # no-phantom-config). Nothing validated a single word of PROMISES.md's
       # own content; its accuracy was a fact about the people who wrote it, not
       # about the machinery. This step closes the single most common shape a
-      # future false citation will take: extract every `Test[A-Za-z0-9_]*`
+      # future false citation will take: extract every `\bTest[A-Z]...`
       # substring from docs/PROMISES.md and docs/requirements.md (the fuller
       # per-requirement traceability PROMISES.md itself points readers to, and
       # an equally citation-bearing document) and fail if any does not name a
       # real `func` in some `*_test.go` file.
+      #
+      # The pattern requires a word boundary before "Test" and an uppercase
+      # letter immediately after it — Go's own convention for a recognized
+      # test function (`func TestXxx`, `Xxx` not starting lowercase) — rather
+      # than the unanchored `Test[A-Za-z0-9_]*` this started as, which would
+      # match the ordinary word "Testing" anywhere it appears in either file
+      # and fail the build on a false alarm with no real citation involved.
+      # Verified this still extracts the identical 31/29 name sets from
+      # docs/PROMISES.md/docs/requirements.md, rejects "Testing", and still
+      # matches a real citation sitting on the same line as that word.
       #
       # One name is allowed to not resolve: TestBinaryEvtxWriter_Rotate, cited
       # in PROMISES.md's SIGHUP row as the test that would exist if EVTX
@@ -195,13 +205,22 @@ jobs:
       # not a citation of a verifying job. Add to the allowlist only for a
       # citation of that same shape, with a comment saying why, the same as
       # every other exemption in this file.
+      #
+      # Known gaps, both benign today: this validates function *names*, not
+      # file *paths* — a citation naming a real function that actually lives
+      # in a different file than the one written next to it would still pass
+      # — and a real name written with no separator immediately before or
+      # after other identifier characters (e.g. two names run together as one
+      # word) is extracted as that single longer token, not the real name
+      # inside it, so it is checked as written rather than as intended.
+      # Neither has occurred in this file to date.
       - name: Verify docs/PROMISES.md and docs/requirements.md cite real tests
         run: |
           set -euo pipefail
           fail=0
           allowlist=" TestBinaryEvtxWriter_Rotate "
           for f in docs/PROMISES.md docs/requirements.md; do
-            for name in $(grep -oE 'Test[A-Za-z0-9_]*' "$f" | sort -u); do
+            for name in $(grep -oE '\bTest[A-Z][A-Za-z0-9_]*' "$f" | sort -u); do
               case "$allowlist" in
                 *" $name "*) continue ;;
               esac
@@ -240,13 +259,29 @@ jobs:
       # space-em-dash-space immediately after "Unverified" is itself a
       # non-alphabetic character, so nothing can be inserted between the word
       # and that boundary without breaking the match.
+      #
+      # The row extractor below matters as much as the vocabulary it checks
+      # against, found in the same review: `/^\| /` (pipe-then-space) rejects
+      # three ordinary markdown row shapes outright, so they never reach the
+      # vocabulary check at all — `|c|s|v|Bogus|` (no space after the leading
+      # pipe), ` | c | s | v | Bogus |` (markdown permits up to three leading
+      # spaces before a table row), and, worst, `| c | s | v |  |` (an EMPTY
+      # status cell — a new claim landing with no job at all, exactly the
+      # failure this file exists to prevent, previously skipped twice over: by
+      # the strict `/^\| /` anchor, and again by the `[ -z "$cell" ]` guard
+      # below). Matches 0-3 leading spaces before the pipe, the range markdown
+      # itself allows, and separately excludes the table's own separator row
+      # (`|---|---|---|---|`) — which the old `/^\| /` pattern excluded only
+      # as an accident of also requiring a space right after the first pipe,
+      # a property the separator row happens not to have. The `[ -z ]` skip
+      # is gone: an empty cell now falls through to the vocabulary `case` and
+      # fails it, as it should.
       - name: Verify docs/PROMISES.md status cells use the defined vocabulary
         run: |
           set -euo pipefail
           fail=0
           while IFS= read -r cell; do
             [ "$cell" = "Status" ] && continue
-            [ -z "$cell" ] && continue
             case "$cell" in
               'Verified') ;;
               '**Verified**'|'**Verified**'*) ;;
@@ -259,5 +294,5 @@ jobs:
                 fail=1
                 ;;
             esac
-          done < <(sed 's/\\|/\x01/g' docs/PROMISES.md | awk -F'|' '/^\| / && NF>=5 {print $(NF-1)}' | sed 's/\x01/\\|/g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          done < <(sed 's/\\|/\x01/g' docs/PROMISES.md | awk -F'|' '/^[[:space:]]{0,3}\|/ && !/^[[:space:]]{0,3}\|[[:space:]]*-/ && NF>=5 {print $(NF-1)}' | sed 's/\x01/\\|/g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           exit $fail
