@@ -78,7 +78,7 @@ All targets set `CGO_ENABLED=0`. Consequences:
 
 ## Docker
 
-Final image is `scratch` (binary + CA certs only). Mount config at `/etc/cee-exporter/config.toml`. `ghcr.io/fjacquet/cee-exporter` (`linux/amd64` + `linux/arm64`) is published by the release pipeline via goreleaser's `dockers:`/`docker_manifests:` blocks (`Dockerfile.goreleaser`, which packages a prebuilt binary) — not by `make docker-push`, which remains a local-only convenience target.
+Final image is `scratch` (binary + CA certs only). Mount config at `/etc/cee-exporter/config.toml`. `ghcr.io/fjacquet/cee-exporter` (`linux/amd64` + `linux/arm64`) is published by the release pipeline via goreleaser's `dockers_v2:` block (`Dockerfile.goreleaser`, which packages the prebuilt binaries) — not by `make docker-push`, which remains a local-only convenience target.
 
 ## GitHub Actions
 

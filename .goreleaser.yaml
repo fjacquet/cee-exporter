@@ -47,46 +47,31 @@ checksum:
   name_template: checksums.txt
   algorithm: sha256
 
-dockers:
-  - id: cee-exporter-amd64
-    goos: linux
-    goarch: amd64
-    image_templates:
-      - "ghcr.io/fjacquet/cee-exporter:{{ .Version }}-amd64"
+# dockers_v2 (goreleaser >= 2.12) builds a single multi-arch manifest via
+# buildx directly — the older dockers:/docker_manifests: pair is deprecated
+# and the Makefile already pins GORELEASER_VERSION to 2.12.0, so we target
+# the current mechanism instead of the one being phased out.
+dockers_v2:
+  - id: cee-exporter
+    ids:
+      - cee-exporter
     dockerfile: Dockerfile.goreleaser
-    use: buildx
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .GitURL }}"
-      - "--label=org.opencontainers.image.licenses=MIT"
-
-  - id: cee-exporter-arm64
-    goos: linux
-    goarch: arm64
-    image_templates:
-      - "ghcr.io/fjacquet/cee-exporter:{{ .Version }}-arm64"
-    dockerfile: Dockerfile.goreleaser
-    use: buildx
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .GitURL }}"
-      - "--label=org.opencontainers.image.licenses=MIT"
-
-docker_manifests:
-  - name_template: "ghcr.io/fjacquet/cee-exporter:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/fjacquet/cee-exporter:{{ .Version }}-amd64"
-      - "ghcr.io/fjacquet/cee-exporter:{{ .Version }}-arm64"
-  - name_template: "ghcr.io/fjacquet/cee-exporter:latest"
-    image_templates:
-      - "ghcr.io/fjacquet/cee-exporter:{{ .Version }}-amd64"
-      - "ghcr.io/fjacquet/cee-exporter:{{ .Version }}-arm64"
+    images:
+      - ghcr.io/fjacquet/cee-exporter
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    extra_files:
+      - ca-certificates.crt
+    labels:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.source: "{{ .GitURL }}"
+      org.opencontainers.image.licenses: MIT
 
 sboms:
   - id: cyclonedx-gomod

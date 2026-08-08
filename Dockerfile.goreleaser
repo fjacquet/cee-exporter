@@ -1,9 +1,14 @@
-# Dockerfile.goreleaser — consumes the binary goreleaser already built.
+# Dockerfile.goreleaser — consumes the binaries goreleaser already built.
 # The multi-stage Dockerfile at the repo root is for local `make docker-build`.
+# dockers_v2 assembles the build context as <goos>/<goarch>/<binary>
+# (e.g. linux/amd64/cee-exporter); TARGETPLATFORM, supplied by buildx,
+# resolves to that same "<goos>/<goarch>" path.
 FROM scratch
 
+ARG TARGETPLATFORM
+
 COPY ca-certificates.crt /etc/ssl/certs/
-COPY cee-exporter /cee-exporter
+COPY ${TARGETPLATFORM}/cee-exporter /cee-exporter
 
 EXPOSE 12228
 USER 65532:65532
