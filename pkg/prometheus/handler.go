@@ -63,6 +63,13 @@ func newRegistry() *prometheus.Registry {
 			},
 			func() float64 { return float64(metrics.M.LastFsyncUnix()) },
 		),
+		prometheus.NewCounterFunc(
+			prometheus.CounterOpts{
+				Name: "cee_events_truncated_total",
+				Help: "Total events with at least one field capped before the EVTX writer.",
+			},
+			func() float64 { return float64(metrics.M.EventsTruncatedTotal.Load()) },
+		),
 	)
 
 	return reg
