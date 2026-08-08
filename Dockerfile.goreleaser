@@ -1,0 +1,12 @@
+# Dockerfile.goreleaser — consumes the binary goreleaser already built.
+# The multi-stage Dockerfile at the repo root is for local `make docker-build`.
+FROM scratch
+
+COPY ca-certificates.crt /etc/ssl/certs/
+COPY cee-exporter /cee-exporter
+
+EXPOSE 12228
+USER 65532:65532
+
+ENTRYPOINT ["/cee-exporter"]
+CMD ["-config", "/etc/cee-exporter/config.toml"]
