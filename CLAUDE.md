@@ -122,7 +122,7 @@ Final image is `scratch` (binary + CA certs only). Mount config at `/etc/cee-exp
 
 ## GitHub Actions
 
-- `ci.yml` — delegates to the reusable `fjacquet/ci` workflows (`go-ci.yml`, `go-security.yml`), which run `make ci` on `ubuntu-24.04`. **Linux only — there is no Windows job.** `writer_windows.go` and `service_windows.go` are cross-compiled but never executed by any test.
+- `ci.yml` — delegates to the reusable `fjacquet/ci` workflows (`go-ci.yml`, `go-security.yml`), which run `make ci` on `ubuntu-24.04`. **Linux only — there is no Windows job, and CI does not cross-compile for Windows either**: `make ci`'s `go build -v ./...` runs on a Linux runner, where `//go:build windows` excludes `writer_windows.go` and `service_windows.go` from the build entirely — they are not merely uncompiled-and-discarded, the compiler never sees them. The only thing that ever builds them is `release.yml`'s goreleaser run on a `v*` tag (`goos: windows` in `.goreleaser.yaml`), and nothing — not CI, not the release build — ever executes them. A Windows-only change can be green on every CI check and still be broken.
 - `docs.yml` — deploys mkdocs-material to `gh-pages` on docs/README changes. Runs `mkdocs build --strict`, so a single broken internal link fails the build.
 - `release.yml` — triggered by `v*` tags: goreleaser builds binaries for linux/darwin/windows × amd64/arm64 and publishes the multi-arch image to GHCR.
 
