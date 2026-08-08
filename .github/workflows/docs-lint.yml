@@ -73,33 +73,32 @@ jobs:
       #   line) still leaves a co-located phantom key, in either spelling of
       #   the link, standing and failing the build.
       #
-      #   acme_staging: the only legitimate occurrences are inside
-      #   ADR-011-tls-certificate-automation.md's own Consequences section
-      #   (the preserved original claim plus its correction banner) and
-      #   docs/PROMISES.md's row naming both retired phantom keys by name —
+      #   acme_staging: the only legitimate occurrence outside docs/PROMISES.md
+      #   is inside ADR-011-tls-certificate-automation.md's own Consequences
+      #   section (the preserved original claim plus its correction banner) —
       #   no other file's line ever combines "acme_staging" with a mention of
-      #   either of those two files, so a straight file-path anchor is
-      #   precise here and does not need substring surgery.
+      #   that file, so a straight file-path anchor is precise there and does
+      #   not need substring surgery.
       #
       #   docs/PROMISES.md itself names both "binary-evtx" and "acme_staging"
       #   in one row, as the worked example of what this guard exists to
       #   catch — the row does not re-document either as a usable config
-      #   value. Per a 2026-08-08 review finding, a blanket `--exclude` here
-      #   would be the one imprecise exemption in the file: it would exempt
-      #   PROMISES.md's authority itself, the exact file this guard's own
-      #   citations are supposed to be trustworthy against, so a *future* row
-      #   re-documenting "binary-evtx" as usable would slip through uncaught.
-      #   Instead the binary-evtx check strips only the exact known-safe
-      #   substring — `type = "binary-evtx"` — from lines that are BOTH from
-      #   docs/PROMISES.md AND already mention "acme_staging" (i.e. only the
-      #   one worked-example row this file is expected to contain), the same
-      #   substring-stripping idiom used for the two ADR links above. Any
-      #   other binary-evtx mention added to PROMISES.md, in a row that does
-      #   not also name acme_staging on the same line, still fails the build.
-      #   The acme_staging check keeps the coarser path anchor (matching
-      #   ADR-011's own exemption shape) since that check has no equivalent
-      #   single-row precision available without the same substring surgery;
-      #   revisit if PROMISES.md ever needs a second row naming acme_staging.
+      #   value. A blanket file exemption for PROMISES.md would be the one
+      #   imprecise exemption in the guard: it would exempt PROMISES.md's
+      #   authority itself, the exact file this guard's own citations are
+      #   supposed to be trustworthy against, so a *future* row re-documenting
+      #   either string as usable would slip through uncaught. So both checks
+      #   below use the identical substring-stripping idiom — the same one
+      #   used for the two ADR links above — mirrored at each other: the
+      #   binary-evtx check strips only `type = "binary-evtx"` from lines that
+      #   are BOTH from docs/PROMISES.md AND already mention "acme_staging",
+      #   and the acme_staging check strips only `acme_staging` from lines
+      #   that are BOTH from docs/PROMISES.md AND already mention
+      #   "binary-evtx". Both anchor to the same one worked-example row this
+      #   file is expected to contain — it's one mechanism mirrored, not two —
+      #   so a phantom-key mention added anywhere else in PROMISES.md, not
+      #   co-located with its counterpart string on the same line, still
+      #   fails the build. No whole-file exemption remains in this guard.
       - name: Reject documented-but-nonexistent config keys
         run: |
           set -euo pipefail
@@ -122,16 +121,21 @@ jobs:
             fail=1
           fi
 
-          # acme_staging — no such field in ListenConfig. Anchored to the
-          # start of the line so only hits whose SOURCE FILE is ADR-011 or
-          # PROMISES.md are exempt — a line in any other file that merely
-          # mentions one of those filenames as text does not match this
-          # anchor and still fails.
+          # acme_staging — no such field in ListenConfig. ADR-011's own
+          # occurrence is exempted by a file-path anchor (its whole
+          # Consequences section is the legitimate content, not one line).
+          # docs/PROMISES.md's occurrence is exempted by stripping only the
+          # exact known-safe substring from the one line that is BOTH from
+          # docs/PROMISES.md AND already mentions "binary-evtx" — the mirror
+          # of the binary-evtx check's PROMISES.md exemption below. A line in
+          # any other file, or a PROMISES.md line that doesn't also name
+          # binary-evtx, does not match and still fails.
           if grep -rn 'acme_staging' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
                --exclude-dir=research --exclude-dir=superpowers --exclude-dir=archive \
              | grep -v '^docs/adr/ADR-011-tls-certificate-automation\.md:' \
-             | grep -v '^docs/PROMISES\.md:'; then
+             | sed -E '/^docs\/PROMISES\.md:.*binary-evtx/ s/`acme_staging`//g' \
+             | grep 'acme_staging'; then
             echo "::error::'acme_staging' does not exist in ListenConfig."
             fail=1
           fi
