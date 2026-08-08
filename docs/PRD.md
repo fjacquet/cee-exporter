@@ -81,7 +81,7 @@ syslog receivers, native Windows Event Log, or standalone `.evtx` files on Linux
 
 ## Functional Requirements
 
-Full requirement list: see [REQUIREMENTS.md](.planning/REQUIREMENTS.md)
+Full requirement list: see [requirements.md](requirements.md)
 
 ### v1.0 (delivered)
 

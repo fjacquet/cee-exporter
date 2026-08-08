@@ -7,10 +7,14 @@ edit_uri: edit/main/docs/
 
 docs_dir: docs
 
+exclude_docs: |
+  archive/
+
 nav:
   - Home: index.md
   - Operator Guide: operator-guide.md
   - Product Requirements: PRD.md
+  - Requirements Traceability: requirements.md
   - Architecture Decisions:
       - ADR-001 Language (Go): adr/ADR-001-language-go.md
       - ADR-002 GELF Primary Output: adr/ADR-002-gelf-primary-linux.md

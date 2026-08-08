@@ -29,6 +29,15 @@ jobs:
       #                       not current guidance (not yet in mkdocs nav).
       #   docs/superpowers/** — planning/spec working docs that describe the
       #                          bug this very workflow guards against.
+      #   docs/archive/** — the retired .planning/ process archive (moved
+      #                     2026-08-08). Its RESEARCH/PLAN/SUMMARY files
+      #                     predate both phantom keys being caught and
+      #                     legitimately describe the pre-fix design (e.g.
+      #                     "binary-evtx" as the originally planned output
+      #                     type name, "acme_staging" as a once-proposed
+      #                     field). mkdocs excludes this tree from the built
+      #                     site via exclude_docs, so it is not published
+      #                     guidance either. See docs/archive/planning/README.md.
       # Everything else, including docs/adr/ and docs/v2-research.md, IS
       # scanned. Two distinct exemption shapes are used below, chosen per
       # where the legitimate occurrence actually lives (verified by running
@@ -83,7 +92,7 @@ jobs:
           # still fails, while the links themselves do not.
           if grep -rn 'binary-evtx' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
-               --exclude-dir=research --exclude-dir=superpowers \
+               --exclude-dir=research --exclude-dir=superpowers --exclude-dir=archive \
              | sed -E 's#\(adr/ADR-004-binary-evtx-deferred\.md\)##g; s#\(ADR-004-binary-evtx-deferred\.md\)##g; s#\(adr/ADR-009-binary-evtx-scratch\.md\)##g; s#\(ADR-009-binary-evtx-scratch\.md\)##g' \
              | grep 'binary-evtx'; then
             echo "::error::'binary-evtx' is not a valid output type. Use 'evtx'."
@@ -96,7 +105,7 @@ jobs:
           # filename as text does not match this anchor and still fails.
           if grep -rn 'acme_staging' docs/ README.md config.toml config.toml.example \
                --include='*.md' --include='*.toml' \
-               --exclude-dir=research --exclude-dir=superpowers \
+               --exclude-dir=research --exclude-dir=superpowers --exclude-dir=archive \
              | grep -v '^docs/adr/ADR-011-tls-certificate-automation\.md:'; then
             echo "::error::'acme_staging' does not exist in ListenConfig."
             fail=1
