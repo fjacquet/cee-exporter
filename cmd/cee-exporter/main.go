@@ -234,13 +234,18 @@ func run(ctx context.Context) {
 		// which then blocks waiting for a stop signal. Returning from run()
 		// here would end that goroutine but leave the process hanging forever.
 		// os.Exit terminates the whole process regardless of which goroutine
-		// calls it.
-		if err := emitTestEvents(w); err != nil {
-			slog.Error("emit_test_events_failed", "err", err)
-			os.Exit(1)
+		// calls it — which also means deferred calls never run, so Close is
+		// called explicitly below rather than deferred, on every exit path,
+		// so whatever was written before a failure still reaches disk.
+		emitErr := emitTestEvents(w)
+		if emitErr != nil {
+			slog.Error("emit_test_events_failed", "err", emitErr)
 		}
 		if err := w.Close(); err != nil {
 			slog.Warn("emit_test_events_writer_close_failed", "err", err)
+		}
+		if emitErr != nil {
+			os.Exit(1)
 		}
 		os.Exit(0)
 	}
