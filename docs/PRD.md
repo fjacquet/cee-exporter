@@ -117,9 +117,12 @@ Full requirement list: see [requirements.md](requirements.md)
 
 **Verification status:** see [docs/requirements.md](requirements.md) for the
 per-requirement traceability and [docs/PROMISES.md](PROMISES.md) for every
-user-facing claim's verifying job. Several v2.0 rows above — notably
-DEPLOY-03 through DEPLOY-05 (Windows Service) and OUT-06 above — have no
-automated check today; there is no Windows CI runner in this project.
+user-facing claim's verifying job. Since v5.0, DEPLOY-03 and DEPLOY-04
+(Windows Service install/uninstall via the real SCM start/stop lifecycle) are
+verified by the `windows` CI job. DEPLOY-05 (crash auto-restart) and OUT-06
+above remain unverified — nothing simulates a crash to exercise the SCM's
+recovery action, and the generated-`.evtx` Event Viewer claim depends on
+go-evtx v0.7.0, not yet released.
 
 ---
 
@@ -179,15 +182,21 @@ For architectural decisions, see `docs/adr/`.
 See [docs/PROMISES.md](PROMISES.md) for the verifying job behind each metric
 below; several are not yet checked by anything.
 
-- `go test ./...` passes with zero failures on Linux (CI-verified on every
-  push) — **not verified on Windows: there is no Windows CI runner**
+- `go test ./...` passes with zero failures on Linux and Windows —
+  CI-verified on every push: Linux via the `ci` job, Windows via the
+  `windows` job's `go test -race ./...`, confirmed running with a real `gcc`
+  rather than silently degrading to the non-`-race` fallback
 - `make build-linux` and `make build-windows` produce runnable binaries
   (corrected from `make build`, which only runs `go build -v ./...` to check
   compilation and produces no binary at all)
 - An operator can follow the README quickstart and see events in Graylog
   within 15 minutes — **not verified by any automated or timed check**
-- `cee-exporter.exe install` registers a service that survives reboot and
-  restarts on failure — **not yet verified; no Windows CI runner**
+- `cee-exporter.exe install` registers a service the SCM can actually start
+  and stop — **verified** (the `windows` CI job installs, starts it and
+  confirms `Running`, stops it and confirms `Stopped`, then uninstalls).
+  Whether it survives a reboot or auto-restarts after a crash is
+  **not yet verified** — nothing reboots the runner or simulates a crash to
+  exercise the `OnFailure: "restart"` recovery action
 - `.evtx` files generated on Linux open correctly in Windows Event Viewer —
   **not yet verified; tracked as go-evtx F6**
 - `curl :9228/metrics` returns Prometheus-formatted counters (verified —

@@ -14,6 +14,11 @@ coverage.out
 # MkDocs generated site
 /site/
 
+# windmc C header — only useful to C code, which this repo has none of. The
+# .syso (committed) is what the Go linker consumes; `make winres` regenerates
+# this deterministically from pkg/evtx/messages.mc any time it's needed.
+/pkg/evtx/messages.h
+
 # OS
 .DS_Store
 Thumbs.db

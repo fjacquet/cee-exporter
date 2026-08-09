@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,3 +15,181 @@ jobs:
 
   security:
     uses: fjacquet/ci/.github/workflows/go-security.yml@v1
+
+  # First job in this repo's history to execute writer_windows.go and
+  # service_windows.go. `make ci` runs on Linux, where //go:build windows
+  # excludes both files from the compiler entirely — a Windows-only change
+  # could be green on every other check and still be broken.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # Runs as Administrator on GitHub-hosted Windows runners, which the
+      # event-source registration tests require.
+      #
+      # -race needs cgo and a C compiler. Measured on winvm (2026-08-09):
+      # `go test -race` fails there with "requires cgo" because that host has
+      # no C toolchain. GitHub's windows-latest image does ship mingw gcc, so
+      # -race is expected to work here — but verify it rather than assume,
+      # because the failure mode is a red job for a reason unrelated to the
+      # code. The check below turns an absent compiler into a clear skip
+      # instead of a confusing build error.
+      - name: Run tests
+        shell: pwsh
+        run: |
+          $cc = Get-Command gcc -ErrorAction SilentlyContinue
+          if ($null -eq $cc) {
+            Write-Host "::warning::no C compiler on this runner - running without -race"
+            go test ./...
+          } else {
+            Write-Host "C compiler: $($cc.Source)"
+            go test -race ./...
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build
+        run: go build -o cee-exporter.exe ./cmd/cee-exporter
+
+      # The assertion the message resource exists for. A failure here means
+      # Event Viewer would show "The description for Event ID N ... cannot be
+      # found" to every operator.
+      - name: Assert Event Viewer renders real text, not the placeholder
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Registers the source against cee-exporter.exe and writes one event
+          # per mapped ID.
+          .\cee-exporter.exe -emit-test-events
+
+          # Measured on Windows Server 2025 (2026-08-09) against a source
+          # deliberately registered the broken way:
+          #
+          #   Get-WinEvent .Message  -> $null
+          #   Get-EventLog .Message  -> "The description for Event ID '4663'
+          #                              in Source '...' cannot be found. ..."
+          #
+          # So the placeholder string NEVER appears in Get-WinEvent output.
+          # Searching Get-WinEvent for it would pass on broken output — a
+          # guard that cannot fail. Both cmdlets are checked instead:
+          # Get-WinEvent for a non-null resolved message, Get-EventLog for the
+          # absence of the placeholder.
+          #
+          # A resolved, non-null message is NOT enough on its own: "Object
+          # Name:" and the rest of the payload body come from the %1
+          # insertion string, which is present regardless of what the message
+          # resource's own description text says. A resource with a missing
+          # or swapped description (e.g. 4670 carrying 4663's text) passes
+          # every check above it and would still ship silently broken. So
+          # each ID's expected description line — the part the resource is
+          # actually responsible for — is asserted explicitly too.
+          $placeholder = 'cannot be found'
+          $expectedDescriptions = @{
+            4660 = 'An object was deleted.'
+            4663 = 'An attempt was made to access an object.'
+            4670 = 'Permissions on an object were changed.'
+          }
+          $ids = @(4660, 4663, 4670)
+          $failed = $false
+
+          foreach ($id in $ids) {
+            $ev = Get-WinEvent -FilterHashtable @{
+              LogName      = 'Application'
+              ProviderName = 'PowerStore-CEPA'
+              Id           = $id
+            } -MaxEvents 1 -ErrorAction Stop
+
+            # An unresolvable message is $null here, not placeholder text.
+            if ($null -eq $ev.Message) {
+              Write-Host "::error::event $id has no resolvable description - the message resource is not being found"
+              $failed = $true
+              continue
+            }
+            if ($ev.Message -notlike '*Object Name:*') {
+              Write-Host "::error::event $id is missing the payload body: $($ev.Message)"
+              $failed = $true
+              continue
+            }
+            if ($ev.Message -notlike "*$($expectedDescriptions[$id])*") {
+              Write-Host "::error::event $id resolved a message but not its own description - expected to contain '$($expectedDescriptions[$id])', got: $($ev.Message)"
+              $failed = $true
+              continue
+            }
+
+            # Get-EventLog is where the placeholder text actually surfaces,
+            # and is closer to what Event Viewer shows an operator.
+            $old = Get-EventLog -LogName Application -Source 'PowerStore-CEPA' -Newest 20 |
+                   Where-Object { $_.EventID -eq $id } | Select-Object -First 1
+            if ($null -eq $old) {
+              Write-Host "::error::event $id was not found via Get-EventLog - cannot confirm the placeholder is absent"
+              $failed = $true
+              continue
+            }
+            if ($old.Message -like "*$placeholder*") {
+              Write-Host "::error::event $id renders the placeholder: $($old.Message)"
+              $failed = $true
+              continue
+            }
+
+            Write-Host "event $id renders correctly"
+          }
+
+          if ($failed) { exit 1 }
+
+      # install/uninstall only exercise kardianos's SCM registration helpers.
+      # Nothing before this step ever called sc.exe start, so
+      # svcProgram.Start/Stop in service_windows.go — the code that actually
+      # runs when the SCM starts and stops the service, including the only
+      # shutdown path Windows offers it (no POSIX signals) — had never
+      # executed. This exercises that body directly, not just registration.
+      - name: Service install/uninstall round-trip
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          .\cee-exporter.exe install
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::install exited $LASTEXITCODE"; exit 1 }
+
+          sc.exe query cee-exporter
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::sc.exe query exited $LASTEXITCODE"; exit 1 }
+
+          sc.exe start cee-exporter
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::sc.exe start exited $LASTEXITCODE"; exit 1 }
+
+          # sc.exe start returns once the request is accepted, not once the
+          # service reaches Running - poll briefly rather than assume either
+          # state on the first read.
+          $running = $false
+          for ($i = 0; $i -lt 10; $i++) {
+            $svc = Get-Service -Name cee-exporter
+            if ($svc.Status -eq 'Running') { $running = $true; break }
+            Start-Sleep -Milliseconds 500
+          }
+          Write-Host "service status after start: $($svc.Status)"
+          if (-not $running) {
+            Write-Host "::error::service did not reach Running state after sc.exe start (last observed: $($svc.Status))"
+            exit 1
+          }
+
+          sc.exe stop cee-exporter
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::sc.exe stop exited $LASTEXITCODE"; exit 1 }
+
+          $stopped = $false
+          for ($i = 0; $i -lt 10; $i++) {
+            $svc = Get-Service -Name cee-exporter
+            if ($svc.Status -eq 'Stopped') { $stopped = $true; break }
+            Start-Sleep -Milliseconds 500
+          }
+          Write-Host "service status after stop: $($svc.Status)"
+          if (-not $stopped) {
+            Write-Host "::error::service did not reach Stopped state after sc.exe stop (last observed: $($svc.Status))"
+            exit 1
+          }
+
+          .\cee-exporter.exe uninstall
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::uninstall exited $LASTEXITCODE"; exit 1 }

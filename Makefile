@@ -125,3 +125,23 @@ docker-run:
 	  -p 12228:12228 \
 	  -v $(PWD)/config.toml:/etc/cee-exporter/config.toml:ro \
 	  $(IMAGE):latest
+
+## winres: regenerate the Windows message resource (.syso)
+##
+## Uses a local mingw-w64 toolchain when present (brew install mingw-w64 on
+## macOS, binutils-mingw-w64-x86-64 + gcc-mingw-w64-x86-64 on Debian), and
+## falls back to a container otherwise, so this works on a machine that has
+## only Docker.
+.PHONY: winres
+winres:
+ifeq ($(shell command -v x86_64-w64-mingw32-windres 2>/dev/null),)
+	docker run --rm -v "$(PWD)/pkg/evtx":/w -w /w ubuntu:24.04 sh -c '\
+		apt-get update -qq && \
+		apt-get install -y -qq binutils-mingw-w64-x86-64 gcc-mingw-w64-x86-64 && \
+		x86_64-w64-mingw32-windmc -h . -r . messages.mc && \
+		x86_64-w64-mingw32-windres -i messages.rc -O coff -o rsrc_windows_amd64.syso'
+else
+	cd pkg/evtx && x86_64-w64-mingw32-windmc -h . -r . messages.mc
+	cd pkg/evtx && x86_64-w64-mingw32-windres -i messages.rc -O coff -o rsrc_windows_amd64.syso
+endif
+	@echo "regenerated pkg/evtx/rsrc_windows_amd64.syso"

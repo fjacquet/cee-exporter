@@ -100,7 +100,7 @@ compiled out there.
 | Type | Description | Platform |
 |------|-------------|----------|
 | `gelf` | GELF 1.1 JSON over UDP or TCP → Graylog | All |
-| `evtx` | Win32 EventLog API on Windows; native `.evtx` files on all other platforms | All |
+| `evtx` | Win32 EventLog API on Windows (real event descriptions via a compiled message resource — see [Windows Verification Protocol](windows-verification.md)); native `.evtx` files on all other platforms | All |
 | `syslog` | RFC 5424 structured syslog over UDP or TCP | All |
 | `beats` | Lumberjack v2 to Logstash / Graylog Beats Input (± TLS) | All |
 | `multi` | Fan-out to any combination of the above | All |
@@ -108,6 +108,7 @@ compiled out there.
 ## Documentation
 
 - [**Operator Guide**](operator-guide.md) — installation, all config fields, TLS setup, CEPA registration, troubleshooting
+- [**Windows Verification Protocol**](windows-verification.md) — manual Event Viewer verification for the Win32 writer's message rendering and registration upgrade path
 - [**Product Requirements (PRD)**](PRD.md) — problem statement, goals, personas, v2 requirements
 - [**v2.0 Research Notes**](v2-research.md) — technology stack decisions, pitfalls, CEPA protocol findings
 - [**Research Archive**](research/index.md) — full phase-by-phase research (stack, architecture, pitfalls, code examples)

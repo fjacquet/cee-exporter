@@ -206,9 +206,13 @@ Manager (SCM) for automatic startup and restart on failure.
 
 > Run all service management commands from an **Administrator** command prompt.
 
-> **Verification status:** this project has no Windows CI runner, so
-> `install`/`uninstall`/crash-restart behaviour is correct by code inspection
-> only, not exercised by any automated test. See [docs/PROMISES.md](PROMISES.md).
+> **Verification status:** since v5.0, the `windows` CI job installs the
+> service, drives it through `sc.exe start` and `sc.exe stop` (confirming it
+> actually reaches `Running` and `Stopped`), and uninstalls it — exercising
+> the real SCM lifecycle, not just registration. Crash-restart specifically
+> is not: nothing simulates a crash or observes the `OnFailure: "restart"`
+> recovery action firing, so that part remains correct by code inspection
+> only. See [docs/PROMISES.md](PROMISES.md).
 
 ```powershell
 # Register the service (Delayed Auto-Start, restarts on failure after 5 s)

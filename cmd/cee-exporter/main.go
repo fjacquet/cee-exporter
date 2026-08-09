@@ -179,6 +179,8 @@ func main() {
 
 func run(ctx context.Context) {
 	cfgPath := flag.String("config", "config.toml", "path to TOML configuration file")
+	emitTest := flag.Bool("emit-test-events", false,
+		"write one sample event per mapped Windows event ID and exit; use to verify event source registration and message rendering")
 	flag.Parse()
 
 	cfg := defaultConfig()
@@ -224,6 +226,28 @@ func run(ctx context.Context) {
 	if err != nil {
 		slog.Error("writer_init_failed", "error", err)
 		os.Exit(1)
+	}
+
+	if *emitTest {
+		// os.Exit rather than return: on Windows, run() executes as a goroutine
+		// started by the service manager's Start() (see service_windows.go),
+		// which then blocks waiting for a stop signal. Returning from run()
+		// here would end that goroutine but leave the process hanging forever.
+		// os.Exit terminates the whole process regardless of which goroutine
+		// calls it — which also means deferred calls never run, so Close is
+		// called explicitly below rather than deferred, on every exit path,
+		// so whatever was written before a failure still reaches disk.
+		emitErr := emitTestEvents(w)
+		if emitErr != nil {
+			slog.Error("emit_test_events_failed", "err", emitErr)
+		}
+		if err := w.Close(); err != nil {
+			slog.Warn("emit_test_events_writer_close_failed", "err", err)
+		}
+		if emitErr != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	// Wire SIGHUP → immediate EVTX rotation (no-op on Windows).
