@@ -14,3 +14,112 @@ jobs:
 
   security:
     uses: fjacquet/ci/.github/workflows/go-security.yml@v1
+
+  # First job in this repo's history to execute writer_windows.go and
+  # service_windows.go. `make ci` runs on Linux, where //go:build windows
+  # excludes both files from the compiler entirely — a Windows-only change
+  # could be green on every other check and still be broken.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # Runs as Administrator on GitHub-hosted Windows runners, which the
+      # event-source registration tests require.
+      #
+      # -race needs cgo and a C compiler. Measured on winvm (2026-08-09):
+      # `go test -race` fails there with "requires cgo" because that host has
+      # no C toolchain. GitHub's windows-latest image does ship mingw gcc, so
+      # -race is expected to work here — but verify it rather than assume,
+      # because the failure mode is a red job for a reason unrelated to the
+      # code. The check below turns an absent compiler into a clear skip
+      # instead of a confusing build error.
+      - name: Run tests
+        shell: pwsh
+        run: |
+          $cc = Get-Command gcc -ErrorAction SilentlyContinue
+          if ($null -eq $cc) {
+            Write-Host "::warning::no C compiler on this runner - running without -race"
+            go test ./...
+          } else {
+            Write-Host "C compiler: $($cc.Source)"
+            go test -race ./...
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build
+        run: go build -o cee-exporter.exe ./cmd/cee-exporter
+
+      # The assertion the message resource exists for. A failure here means
+      # Event Viewer would show "The description for Event ID N ... cannot be
+      # found" to every operator.
+      - name: Assert Event Viewer renders real text, not the placeholder
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Registers the source against cee-exporter.exe and writes one event
+          # per mapped ID.
+          .\cee-exporter.exe -emit-test-events
+
+          # Measured on Windows Server 2025 (2026-08-09) against a source
+          # deliberately registered the broken way:
+          #
+          #   Get-WinEvent .Message  -> $null
+          #   Get-EventLog .Message  -> "The description for Event ID '4663'
+          #                              in Source '...' cannot be found. ..."
+          #
+          # So the placeholder string NEVER appears in Get-WinEvent output.
+          # Searching Get-WinEvent for it would pass on broken output — a
+          # guard that cannot fail. Both cmdlets are checked instead:
+          # Get-WinEvent for a non-null resolved message, Get-EventLog for the
+          # absence of the placeholder.
+          $placeholder = 'cannot be found'
+          $ids = @(4660, 4663, 4670)
+          $failed = $false
+
+          foreach ($id in $ids) {
+            $ev = Get-WinEvent -FilterHashtable @{
+              LogName      = 'Application'
+              ProviderName = 'PowerStore-CEPA'
+              Id           = $id
+            } -MaxEvents 1 -ErrorAction Stop
+
+            # An unresolvable message is $null here, not placeholder text.
+            if ($null -eq $ev.Message) {
+              Write-Host "::error::event $id has no resolvable description - the message resource is not being found"
+              $failed = $true
+              continue
+            }
+            if ($ev.Message -notlike '*Object Name:*') {
+              Write-Host "::error::event $id is missing the payload body: $($ev.Message)"
+              $failed = $true
+              continue
+            }
+
+            # Get-EventLog is where the placeholder text actually surfaces,
+            # and is closer to what Event Viewer shows an operator.
+            $old = Get-EventLog -LogName Application -Source 'PowerStore-CEPA' -Newest 20 |
+                   Where-Object { $_.EventID -eq $id } | Select-Object -First 1
+            if ($null -ne $old -and $old.Message -like "*$placeholder*") {
+              Write-Host "::error::event $id renders the placeholder: $($old.Message)"
+              $failed = $true
+              continue
+            }
+
+            Write-Host "event $id renders correctly"
+          }
+
+          if ($failed) { exit 1 }
+
+      - name: Service install/uninstall round-trip
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\cee-exporter.exe install
+          sc.exe query cee-exporter
+          .\cee-exporter.exe uninstall
