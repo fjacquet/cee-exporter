@@ -4,33 +4,39 @@
 // golang.org/x/sys/windows/svc/eventlog.
 //
 // An EventSource named "PowerStore-CEPA" is registered under the Application
-// log on first start.  The source registration requires administrator
-// privileges; subsequent writes do not.
+// log on first start, with EventMessageFile pointing at the exporter's own
+// executable. cee-exporter.exe carries a compiled message resource (see
+// pkg/evtx/messages.mc and rsrc_windows_amd64.syso) defining descriptions for
+// event IDs 4660, 4663 and 4670, so Event Viewer and forwarders built on the
+// Event Log API render the real payload rather than "The description for
+// Event ID N ... cannot be found".
 //
-// IMPORTANT: the event source is registered with InstallAsEventCreate, which
-// points EventMessageFile at EventCreate.exe. That resource only carries
-// message definitions for event IDs 1-1000, so the IDs written here
-// (4660/4663/4670) cannot be resolved: Event Viewer and every forwarder built
-// on the Event Log API render "The description for Event ID N from source
-// PowerStore-CEPA cannot be found", with the real payload appended as the
-// insertion string.
+// Registration requires Administrator privileges; writes do not. When
+// registration fails, the writer logs a warning naming the consequence and
+// continues — events are still written, they just render without their
+// description until the exporter is run once with sufficient rights.
 //
-// SIEM content packs keyed on the rendered Security-event text therefore do
-// NOT work against this output today. Use the GELF, syslog or beats backends
-// for SIEM ingestion. A message resource compiled into the executable is
-// planned for v5.0; see docs/superpowers/specs/2026-08-08-promise-remediation-design.md
-// section V1.
+// Upgrade path: builds before v5.0 registered the source with
+// InstallAsEventCreate, pointing EventMessageFile at EventCreate.exe (whose
+// message table stops at ID 1000). eventlog.Install will not repoint an
+// existing source, so ensureEventSource detects the mismatch and
+// re-registers.
 package evtx
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
+	"golang.org/x/sys/windows/registry"
 	"golang.org/x/sys/windows/svc/eventlog"
 )
 
 const win32SourceName = "PowerStore-CEPA"
+
+// eventLogKey is where Windows stores event source registration.
+const eventLogKey = `SYSTEM\CurrentControlSet\Services\EventLog\Application\` + win32SourceName
 
 // Win32EventLogWriter writes events to the Windows Application event log.
 type Win32EventLogWriter struct {
@@ -39,16 +45,19 @@ type Win32EventLogWriter struct {
 
 // NewWin32EventLogWriter registers the event source (if needed) and opens it.
 func NewWin32EventLogWriter() (*Win32EventLogWriter, error) {
-	// InstallAsEventCreate registers the source using the built-in
-	// "EventCreate.exe" message file, which only has message text for event
-	// IDs 1-1000. The eventlog.Info|Warning|Error argument sets which event
-	// *types* this source may log — it does not register message text for
-	// IDs 4660/4663/4670, which are outside EventCreate.exe's range. See the
-	// package-level comment above for what this means for the rendered event.
-	err := eventlog.InstallAsEventCreate(win32SourceName, eventlog.Info|eventlog.Warning|eventlog.Error)
+	exe, err := os.Executable()
 	if err != nil {
-		// Already registered is not an error.
-		slog.Debug("win32_source_already_registered", "source", win32SourceName, "err", err)
+		return nil, fmt.Errorf("win32 locate executable: %w", err)
+	}
+
+	if err := ensureEventSource(exe); err != nil {
+		// Registration needs Administrator rights. Without them the exporter
+		// still writes events; they render with placeholder description text.
+		// Degrading loudly beats refusing to start.
+		slog.Warn("win32_source_registration_failed",
+			"source", win32SourceName,
+			"err", err,
+			"consequence", "events will render as \"The description for Event ID N cannot be found\" until the exporter is run once as Administrator")
 	}
 
 	l, err := eventlog.Open(win32SourceName)
@@ -56,16 +65,66 @@ func NewWin32EventLogWriter() (*Win32EventLogWriter, error) {
 		return nil, fmt.Errorf("win32 open event log source %q: %w", win32SourceName, err)
 	}
 
-	slog.Info("win32_writer_ready", "source", win32SourceName)
+	slog.Info("win32_writer_ready", "source", win32SourceName, "message_file", exe)
 	return &Win32EventLogWriter{log: l}, nil
+}
+
+// ensureEventSource registers the event source against exePath, repointing an
+// existing registration when it names a different file.
+//
+// eventlog.Install is a no-op when the source already exists, so an upgrade
+// from a build that used InstallAsEventCreate would keep EventMessageFile
+// pointing at EventCreate.exe and keep rendering placeholder text forever.
+// Detect that case and re-register.
+//
+// Both paths need Administrator rights, exactly as first-time registration
+// always has. When they are absent the caller logs a warning naming the
+// consequence rather than failing to start — a running exporter writing
+// badly-rendered events is more useful than one that refuses to run.
+func ensureEventSource(exePath string) error {
+	current, err := registeredMessageFile()
+	switch {
+	case err != nil:
+		// Not registered at all — normal first run.
+	case current == exePath:
+		return nil
+	default:
+		slog.Info("win32_source_repointing",
+			"source", win32SourceName,
+			"from", current,
+			"to", exePath,
+			"reason", "registered message file does not match this executable")
+		if err := eventlog.Remove(win32SourceName); err != nil {
+			return fmt.Errorf("win32 remove stale event source %q: %w", win32SourceName, err)
+		}
+	}
+
+	if err := eventlog.Install(win32SourceName, exePath, true,
+		eventlog.Info|eventlog.Warning|eventlog.Error); err != nil {
+		return fmt.Errorf("win32 install event source %q: %w", win32SourceName, err)
+	}
+	return nil
+}
+
+// registeredMessageFile returns the EventMessageFile currently registered for
+// the source, or an error when the source does not exist.
+func registeredMessageFile() (string, error) {
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, eventLogKey, registry.QUERY_VALUE)
+	if err != nil {
+		return "", err
+	}
+	defer k.Close() //nolint:errcheck
+
+	v, _, err := k.GetStringValue("EventMessageFile")
+	return v, err
 }
 
 // WriteEvent writes a single event via ReportEvent.
 // The insertion strings are formatted to match the layout of a Windows
-// Security audit event, but this does NOT make SIEM content packs for event
-// IDs 4663/4660/4670 work against this writer today — see the package-level
-// comment above. The formatting is aspirational groundwork for the v5.0
-// message-resource fix, not a working compatibility claim.
+// Security audit event. Combined with the message resource compiled into
+// this executable (see the package comment above), Event Viewer and other
+// readers built on the Event Log API resolve a real description for
+// 4660/4663/4670 instead of the former placeholder text.
 func (w *Win32EventLogWriter) WriteEvent(_ context.Context, e WindowsEvent) error {
 	msg := formatWin32Message(e)
 
