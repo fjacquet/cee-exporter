@@ -130,10 +130,15 @@ func listenPlainTCP(t *testing.T) (host string, port int) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	t.Cleanup(func() { _ = ln.Close() })
 
+	// The accept loop is itself tracked by wg. Without that, wg can sit at
+	// zero while the loop is mid-Accept, so cleanup's Wait returns before the
+	// wg.Add(1) for a just-accepted connection ever runs, and the handler
+	// outlives the test.
 	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
@@ -143,7 +148,9 @@ func listenPlainTCP(t *testing.T) (host string, port int) {
 			go func(c net.Conn) {
 				defer wg.Done()
 				defer func() { _ = c.Close() }()
-				// Not a TLS record: 0x6E is 'n', not a valid content type.
+				// Not a TLS record: 'n' is not a valid TLS content type, so
+				// the client rejects it immediately instead of waiting out
+				// the dialer's 5-second ServerHello timeout.
 				_, _ = c.Write([]byte("not-tls\r\n"))
 				// Block until the peer goes away so a plain TCP client sees a
 				// live connection rather than an immediate EOF.

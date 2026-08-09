@@ -502,16 +502,20 @@ every request — see the cert-expiry note above; the same computation also
 emits the `tls_cert_expiry_soon` warning log line when fewer than 30 days
 remain.
 
-`days_remaining` distinguishes two states a monitor must not confuse:
+`days_remaining` distinguishes three states a monitor must not confuse:
 
 | Value | Meaning |
 |---|---|
 | field absent | No certificate — TLS off, or the cert file is unreadable |
 | `0` | A certificate exists and **expires within 24 hours** |
+| negative | The certificate has **already expired**, that many days ago |
 
-Alert on the value `0`, not on the field being falsy. A check written as
-`if not health.tls.days_remaining` fires on both rows, so it pages for every
-plaintext deployment and cannot tell that apart from an expiry emergency.
+Alert on the value, not on the field being falsy. A check written as
+`if not health.tls.days_remaining` fires on the first two rows alike, so it
+pages for every plaintext deployment and cannot tell that apart from an
+expiry emergency. The value is computed by flooring, so `0` means exactly one
+thing and anything below it means expired — the naive `int()` truncation
+reports `0` for a certificate that expired eleven hours ago too.
 
 ---
 

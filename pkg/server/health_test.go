@@ -140,6 +140,62 @@ func TestHealth_TLSDaysRemainingSurvivesLastDay(t *testing.T) {
 	}
 }
 
+// TestHealth_TLSDaysRemainingNegativeWhenExpired closes the third state, which
+// the two tests either side of it both miss.
+//
+// int() truncates toward zero, so a certificate that expired 12 hours ago and
+// one expiring in 12 hours both computed to 0 — "already expired" collapsed
+// into "expires today", the single most urgent distinction this field exists
+// to draw. Flooring separates them and makes the value monotonic in the
+// expiry time.
+func TestHealth_TLSDaysRemainingNegativeWhenExpired(t *testing.T) {
+	// No case sits on an exact 24-hour multiple. writeTempCert stamps NotAfter
+	// from one time.Now() and buildTLSInfo calls time.Until a few microseconds
+	// later, so an exactly -120h certificate reads as -120h0m0.0001s and floors
+	// to -6 instead of -5. That is a property of the test, not the code; every
+	// case below is placed mid-bucket so the assertion cannot flake on it.
+	tests := []struct {
+		name     string
+		validFor time.Duration
+		want     int
+	}{
+		{"expires_in_12h", 12 * time.Hour, 0},
+		{"expires_in_36h", 36 * time.Hour, 1},
+		{"expired_12h_ago", -12 * time.Hour, -1},
+		{"expired_36h_ago", -36 * time.Hour, -2},
+		{"expired_5d12h_ago", -(5*24 + 12) * time.Hour, -6},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			certPath := writeTempCert(t, tc.validFor)
+			h := NewHealthHandler(HealthConfig{
+				StartTime:   time.Now(),
+				TLSEnabled:  true,
+				TLSCertFile: certPath,
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/health", nil)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, req)
+
+			var got map[string]any
+			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			tlsBlock := got["tls"].(map[string]any)
+
+			days, present := tlsBlock["days_remaining"]
+			if !present {
+				t.Fatal("days_remaining absent for a readable certificate")
+			}
+			if days.(float64) != float64(tc.want) {
+				t.Errorf("days_remaining = %v, want %d", days, tc.want)
+			}
+		})
+	}
+}
+
 // TestHealth_TLSDaysRemainingAbsentWhenNoCert holds the other side of the
 // contract. Simply dropping omitempty from an `int` field would satisfy the
 // test above while emitting `days_remaining: 0` on every plaintext
@@ -169,8 +225,10 @@ func TestHealth_TLSDaysRemainingAbsentWhenNoCert(t *testing.T) {
 	}
 }
 
-// writeTempCert generates a self-signed ECDSA cert valid for `d` and returns
-// the PEM file path.
+// writeTempCert generates a self-signed ECDSA cert whose NotAfter is `d` from
+// now and returns the PEM file path. d may be negative, producing a cert that
+// has already expired; NotBefore is anchored a year before NotAfter so those
+// stay well-formed rather than inverted.
 func writeTempCert(t *testing.T, d time.Duration) string {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -180,7 +238,7 @@ func writeTempCert(t *testing.T, d time.Duration) string {
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject:      pkix.Name{CommonName: "cee-test"},
-		NotBefore:    time.Now().Add(-time.Hour),
+		NotBefore:    time.Now().Add(d).Add(-365 * 24 * time.Hour),
 		NotAfter:     time.Now().Add(d),
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &priv.PublicKey, priv)

@@ -25,8 +25,12 @@ import (
 // made so here. mu covers the closed/closeErr pair and nothing else; WriteEvent
 // and Rotate hold no lock and rely on goevtx.Writer serialising its own state.
 // That division is load-bearing — a reader who assumes mu protects the write
-// path will misjudge what a change to it can break. TestBinaryEvtxWriter_Concurrent
-// under `go test -race` is what holds the delegated half to its claim.
+// path will misjudge what a change to it can break.
+//
+// What actually holds the delegated half to its claim is narrower than the
+// claim: TestBinaryEvtxWriter_Concurrent under `go test -race` exercises
+// concurrent WriteEvent only. Concurrent Rotate, and WriteEvent interleaved
+// with Rotate, are covered by nothing here and rest on go-evtx's own tests.
 type BinaryEvtxWriter struct {
 	w *goevtx.Writer
 

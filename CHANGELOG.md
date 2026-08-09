@@ -17,8 +17,16 @@ each a case of something that looked verified and was not.
   final 24 hours before certificate expiry — so the field vanished from the
   response at exactly the moment a monitor needed it, and its absence was
   indistinguishable from TLS being switched off. It is now a `*int`: absent
-  means no certificate, `0` means it expires today. Note for anyone alerting
-  on this: check the value, not truthiness.
+  means no certificate, `0` means it expires within 24 hours, and a negative
+  value means it has already expired. Note for anyone alerting on this: check
+  the value, not truthiness.
+- **`days_remaining` also could not tell an expired certificate from one
+  expiring today.** `int()` truncates toward zero, so a certificate that
+  expired eleven hours ago reported `0` — the same as one with eleven hours
+  left. The value is now floored, which makes it monotonic in the expiry time
+  and leaves `0` meaning exactly one thing. Caught by CodeRabbit on the very
+  PR that introduced the surrounding fix; the three tests written for that fix
+  all missed it.
 - Four comments that contradicted their code.
   `startACMEChallengeListener` documented HTTP-01 while implementing
   TLS-ALPN-01 (which is also why its `:443` requirement cannot be relocated);

@@ -192,6 +192,10 @@ func utf16LE(s string) []byte {
 // belongs to go-evtx, and this test plus `go test -race` is what holds it to
 // that. Nothing here would survive moving the lock into WriteEvent either —
 // the assertion is on the output, not the mechanism.
+//
+// Scope, stated so the next reader does not over-read it: WriteEvent only.
+// Concurrent Rotate, and Rotate interleaved with WriteEvent, are not
+// exercised by this or any other test in this package.
 func TestBinaryEvtxWriter_Concurrent(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "concurrent.evtx")
