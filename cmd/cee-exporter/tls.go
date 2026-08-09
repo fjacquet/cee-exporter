@@ -29,8 +29,7 @@ import (
 )
 
 // buildManualTLS loads a TLS configuration from operator-supplied cert and key
-// files. This is equivalent to the previous buildTLS() function in main.go.
-// Plan 02 will rename the call site from buildTLS to buildManualTLS.
+// files — the tls_mode="manual" path.
 func buildManualTLS(certFile, keyFile string) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
@@ -129,13 +128,19 @@ func buildAutocertTLS(domains []string, email, cacheDir string) (*autocert.Manag
 	return m, m.TLSConfig(), nil
 }
 
-// startACMEChallengeListener starts an HTTP-01 ACME challenge listener on
-// challengeAddr (default ":443"). The listener is started in a goroutine;
-// errors from ServeTLS are logged but not fatal — the ACME renewal loop
-// continues even if individual challenge responses fail.
+// startACMEChallengeListener starts a TLS-ALPN-01 ACME challenge listener on
+// challengeAddr (default ":443"). Not HTTP-01: the listener serves TLS using
+// the autocert.Manager's own tls.Config, whose NextProtos carries the
+// "acme-tls/1" protocol that Let's Encrypt negotiates to validate the domain.
+// HTTP-01 would instead need m.HTTPHandler on plaintext port 80.
+//
+// The listener runs in a goroutine; errors from ServeTLS are logged but not
+// fatal — the ACME renewal loop continues even if individual challenge
+// responses fail.
 //
 // challengeAddr must be reachable from the Let's Encrypt challenge servers on
-// port 443. This usually requires port forwarding or a privileged listener.
+// port 443, which TLS-ALPN-01 mandates and does not let you relocate. This
+// usually requires port forwarding or a privileged listener.
 func startACMEChallengeListener(m *autocert.Manager, challengeAddr string) error {
 	if challengeAddr == "" {
 		challengeAddr = ":443"
@@ -158,8 +163,6 @@ func startACMEChallengeListener(m *autocert.Manager, challengeAddr string) error
 }
 
 // logCertInfo logs a startup message for the loaded TLS certificate.
-// This function will be the sole definition once Plan 02 removes the
-// duplicate from main.go.
 func logCertInfo(certFile string) {
 	slog.Info("tls_cert_loaded", "cert_file", certFile)
 }

@@ -71,9 +71,14 @@ type writerInfo struct {
 }
 
 type tlsInfo struct {
-	Enabled       bool   `json:"enabled"`
-	CertExpiry    string `json:"cert_expiry,omitempty"`
-	DaysRemaining int    `json:"days_remaining,omitempty"`
+	Enabled    bool   `json:"enabled"`
+	CertExpiry string `json:"cert_expiry,omitempty"`
+	// Pointer, not int. days_remaining is 0 throughout the final 24 hours
+	// before expiry, so `int` plus omitempty deletes the field at the exact
+	// moment a monitor needs it, and `int` without omitempty reports
+	// "expires today" on every deployment that has no certificate at all.
+	// nil means no certificate; 0 means it expires today.
+	DaysRemaining *int `json:"days_remaining,omitempty"`
 }
 
 func buildHealthResponse(cfg HealthConfig, snap metrics.Snapshot) healthResponse {
@@ -117,7 +122,7 @@ func buildTLSInfo(cfg HealthConfig) tlsInfo {
 	expiry := cert.NotAfter
 	days := int(time.Until(expiry).Hours() / 24)
 	info.CertExpiry = expiry.Format("2006-01-02")
-	info.DaysRemaining = days
+	info.DaysRemaining = &days
 
 	if days < 30 {
 		slog.Warn("tls_cert_expiry_soon",

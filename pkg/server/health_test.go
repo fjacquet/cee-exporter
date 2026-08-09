@@ -103,6 +103,72 @@ func TestHealth_TLSCertExpiryPopulated(t *testing.T) {
 	}
 }
 
+// TestHealth_TLSDaysRemainingSurvivesLastDay pins the one input that an
+// `omitempty` tag on DaysRemaining would silently swallow: a certificate
+// inside its final 24 hours, where int(hours/24) truncates to 0. That is the
+// moment a monitor most needs the field, and it is the only moment the tag
+// would delete it — TestHealth_TLSCertExpiryPopulated uses a 400-day cert and
+// passes either way.
+func TestHealth_TLSDaysRemainingSurvivesLastDay(t *testing.T) {
+	certPath := writeTempCert(t, 12*time.Hour)
+	h := NewHealthHandler(HealthConfig{
+		StartTime:   time.Now(),
+		TLSEnabled:  true,
+		TLSCertFile: certPath,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	tlsBlock := got["tls"].(map[string]any)
+
+	days, present := tlsBlock["days_remaining"]
+	if !present {
+		t.Fatal("days_remaining absent for a cert expiring in 12h; " +
+			"absence must mean \"no certificate\", not \"expires today\"")
+	}
+	if days.(float64) != 0 {
+		t.Errorf("days_remaining: got %v, want 0 for a 12h cert", days)
+	}
+	if tlsBlock["cert_expiry"] == nil {
+		t.Error("cert_expiry should accompany days_remaining")
+	}
+}
+
+// TestHealth_TLSDaysRemainingAbsentWhenNoCert holds the other side of the
+// contract. Simply dropping omitempty from an `int` field would satisfy the
+// test above while emitting `days_remaining: 0` on every plaintext
+// deployment — indistinguishable from "expires today". Only nil-vs-0 encodes
+// both facts, so both tests must pass together.
+func TestHealth_TLSDaysRemainingAbsentWhenNoCert(t *testing.T) {
+	h := NewHealthHandler(HealthConfig{StartTime: time.Now()})
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	tlsBlock := got["tls"].(map[string]any)
+
+	if tlsBlock["enabled"] != false {
+		t.Errorf("enabled: got %v, want false", tlsBlock["enabled"])
+	}
+	if _, present := tlsBlock["cert_expiry"]; present {
+		t.Error("cert_expiry must be absent when TLS is off")
+	}
+	if days, present := tlsBlock["days_remaining"]; present {
+		t.Errorf("days_remaining present (%v) with no certificate; "+
+			"0 here is indistinguishable from \"expires today\"", days)
+	}
+}
+
 // writeTempCert generates a self-signed ECDSA cert valid for `d` and returns
 // the PEM file path.
 func writeTempCert(t *testing.T, d time.Duration) string {

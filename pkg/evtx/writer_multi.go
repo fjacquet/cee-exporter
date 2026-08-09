@@ -1,8 +1,9 @@
 // Multi-target writer — all platforms.
 //
 // MultiWriter fans an event out to a list of Writers in order.  All targets
-// receive the event; the first error is returned (remaining targets still
-// receive the event).
+// receive the event even if an earlier one fails; every error is collected
+// and returned joined, so a caller inspecting the result sees all failures,
+// not just the first.
 package evtx
 
 import (

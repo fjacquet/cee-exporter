@@ -496,10 +496,22 @@ Example response (field names and nesting match `pkg/server/health.go`'s
 }
 ```
 
-When TLS is enabled, `tls` additionally carries `cert_expiry` (`YYYY-MM-DD`)
-and `days_remaining`, computed fresh on every request — see the cert-expiry
-note above; the same computation also emits the `tls_cert_expiry_soon`
-warning log line when fewer than 30 days remain.
+When TLS is enabled and the certificate is readable, `tls` additionally
+carries `cert_expiry` (`YYYY-MM-DD`) and `days_remaining`, computed fresh on
+every request — see the cert-expiry note above; the same computation also
+emits the `tls_cert_expiry_soon` warning log line when fewer than 30 days
+remain.
+
+`days_remaining` distinguishes two states a monitor must not confuse:
+
+| Value | Meaning |
+|---|---|
+| field absent | No certificate — TLS off, or the cert file is unreadable |
+| `0` | A certificate exists and **expires within 24 hours** |
+
+Alert on the value `0`, not on the field being falsy. A check written as
+`if not health.tls.days_remaining` fires on both rows, so it pages for every
+plaintext deployment and cannot tell that apart from an expiry emergency.
 
 ---
 
