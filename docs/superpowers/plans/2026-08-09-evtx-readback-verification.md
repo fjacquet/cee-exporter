@@ -335,18 +335,51 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 2: Sync the Python environment**
+- [ ] **Step 2: Repair the lockfile, then sync**
 
-```bash
-cd tools/evtx-debug && rtk uv sync --frozen
+The committed `uv.lock` records `name = "cee-exporter"` while `pyproject.toml`
+declares `cee-evtx-debug`. `--frozen` therefore fails outright — measured
+2026-08-09 during pre-flight:
+
+```text
+error: The lockfile at `uv.lock` needs to be updated, but `--frozen` was
+provided: Missing workspace member `cee-evtx-debug`.
 ```
 
-Expected: `python-evtx==0.8.1` installed. `--frozen` refuses to update `uv.lock`; if it errors, the lockfile is out of date and that must be fixed deliberately, not silently.
+Every use of `--frozen` in this plan and in the `evtx-oracle` job depends on
+fixing this first. It is a one-line change to `uv.lock`.
+
+```bash
+cd tools/evtx-debug
+rtk uv lock
+rm -rf .venv && rtk uv sync --frozen
+```
+
+Expected: `uv lock` reports `Added cee-evtx-debug v0.1.0 / Removed cee-exporter v0.1.0`, then `uv sync --frozen` installs `python-evtx==0.8.1` without error. Confirm the diff to `uv.lock` is exactly the one `name =` line — anything larger means a dependency moved too, which is a separate decision.
+
+```bash
+cd /Users/fjacquet/Projects/cee-exporter && rtk git diff --stat tools/evtx-debug/uv.lock
+```
+
+Expected: `1 file changed, 1 insertion(+), 1 deletion(-)`.
 
 - [ ] **Step 3: Generate a file and run the script against it**
 
+Write the config yourself rather than relying on Task 1 having left it in
+`/tmp` — a fresh shell or a cleaned `/tmp` would otherwise fail here for a
+reason unrelated to the script.
+
 ```bash
 cd /Users/fjacquet/Projects/cee-exporter
+cat > /tmp/evtxcheck.toml <<'TOML'
+[listen]
+addr = "127.0.0.1:12997"
+[output]
+type = "evtx"
+evtx_path = "/tmp/evtxcheck-v070.evtx"
+[metrics]
+addr = "127.0.0.1:19997"
+TOML
 rm -f /tmp/evtxcheck-v070.evtx
 rtk go run ./cmd/cee-exporter -config /tmp/evtxcheck.toml -emit-test-events
 cd tools/evtx-debug && rtk uv run python verify_evtx.py /tmp/evtxcheck-v070.evtx
@@ -487,10 +520,17 @@ leaving it to be discovered: python-evtx parses the v0.6.0 files Get-WinEvent
 rejects as corrupted, so a green run here is evidence about structure, not
 about whether Windows will open the file.
 
-Also fixes a phantom config example in the README. It documented
+Also repairs uv.lock, which recorded name = 'cee-exporter' while
+pyproject.toml declares cee-evtx-debug. uv sync --frozen failed outright on
+that mismatch, so every --frozen in the plan and in the evtx-oracle job
+depended on fixing it.
+
+And fixes a phantom config example in the README. It documented
 [outputs.evtx] with a path key; the real schema is [output] with type and
 evtx_path. Anyone who followed it got a startup error."
 ```
+
+The commit must include `tools/evtx-debug/uv.lock` alongside the new script and the README.
 
 ---
 
