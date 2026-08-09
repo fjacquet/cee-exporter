@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-08-09
+
+Windows verification pass. For the product's entire life, every Windows event
+rendered as `The description for Event ID N from source PowerStore-CEPA cannot
+be found`, with the payload appended as a raw insertion string. Nobody noticed
+because nothing ever executed that code: `make ci` runs on Linux, where
+`//go:build windows` excludes those files from the compiler entirely, so a
+Windows-only change could be green on every check and still be broken.
+
+### Added
+
+- Compiled Windows message resource (`pkg/evtx/messages.mc` →
+  `rsrc_windows_amd64.syso`) defining descriptions for event IDs 4660, 4663
+  and 4670. Committed and linked by filename, so it works under
+  `CGO_ENABLED=0` and adds nothing to distribute. `make winres` regenerates it
+- `windows` CI job (`windows-latest`) — the first thing in this repo's history
+  to *execute* `writer_windows.go` and `service_windows.go` rather than merely
+  compile them. It asserts, per event ID, that Event Viewer resolves that ID's
+  own description; a resource with a missing or swapped description fails the
+  job. It also drives the real SCM lifecycle
+  (`install` → `sc.exe start` → `stop` → `uninstall`), which is the only thing
+  that ever calls `svcProgram.Start`/`Stop`
+- `-emit-test-events` — writes one event per mapped ID, so an operator can
+  confirm event source registration and message rendering on their own host
+- `docs/windows-verification.md` — manual Event Viewer protocol covering what
+  CI cannot: whether a human reading the event sees something legible, and the
+  upgrade path from an actually-released older build
+- `TestMessageResourcePresent` — platform-agnostic guard that the committed
+  resource exists and is a COFF amd64 object, so a deletion fails the Linux gate
+
+### Changed
+
+- The event source is registered with `eventlog.Install` against the
+  exporter's own executable instead of `eventlog.InstallAsEventCreate`, whose
+  `EventMessageFile` points at `EventCreate.exe` — a message table that stops
+  at ID 1000
+- Registration failure (no Administrator rights) now logs a warning naming the
+  consequence and continues, instead of being silently ignored. An exporter
+  writing badly-rendered events is more useful than one that refuses to start
+
+### Fixed
+
+- **Upgrade path.** `eventlog.Install` is a no-op on an existing source, so
+  every host that ran a previous version would have kept rendering placeholder
+  text forever. The exporter now detects a stale `EventMessageFile` and
+  re-registers
+
+### Removed
+
+- **`windows/arm64` is no longer built or published.** Windows Server does not
+  ship for ARM64 and no CI runner exists to execute the artifact, so it was
+  published every release without ever being run. This is the breaking change
+  behind the major version bump
+
+### Still unverified
+
+Recorded in `docs/PROMISES.md` rather than left looking proven:
+
+- Generated `.evtx` files opening in Windows Event Viewer — depends on
+  go-evtx v0.7.0, not yet released
+- SIEM content-pack compatibility. What is proven is that Event Viewer and
+  Event-Log-API readers resolve a real description
+- DEPLOY-05, Windows Service auto-restart after a crash — nothing simulates a
+  crash
+- The non-Administrator registration path, verified by an equivalent
+  (a registry Deny ACE) rather than a genuine non-admin logon, which the test
+  host could not provide
 ## [4.1.3] - 2026-08-08
 
 Documentation and truth pass: closes a five-month gap between what the docs
