@@ -66,11 +66,43 @@ to a full Windows `System` block — `xmlns`, `Guid`, `Qualifiers`, `Version`,
 `Channel`, `Security`. All twelve of cee-exporter's `EventData` fields survive
 with correct names and values.
 
-Two new attributes are unexplained and must not be waved through:
-`Qualifiers="2727"` (absent in v0.6.0; the value looks uninitialised) and an
-empty `Channel`. Event Viewer places events by channel. Both are assigned to
-the manual layer below, because instrumenting them would mean changing
-go-evtx, which is out of scope for this repository.
+## Measured on real Windows, not inferred
+
+Both files were run through `Get-WinEvent` on winvm (Windows Server 2025
+Datacenter) on 2026-08-09. This is cee-exporter's own output with its own
+twelve fields — not go-evtx's fixtures — and it replaces what would otherwise
+have been a borrowed claim.
+
+```text
+v060.evtx : Get-WinEvent FAILED -> The event log file is corrupted
+v070.evtx : 3 records, Ids 4670,4660,4663 — ToXml OK on all three
+```
+
+Four things this settled that reasoning from the changelog would have got
+wrong:
+
+1. **The error string is "The event log file is corrupted."** go-evtx's
+   changelog reports `"The data is invalid."`, which is the `ToXml` error.
+   Ours fails earlier and harder — `Get-WinEvent` rejects the whole file and
+   never reaches a record. The operator notice must quote the string operators
+   will actually see.
+2. **`Get-WinEvent` returns newest-first** — `4670,4660,4663` for events
+   written in the order 4663, 4660, 4670. The CI assertion must compare the
+   *set* of IDs, never their order.
+3. **Windows echoes `Qualifiers='2727'` back without objecting**, and renders
+   all twelve `EventData` fields with correct names and values, `ObjectName`
+   included. The value remains unexplained, but it is not load-bearing for
+   reading.
+4. **`Message` is null and `LogName` is empty — because the event source is
+   not registered on that host** (`registered: NO` under
+   `HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\PowerStore-CEPA`).
+   Checking that before recording it prevented a false finding: "descriptions
+   do not render from saved logs" would have been wrong, and would have sent
+   the next reader chasing a defect that does not exist.
+
+`Channel` is empty in our output, which is why `LogName` resolves empty.
+Whether Event Viewer will still place and display the events is the open
+question for the manual layer.
 
 ## Architecture: three oracles, each with a stated blind spot
 
@@ -140,14 +172,23 @@ Downloads the artifact and asserts, per record:
 
 | Assertion | Catches |
 |---|---|
-| `Get-WinEvent -Path` does not throw | Wholesale rejection — the shipped defect |
+| `Get-WinEvent -Path` does not throw | Wholesale rejection — measured as `The event log file is corrupted` on v0.6.0 output |
 | 3 records returned | Silent loss |
-| `.Id` ∈ {4660, 4663, 4670}, each once | Wrong or duplicated ID |
-| `.ToXml()` does not throw, **per record** | `"The data is invalid."` — the exact v0.6.0 failure |
+| `.Id` **as a set** equals {4660, 4663, 4670} | Wrong or duplicated ID |
+| `.ToXml()` does not throw, **per record** | The `ToXml` failure v0.7.0 fixes |
 | `ObjectName` present in the XML with its expected value | A parse that succeeds but renders nothing |
 
-The fourth is the load-bearing one. It is what v0.7.0 fixes, and without it
-the job would go green on a file Event Viewer refuses to display.
+The third must compare sets: `Get-WinEvent` enumerates newest-first, so the
+measured order was `4670,4660,4663` for events written 4663, 4660, 4670. An
+order-sensitive assertion would fail for a reason unrelated to correctness.
+
+Assertions one and four are the load-bearing pair. On v0.6.0 output the job
+dies at assertion one before reaching a record; four is what guards the
+`ToXml` regression once the file is readable at all.
+
+The job must **not** assert on `.Message` or `.LogName`. Both are empty when
+the event source is not registered on the runner, which has nothing to do
+with whether the file is well-formed — see the measurement section.
 
 **This is a separate job from the existing `windows` job, deliberately.**
 Folding the read-back into `windows` would light one runner instead of two,
@@ -165,13 +206,25 @@ aids, and the README states which is which.
 ### 4. Manual winvm protocol
 
 A dated section in `docs/windows-verification.md`, beside the message-resource
-protocol — same machine, same reader. It answers the three questions no
-automated layer can:
+protocol — same machine, same reader.
 
-1. Does the file open via **File → Open Saved Log**?
-2. Does the Description pane show our text or the placeholder, given the empty
-   `Channel`?
-3. Where does `Qualifiers="2727"` come from, and does Windows object?
+**Prerequisite, learned the hard way:** register the event source on the host
+*before* judging the Description pane. On an unregistered host `Message` is
+null and `LogName` is empty for reasons that have nothing to do with the file.
+The protocol must run `cee-exporter.exe -emit-test-events` (as Administrator,
+which registers the source against the binary carrying the message resource)
+before opening the saved log.
+
+It then answers the two questions no automated layer can:
+
+1. Does the file open via **File → Open Saved Log**, and where does Event
+   Viewer place events whose `Channel` is empty?
+2. With the source registered, does the Description pane show our text or the
+   placeholder?
+
+`Qualifiers='2727'` is recorded as observed-and-unexplained: Windows echoes it
+back and does not object, so it is not blocking. Chasing it would mean
+changing go-evtx, which is out of scope.
 
 ## Documentation
 
@@ -187,12 +240,24 @@ automated layer can:
 
 ### The operator callout
 
-Every `.evtx` cee-exporter wrote before v5.1.0 is unreadable by Event Viewer
-and `Get-WinEvent`, and will stay that way. The bytes are wrong, the source
-events are gone, and no conversion exists. An operator who has been archiving
-these files for months has a dead archive and does not know it. This gets its
-own callout in both the CHANGELOG and the operator guide, not a line buried in
-a list.
+Every `.evtx` cee-exporter wrote before v5.1.0 is unreadable, and will stay
+that way. On Windows Server 2025, `Get-WinEvent -Path` on such a file returns:
+
+```text
+The event log file is corrupted
+```
+
+The bytes are wrong, the source events are gone, and no conversion exists. An
+operator who has been archiving these files for months has a dead archive and
+does not know it.
+
+Quote that exact string in the callout — it is what an operator searching
+their own error will have typed. This gets its own callout in both the
+CHANGELOG and the operator guide, not a line buried in a list.
+
+The callout must also say what still works, or it overstates the damage: the
+`gelf`, `syslog`, `beats` and Windows-native `evtx` outputs are unaffected.
+Only the non-Windows `BinaryEvtxWriter` file output is involved.
 
 ## Version
 
@@ -204,13 +269,18 @@ Minor, not patch.
 ## Success criteria
 
 1. `go.mod` pins go-evtx v0.7.0; `make ci` green.
-2. `evtx-oracle` and `evtx-readback` both green on a PR, and each has been
-   shown to fail: `evtx-oracle` when an `EventData` field is removed from
-   `windowsEventToFields`, and `evtx-readback` when the pin is reverted to
-   v0.6.0. A read-back job that has never failed has proven nothing.
-3. The winvm protocol run and its result recorded with a date, including a
-   finding for `Qualifiers` and `Channel` — "did not investigate" is an
-   acceptable recorded outcome; silence is not.
+2. `evtx-oracle` and `evtx-readback` both green on a PR, and each shown to
+   fail by mutation. A job that has never failed has proven nothing.
+   - `evtx-oracle`: remove an `EventData` field from `windowsEventToFields`.
+   - `evtx-readback`: point the step at the v0.6.0-produced file. **Do not**
+     revert the `go.mod` pin and push a throwaway commit for this — the
+     v0.6.0-vs-v0.7.0 difference is already measured on winvm and cited above,
+     and the cheap mutation proves the assertions bite without a CI round
+     trip.
+3. The winvm protocol run and its result recorded with a date, with the event
+   source registered first. `Qualifiers` may be recorded as
+   observed-and-unexplained; `Channel`/Event Viewer placement must have a
+   stated outcome. "Did not investigate" is acceptable; silence is not.
 4. `OUT-06` reads `**Verified**` in PROMISES.md, requirements.md and PRD.md,
    and the docs-lint citation guard passes against the new test/script names.
 
