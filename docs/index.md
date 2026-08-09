@@ -127,3 +127,4 @@ compiled out there.
   - [ADR-012](adr/ADR-012-flush-ticker-ownership.md) — Flush ticker ownership inside BinaryEvtxWriter
   - [ADR-013](adr/ADR-013-write-on-close-model.md) — Write-on-close model
   - [ADR-014](adr/ADR-014-go-evtx-library-extraction.md) — go-evtx extracted to its own module
+  - [ADR-015](adr/ADR-015-windows-message-resource.md) — Windows message resource compiled into the binary
