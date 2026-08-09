@@ -79,7 +79,21 @@ jobs:
           # guard that cannot fail. Both cmdlets are checked instead:
           # Get-WinEvent for a non-null resolved message, Get-EventLog for the
           # absence of the placeholder.
+          #
+          # A resolved, non-null message is NOT enough on its own: "Object
+          # Name:" and the rest of the payload body come from the %1
+          # insertion string, which is present regardless of what the message
+          # resource's own description text says. A resource with a missing
+          # or swapped description (e.g. 4670 carrying 4663's text) passes
+          # every check above it and would still ship silently broken. So
+          # each ID's expected description line — the part the resource is
+          # actually responsible for — is asserted explicitly too.
           $placeholder = 'cannot be found'
+          $expectedDescriptions = @{
+            4660 = 'An object was deleted.'
+            4663 = 'An attempt was made to access an object.'
+            4670 = 'Permissions on an object were changed.'
+          }
           $ids = @(4660, 4663, 4670)
           $failed = $false
 
@@ -101,12 +115,22 @@ jobs:
               $failed = $true
               continue
             }
+            if ($ev.Message -notlike "*$($expectedDescriptions[$id])*") {
+              Write-Host "::error::event $id resolved a message but not its own description - expected to contain '$($expectedDescriptions[$id])', got: $($ev.Message)"
+              $failed = $true
+              continue
+            }
 
             # Get-EventLog is where the placeholder text actually surfaces,
             # and is closer to what Event Viewer shows an operator.
             $old = Get-EventLog -LogName Application -Source 'PowerStore-CEPA' -Newest 20 |
                    Where-Object { $_.EventID -eq $id } | Select-Object -First 1
-            if ($null -ne $old -and $old.Message -like "*$placeholder*") {
+            if ($null -eq $old) {
+              Write-Host "::error::event $id was not found via Get-EventLog - cannot confirm the placeholder is absent"
+              $failed = $true
+              continue
+            }
+            if ($old.Message -like "*$placeholder*") {
               Write-Host "::error::event $id renders the placeholder: $($old.Message)"
               $failed = $true
               continue
@@ -117,10 +141,55 @@ jobs:
 
           if ($failed) { exit 1 }
 
+      # install/uninstall only exercise kardianos's SCM registration helpers.
+      # Nothing before this step ever called sc.exe start, so
+      # svcProgram.Start/Stop in service_windows.go — the code that actually
+      # runs when the SCM starts and stops the service, including the only
+      # shutdown path Windows offers it (no POSIX signals) — had never
+      # executed. This exercises that body directly, not just registration.
       - name: Service install/uninstall round-trip
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+
           .\cee-exporter.exe install
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::install exited $LASTEXITCODE"; exit 1 }
+
           sc.exe query cee-exporter
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::sc.exe query exited $LASTEXITCODE"; exit 1 }
+
+          sc.exe start cee-exporter
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::sc.exe start exited $LASTEXITCODE"; exit 1 }
+
+          # sc.exe start returns once the request is accepted, not once the
+          # service reaches Running - poll briefly rather than assume either
+          # state on the first read.
+          $running = $false
+          for ($i = 0; $i -lt 10; $i++) {
+            $svc = Get-Service -Name cee-exporter
+            if ($svc.Status -eq 'Running') { $running = $true; break }
+            Start-Sleep -Milliseconds 500
+          }
+          Write-Host "service status after start: $($svc.Status)"
+          if (-not $running) {
+            Write-Host "::error::service did not reach Running state after sc.exe start (last observed: $($svc.Status))"
+            exit 1
+          }
+
+          sc.exe stop cee-exporter
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::sc.exe stop exited $LASTEXITCODE"; exit 1 }
+
+          $stopped = $false
+          for ($i = 0; $i -lt 10; $i++) {
+            $svc = Get-Service -Name cee-exporter
+            if ($svc.Status -eq 'Stopped') { $stopped = $true; break }
+            Start-Sleep -Milliseconds 500
+          }
+          Write-Host "service status after stop: $($svc.Status)"
+          if (-not $stopped) {
+            Write-Host "::error::service did not reach Stopped state after sc.exe stop (last observed: $($svc.Status))"
+            exit 1
+          }
+
           .\cee-exporter.exe uninstall
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::uninstall exited $LASTEXITCODE"; exit 1 }
