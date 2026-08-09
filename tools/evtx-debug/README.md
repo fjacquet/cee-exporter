@@ -22,7 +22,7 @@ the same flag so the oracle cannot drift under a green build.
 - `verify_evtx.py <path>` — **CI gate.** Asserts a file produced by
   `cee-exporter -emit-test-events` has exactly 3 records, event IDs 4660,
   4663 and 4670, all twelve `EventData` fields, and the expected values for
-  seven of them. Exit 0 or 1.
+  all twelve of them. Exit 0 or 1.
 - `debug_evtx.py` — manual chunk/record walk plus python-evtx round-trip.
   Useful when the writer produces a file python-evtx can open but reports
   zero records (chunk header fields valid, record scan failing).
