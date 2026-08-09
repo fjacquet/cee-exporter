@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Codebase health pass. Three items from an audit of the tree after v5.0.0,
-each a case of something that looked verified and was not.
+## [5.0.1] - 2026-08-09
+
+Codebase health pass. Four items from an audit of the tree after v5.0.0, plus
+one found reviewing the fix for the first — every one a case of something that
+looked verified and was not.
+
+Nothing here changes what the exporter sends to a SIEM. The one behavioural
+change an operator can observe is in `/health`: `days_remaining` now reports
+the last day before expiry and already-expired certificates correctly, where
+before both read as a missing field or `0`. Anyone alerting on that field
+should read the table in the Operator Guide.
 
 ### Fixed
 
