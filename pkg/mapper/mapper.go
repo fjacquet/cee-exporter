@@ -23,27 +23,27 @@ import (
 
 // cepaToEventID maps CEPA event type strings to Windows Event IDs.
 var cepaToEventID = map[string]int{
-	"CEPP_CREATE_FILE":        4663,
-	"CEPP_CREATE_DIRECTORY":   4663,
-	"CEPP_FILE_READ":          4663,
-	"CEPP_FILE_READ_DIR":      4663,
-	"CEPP_FILE_WRITE":         4663,
-	"CEPP_CLOSE_MODIFIED":     4663,
-	"CEPP_RENAME_FILE":        4663,
-	"CEPP_RENAME_DIRECTORY":   4663,
-	"CEPP_DELETE_FILE":        4660,
-	"CEPP_DELETE_DIRECTORY":   4660,
-	"CEPP_SETACL_FILE":        4670,
-	"CEPP_SETACL_DIRECTORY":   4670,
+	"CEPP_CREATE_FILE":      4663,
+	"CEPP_CREATE_DIRECTORY": 4663,
+	"CEPP_FILE_READ":        4663,
+	"CEPP_FILE_READ_DIR":    4663,
+	"CEPP_FILE_WRITE":       4663,
+	"CEPP_CLOSE_MODIFIED":   4663,
+	"CEPP_RENAME_FILE":      4663,
+	"CEPP_RENAME_DIRECTORY": 4663,
+	"CEPP_DELETE_FILE":      4660,
+	"CEPP_DELETE_DIRECTORY": 4660,
+	"CEPP_SETACL_FILE":      4670,
+	"CEPP_SETACL_DIRECTORY": 4670,
 }
 
 // accessMaskFor returns the Windows access mask hex string for an event type.
 var accessMaskFor = map[string]string{
-	"CEPP_FILE_READ":        "0x1",   // ReadData (or ListDirectory)
+	"CEPP_FILE_READ":        "0x1", // ReadData (or ListDirectory)
 	"CEPP_FILE_READ_DIR":    "0x1",
-	"CEPP_CREATE_FILE":      "0x2",   // WriteData (or AddFile)
-	"CEPP_CREATE_DIRECTORY": "0x4",   // AppendData (or AddSubdirectory)
-	"CEPP_FILE_WRITE":       "0x2",   // WriteData (or AddFile)
+	"CEPP_CREATE_FILE":      "0x2", // WriteData (or AddFile)
+	"CEPP_CREATE_DIRECTORY": "0x4", // AppendData (or AddSubdirectory)
+	"CEPP_FILE_WRITE":       "0x2", // WriteData (or AddFile)
 	"CEPP_CLOSE_MODIFIED":   "0x2",
 	"CEPP_RENAME_FILE":      "0x2",
 	"CEPP_RENAME_DIRECTORY": "0x2",

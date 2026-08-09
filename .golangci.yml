@@ -30,3 +30,27 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
+
+# Formatters are NOT linters in golangci-lint v2 — enabling gofmt under
+# `linters:` is a config error, and without this section `golangci-lint run`
+# checks no formatting at all. `make ci` therefore went green on unformatted
+# code for the project's whole life; `make format` existed but nothing
+# required it. `run` executes formatters as check-only (it reports, it does
+# not rewrite), so listing them here is what turns `make lint` into a gate.
+#
+# goimports carries no local-prefixes on purpose: that would impose a
+# three-way stdlib/external/local import split this codebase does not use,
+# rewriting files for a convention change nobody asked for.
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  # Defaults are max-issues-per-linter: 50 and max-same-issues: 3. Every
+  # gofmt violation carries the identical message, so the same-issue cap
+  # collapses them: five unformatted files were reported as three, and the
+  # summary read "gofmt: 3". A developer who fixes what is printed and re-runs
+  # gets a fresh three. 0 disables both caps.
+  max-issues-per-linter: 0
+  max-same-issues: 0

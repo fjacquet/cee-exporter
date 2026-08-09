@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Codebase health pass. Three items from an audit of the tree after v5.0.0,
+each a case of something that looked verified and was not.
+
+### Fixed
+
+- **`/health` deleted `days_remaining` on the day it mattered.** The field was
+  an `int` with `omitempty`, and `int(hours/24)` truncates to 0 throughout the
+  final 24 hours before certificate expiry — so the field vanished from the
+  response at exactly the moment a monitor needed it, and its absence was
+  indistinguishable from TLS being switched off. It is now a `*int`: absent
+  means no certificate, `0` means it expires within 24 hours, and a negative
+  value means it has already expired. Note for anyone alerting on this: check
+  the value, not truthiness.
+- **`days_remaining` also could not tell an expired certificate from one
+  expiring today.** `int()` truncates toward zero, so a certificate that
+  expired eleven hours ago reported `0` — the same as one with eleven hours
+  left. The value is now floored, which makes it monotonic in the expiry time
+  and leaves `0` meaning exactly one thing. Caught by CodeRabbit on the very
+  PR that introduced the surrounding fix; the three tests written for that fix
+  all missed it.
+- Four comments that contradicted their code.
+  `startACMEChallengeListener` documented HTTP-01 while implementing
+  TLS-ALPN-01 (which is also why its `:443` requirement cannot be relocated);
+  `installSIGHUP` claimed only `BinaryEvtxWriter` satisfies `Rotate()`, when
+  `MultiWriter` does too and that is the entire reason `MultiWriter.Rotate`
+  exists; `writer_multi.go`'s header said the first error is returned while
+  `WriteEvent` joins every error; and two comments in `tls.go` deferred work
+  to a "Plan 02" that shipped long ago.
+
+### Changed
+
+- **`make ci` no longer passes on unformatted code.** `.golangci.yml` had no
+  `formatters:` section, and in golangci-lint v2 formatters are not linters —
+  without that section `golangci-lint run` checks no formatting at all. The
+  gate has been blind for the project's entire life; five files in the tree
+  were unformatted when this was found. `gofmt` and `goimports` are now
+  enabled and `make lint` fails on them. `issues.max-same-issues` is set to 0
+  as well, because every gofmt violation carries the same message and the
+  default cap of 3 reported five broken files as three.
+- Three tests rewritten because each one passed against a mutation that broke
+  the behaviour it was named for. `TestBuildGELFShortMessageTruncation` never
+  reached the 250-byte branch; `TestBeatsWriterDialerInjection` injected no
+  dialer and its TLS and non-TLS cases both failed at TCP connect, returning
+  the identical error; and `TestBinaryEvtxWriter_Concurrent` asserted only
+  that the output file was non-empty, which holds with nine of ten events
+  dropped. Its comment also credited a `sync.Mutex` that does not guard the
+  write path at all — `b.mu` covers `Close` alone, and serialisation belongs
+  to go-evtx.
+- `/dist/` is gitignored. goreleaser's five-binary output was sitting
+  untracked, one `git add -A` away from a 60 MB commit.
+- `docs-lint.yml` uses `actions/checkout@v5`, matching `ci.yml`.
+
 ## [5.0.0] - 2026-08-09
 
 Windows verification pass. For the product's entire life, every Windows event

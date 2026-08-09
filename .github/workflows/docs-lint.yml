@@ -12,7 +12,7 @@ jobs:
   no-phantom-config:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Guards against reintroducing config keys the code does not accept.
       # Both of these were documented for months: type = "binary-evtx" is

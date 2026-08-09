@@ -50,9 +50,9 @@ type GELFConfig struct {
 
 // GELFWriter implements Writer.
 type GELFWriter struct {
-	cfg   GELFConfig
-	mu    sync.Mutex
-	conn  net.Conn
+	cfg  GELFConfig
+	mu   sync.Mutex
+	conn net.Conn
 }
 
 // NewGELFWriter creates a GELFWriter and opens the initial connection.
@@ -175,23 +175,23 @@ func buildGELF(e WindowsEvent) ([]byte, error) {
 	}
 
 	m := map[string]interface{}{
-		"version":           "1.1",
-		"host":              e.Computer,
-		"short_message":     msg,
-		"timestamp":         ts,
-		"level":             6, // Informational
-		"_event_id":         e.EventID,
-		"_provider":         e.ProviderName,
-		"_object_name":      e.ObjectName,
-		"_object_type":      e.ObjectType,
-		"_account_name":     e.SubjectUsername,
-		"_account_domain":   e.SubjectDomain,
-		"_account_sid":      e.SubjectUserSID,
-		"_logon_id":         e.SubjectLogonID,
-		"_client_address":   e.ClientAddr,
-		"_access_mask":      e.AccessMask,
-		"_accesses":         e.Accesses,
-		"_cepa_event_type":  e.CEPAEventType,
+		"version":          "1.1",
+		"host":             e.Computer,
+		"short_message":    msg,
+		"timestamp":        ts,
+		"level":            6, // Informational
+		"_event_id":        e.EventID,
+		"_provider":        e.ProviderName,
+		"_object_name":     e.ObjectName,
+		"_object_type":     e.ObjectType,
+		"_account_name":    e.SubjectUsername,
+		"_account_domain":  e.SubjectDomain,
+		"_account_sid":     e.SubjectUserSID,
+		"_logon_id":        e.SubjectLogonID,
+		"_client_address":  e.ClientAddr,
+		"_access_mask":     e.AccessMask,
+		"_accesses":        e.Accesses,
+		"_cepa_event_type": e.CEPAEventType,
 	}
 
 	if e.BytesRead > 0 {

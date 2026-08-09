@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"time"
@@ -71,9 +72,15 @@ type writerInfo struct {
 }
 
 type tlsInfo struct {
-	Enabled       bool   `json:"enabled"`
-	CertExpiry    string `json:"cert_expiry,omitempty"`
-	DaysRemaining int    `json:"days_remaining,omitempty"`
+	Enabled    bool   `json:"enabled"`
+	CertExpiry string `json:"cert_expiry,omitempty"`
+	// Pointer, not int. days_remaining is 0 throughout the final 24 hours
+	// before expiry, so `int` plus omitempty deletes the field at the exact
+	// moment a monitor needs it, and `int` without omitempty reports
+	// "expires today" on every deployment that has no certificate at all.
+	// nil means no certificate; 0 means it expires within 24 hours;
+	// negative means it has already expired.
+	DaysRemaining *int `json:"days_remaining,omitempty"`
 }
 
 func buildHealthResponse(cfg HealthConfig, snap metrics.Snapshot) healthResponse {
@@ -115,9 +122,15 @@ func buildTLSInfo(cfg HealthConfig) tlsInfo {
 	}
 
 	expiry := cert.NotAfter
-	days := int(time.Until(expiry).Hours() / 24)
+	// math.Floor, not int() truncation. int() rounds toward zero, so a
+	// certificate that expired 12 hours ago yields int(-0.5) == 0 — the same
+	// value as one expiring in 12 hours, collapsing "already expired" into
+	// "expires today". Flooring makes days_remaining monotonic in the expiry
+	// time and leaves 0 meaning exactly one thing: expires within 24 hours.
+	// Anything negative is expired.
+	days := int(math.Floor(time.Until(expiry).Hours() / 24))
 	info.CertExpiry = expiry.Format("2006-01-02")
-	info.DaysRemaining = days
+	info.DaysRemaining = &days
 
 	if days < 30 {
 		slog.Warn("tls_cert_expiry_soon",

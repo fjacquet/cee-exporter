@@ -13,8 +13,10 @@ import (
 
 // installSIGHUP starts a goroutine that listens for SIGHUP and triggers
 // an immediate .evtx file rotation on the writer if it supports it.
-// Only BinaryEvtxWriter satisfies the Rotate() interface; other writers
-// are silently skipped via type assertion.
+// BinaryEvtxWriter and MultiWriter both satisfy the Rotate() interface —
+// MultiWriter forwards to whichever of its backends support it, which is why
+// `type = "multi"` with an evtx target still rotates. Other writers are
+// silently skipped via type assertion.
 func installSIGHUP(w evtx.Writer) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGHUP)

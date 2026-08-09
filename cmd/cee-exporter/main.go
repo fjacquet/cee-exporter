@@ -32,10 +32,10 @@ import (
 	goevtx "github.com/fjacquet/go-evtx"
 	"golang.org/x/crypto/acme/autocert"
 
-	ceeprometheus "github.com/fjacquet/cee-exporter/pkg/prometheus"
-	applog "github.com/fjacquet/cee-exporter/pkg/log"
 	"github.com/fjacquet/cee-exporter/pkg/evtx"
+	applog "github.com/fjacquet/cee-exporter/pkg/log"
 	"github.com/fjacquet/cee-exporter/pkg/metrics"
+	ceeprometheus "github.com/fjacquet/cee-exporter/pkg/prometheus"
 	"github.com/fjacquet/cee-exporter/pkg/queue"
 	"github.com/fjacquet/cee-exporter/pkg/server"
 )
@@ -55,16 +55,16 @@ var version = "dev"
 
 // Config is the top-level config file structure.
 type Config struct {
-	Listen   ListenConfig   `toml:"listen"`
-	Output   OutputConfig   `toml:"output"`
-	Queue    QueueConfig    `toml:"queue"`
-	Logging  LoggingConfig  `toml:"logging"`
-	Metrics  MetricsConfig  `toml:"metrics"`
-	Hostname string         `toml:"hostname"` // embedded in events; default: os.Hostname()
+	Listen   ListenConfig  `toml:"listen"`
+	Output   OutputConfig  `toml:"output"`
+	Queue    QueueConfig   `toml:"queue"`
+	Logging  LoggingConfig `toml:"logging"`
+	Metrics  MetricsConfig `toml:"metrics"`
+	Hostname string        `toml:"hostname"` // embedded in events; default: os.Hostname()
 }
 
 type ListenConfig struct {
-	Addr     string `toml:"addr"` // e.g. "0.0.0.0:12228"
+	Addr string `toml:"addr"` // e.g. "0.0.0.0:12228"
 	// Deprecated: use TLSMode="manual" instead. Kept for backward compatibility.
 	TLS      bool   `toml:"tls"`
 	CertFile string `toml:"cert_file"` // tls_mode="manual": path to PEM certificate file
@@ -96,8 +96,8 @@ type OutputConfig struct {
 	// Type selects the output backend. On Windows, "evtx" routes to the Win32
 	// EventLog API via NewNativeEvtxWriter; on other platforms it writes binary
 	// .evtx files. There is no separate "win32" type — the platform decides.
-	Type         string   `toml:"type"`          // "gelf" | "evtx" | "multi" | "syslog" | "beats"
-	Targets      []string `toml:"targets"`       // for type="multi"
+	Type         string   `toml:"type"`    // "gelf" | "evtx" | "multi" | "syslog" | "beats"
+	Targets      []string `toml:"targets"` // for type="multi"
 	EVTXPath     string   `toml:"evtx_path"`
 	GELFHost     string   `toml:"gelf_host"`
 	GELFPort     int      `toml:"gelf_port"`
@@ -472,4 +472,3 @@ func buildWriter(cfg OutputConfig) (evtx.Writer, string, error) {
 		return nil, "", fmt.Errorf("unknown output type %q", cfg.Type)
 	}
 }
-

@@ -34,14 +34,14 @@ func TestBuildSyslog5424(t *testing.T) {
 			name:    "all required fields present",
 			appName: "cee-exporter",
 			contains: []string{
-				"<",               // RFC 5424 PRI field start
-				"audit@32473",     // SD-ID
-				"EventID",         // SD-PARAM key
-				"User",            // SD-PARAM key
-				"Object",          // SD-PARAM key
-				"CEPP_FILE_WRITE", // SD-PARAM value for CEPAType
+				"<",                // RFC 5424 PRI field start
+				"audit@32473",      // SD-ID
+				"EventID",          // SD-PARAM key
+				"User",             // SD-PARAM key
+				"Object",           // SD-PARAM key
+				"CEPP_FILE_WRITE",  // SD-PARAM value for CEPAType
 				"nas01.corp.local", // hostname
-				"cee-exporter",    // app-name
+				"cee-exporter",     // app-name
 			},
 		},
 	}
