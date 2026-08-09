@@ -150,12 +150,16 @@ Python verification script, and documentation.
 
 1. Build the binary.
 2. Run it with an `evtx`-typed config and `-emit-test-events`.
-3. `astral-sh/setup-uv@v6` — pinned to a major, like every other action in
+3. `astral-sh/setup-uv@v9` — pinned to a major, like every other action in
    this repo after the v5.0.1 `actions/checkout@v4` correction — then
    `uv sync --frozen` in `tools/evtx-debug`. The committed `uv.lock` pins
    python-evtx 0.8.1, so the oracle cannot drift under us.
 4. Run `verify_evtx.py <path>`; non-zero exit fails the job.
-5. `actions/upload-artifact` the `.evtx`.
+5. `actions/upload-artifact@v7` the `.evtx`.
+
+Action majors checked against their latest releases on 2026-08-09:
+`upload-artifact` v7, `download-artifact` v8 (they version independently —
+do not assume a matching pair), `setup-uv` v9.
 
 `verify_evtx.py` asserts:
 
