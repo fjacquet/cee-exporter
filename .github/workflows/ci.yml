@@ -193,3 +193,135 @@ jobs:
 
           .\cee-exporter.exe uninstall
           if ($LASTEXITCODE -ne 0) { Write-Host "::error::uninstall exited $LASTEXITCODE"; exit 1 }
+
+  # Produces the .evtx that evtx-readback reads, and checks it with an
+  # independent parser on the way past.
+  #
+  # This job exists on Linux because it has to. pkg/evtx/writer_evtx_notwindows.go
+  # carries //go:build !windows, so the Windows runner cannot compile
+  # BinaryEvtxWriter at all — it cannot produce the file it needs to read. The
+  # artifact hop is the only available shape, and it is also the correct one:
+  # the promise in OUT-06 is about files generated on Linux.
+  #
+  # python-evtx is a genuine second opinion on structure and covers the
+  # "parse with forensics tools" half of OUT-06. It is NOT the proof that
+  # Windows can read the file: measured on 2026-08-09, it parses the v0.6.0
+  # output that Get-WinEvent rejects as "The event log file is corrupted".
+  # That proof is evtx-readback's job.
+  evtx-oracle:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: astral-sh/setup-uv@v9
+
+      - name: Emit a .evtx with the three mapped event IDs
+        run: |
+          set -euo pipefail
+          cat > /tmp/evtx-ci.toml <<'TOML'
+          [listen]
+          addr = "127.0.0.1:12997"
+          [output]
+          type = "evtx"
+          evtx_path = "/tmp/audit.evtx"
+          [metrics]
+          addr = "127.0.0.1:19997"
+          TOML
+          go run ./cmd/cee-exporter -config /tmp/evtx-ci.toml -emit-test-events
+          test -s /tmp/audit.evtx
+
+      # --frozen refuses to update uv.lock, which pins python-evtx 0.8.1. A
+      # silently-upgraded parser would change what this gate means without
+      # anyone choosing it.
+      - name: Verify with python-evtx
+        working-directory: tools/evtx-debug
+        run: |
+          set -euo pipefail
+          uv sync --frozen
+          uv run python verify_evtx.py /tmp/audit.evtx
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: evtx-sample
+          path: /tmp/audit.evtx
+          if-no-files-found: error
+          retention-days: 7
+
+  # The proof behind OUT-06. Reads the Linux-generated file with the tool an
+  # operator would use.
+  #
+  # Kept separate from the `windows` job on purpose. Folding it in would light
+  # one runner instead of two, but `needs: evtx-oracle` would then mean a
+  # failure in this new oracle stops the message-resource and SCM-lifecycle
+  # assertions from running at all. Trading established coverage for a minute
+  # of runner time is the wrong direction.
+  evtx-readback:
+    runs-on: windows-latest
+    needs: evtx-oracle
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: evtx-sample
+          path: .
+
+      - name: Get-WinEvent must read what BinaryEvtxWriter wrote
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = Join-Path $PWD 'audit.evtx'
+
+          # Assertion 1: the file is readable at all. This is the one that
+          # fails on pre-v0.7.0 output, with "The event log file is corrupted"
+          # — measured on Windows Server 2025, 2026-08-09. It dies here before
+          # reaching any record.
+          try {
+            $events = @(Get-WinEvent -Path $path -ErrorAction Stop)
+          } catch {
+            Write-Host "::error::Get-WinEvent could not read the file: $($_.Exception.Message)"
+            exit 1
+          }
+
+          # Assertion 2: nothing was silently lost. A writer that dropped two
+          # of three events would still produce a readable file.
+          if ($events.Count -ne 3) {
+            Write-Host "::error::expected 3 records, got $($events.Count)"
+            exit 1
+          }
+
+          # Assertion 3: the IDs, as a SET. Get-WinEvent enumerates
+          # newest-first — measured 4670,4660,4663 for events written
+          # 4663,4660,4670 — so an ordered comparison fails for a reason that
+          # has nothing to do with correctness.
+          $got = ($events | ForEach-Object { $_.Id } | Sort-Object) -join ','
+          if ($got -ne '4660,4663,4670') {
+            Write-Host "::error::event IDs were [$got], expected [4660,4663,4670]"
+            exit 1
+          }
+
+          # Assertions 4 and 5, per record: ToXml is what v0.7.0 fixes, and
+          # the ObjectName check stops a parse that succeeds while rendering
+          # nothing from passing.
+          #
+          # Deliberately NOT asserted: .Message and .LogName. Both are empty
+          # when the event source is not registered on the host, which says
+          # nothing about whether the file is well-formed. Asserting them
+          # would make this job fail on a correct file.
+          foreach ($e in $events) {
+            try {
+              $xml = $e.ToXml()
+            } catch {
+              Write-Host "::error::record $($e.Id): ToXml failed: $($_.Exception.Message)"
+              exit 1
+            }
+            if ($xml -notmatch [regex]::Escape('C:\test\emit-test-events.txt')) {
+              Write-Host "::error::record $($e.Id): ObjectName missing from the rendered XML"
+              exit 1
+            }
+            Write-Host "record $($e.Id): ToXml ok, $($xml.Length) chars, ObjectName present"
+          }
+
+          Write-Host "Get-WinEvent read 3 records from a Linux-generated .evtx"
