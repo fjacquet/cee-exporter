@@ -11,8 +11,6 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/elastic/go-lumber v0.2.0 h1:BVGh+jq6tmp5ajAQ4QaPLcwC8vYqQ0yzt0tmWfuz79I=
 github.com/elastic/go-lumber v0.2.0/go.mod h1:HHaWnZamYKWsR9/eZNHqRHob8iQDKnchHmmskT/SKko=
-github.com/fjacquet/go-evtx v0.6.0 h1:XfsFY3XbytbH0FwMgvT0uvRBc1fMhaXE4Exoge+BX24=
-github.com/fjacquet/go-evtx v0.6.0/go.mod h1:784o3EwYJh8AqSMVq1rk5exGhJKKA15fUp8aT72/14w=
 github.com/fjacquet/go-evtx v0.7.0 h1:1WYoPh/AahXTbCtgk3d2W1KYMAwqLVZj1jo0AI6CSDI=
 github.com/fjacquet/go-evtx v0.7.0/go.mod h1:784o3EwYJh8AqSMVq1rk5exGhJKKA15fUp8aT72/14w=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
