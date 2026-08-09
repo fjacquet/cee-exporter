@@ -2,6 +2,7 @@ package evtx
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -121,28 +122,77 @@ func TestBuildGELFBytesFields(t *testing.T) {
 	}
 }
 
+// TestBuildGELFShortMessageTruncation exercises the 250-byte cap in buildGELF
+// across its boundary.
+//
+// The name has always promised this; the body did not deliver it. It used a
+// 15-byte ObjectName, so short_message came to 34 bytes and the `len(msg) >
+// 250` branch was never entered — deleting the truncation entirely left the
+// test green. The cases below are chosen so that each one fails under a
+// distinct off-by-one: an over-length input catches removal and an
+// off-by-one bound, exactly-250 catches a `>=` in place of `>`, and 251
+// catches a bound of 251.
 func TestBuildGELFShortMessageTruncation(t *testing.T) {
-	e := WindowsEvent{
-		ObjectName:    "/share/file.txt",
-		CEPAEventType: "CEPP_FILE_WRITE",
-	}
-	payload, err := buildGELF(e)
-	if err != nil {
-		t.Fatalf("buildGELF returned error: %v", err)
-	}
-	var m map[string]interface{}
-	if err := json.Unmarshal(payload, &m); err != nil {
-		t.Fatalf("payload is not valid JSON: %v", err)
+	// shortMessageFor builds an ObjectName whose resulting short_message is
+	// exactly n bytes: "CEPP_FILE_WRITE on " is the fixed prefix.
+	const prefix = "CEPP_FILE_WRITE on "
+	objectNameFor := func(n int) string {
+		if n < len(prefix) {
+			t.Fatalf("cannot build a %d-byte short_message; prefix is %d", n, len(prefix))
+		}
+		return strings.Repeat("a", n-len(prefix))
 	}
 
-	sm, ok := m["short_message"].(string)
-	if !ok || sm == "" {
-		t.Errorf("short_message: expected non-empty string, got %v (%T)", m["short_message"], m["short_message"])
+	tests := []struct {
+		name        string
+		shortMsgLen int
+		wantLen     int
+	}{
+		{"under_cap_is_untouched", 34, 34},
+		{"exactly_250_is_untouched", 250, 250},
+		{"251_is_cut_to_250", 251, 250},
+		{"far_over_cap_is_cut_to_250", 4000, 250},
 	}
 
-	const prefix = "CEPP_FILE_WRITE on"
-	if len(sm) < len(prefix) || sm[:len(prefix)] != prefix {
-		t.Errorf("short_message: expected to start with %q, got %q", prefix, sm)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			objectName := objectNameFor(tc.shortMsgLen)
+			e := WindowsEvent{
+				ObjectName:    objectName,
+				CEPAEventType: "CEPP_FILE_WRITE",
+			}
+			full := e.ShortMessage()
+			if len(full) != tc.shortMsgLen {
+				t.Fatalf("test setup wrong: ShortMessage is %d bytes, want %d",
+					len(full), tc.shortMsgLen)
+			}
+
+			payload, err := buildGELF(e)
+			if err != nil {
+				t.Fatalf("buildGELF returned error: %v", err)
+			}
+			var m map[string]interface{}
+			if err := json.Unmarshal(payload, &m); err != nil {
+				t.Fatalf("payload is not valid JSON: %v", err)
+			}
+
+			sm, ok := m["short_message"].(string)
+			if !ok {
+				t.Fatalf("short_message: got %v (%T), want string",
+					m["short_message"], m["short_message"])
+			}
+			if len(sm) != tc.wantLen {
+				t.Errorf("short_message length = %d, want %d", len(sm), tc.wantLen)
+			}
+			// Truncation must cut the tail, never rewrite the head: the event
+			// type and the start of the path are what a Graylog search matches.
+			if !strings.HasPrefix(full, sm) {
+				t.Errorf("short_message is not a prefix of %q", full[:min(len(full), 60)])
+			}
+			if !strings.HasPrefix(sm, prefix) {
+				t.Errorf("short_message lost its %q prefix: %q", prefix, sm[:min(len(sm), 40)])
+			}
+		})
 	}
 }
 

@@ -20,10 +20,17 @@ import (
 )
 
 // BinaryEvtxWriter writes Windows .evtx binary format files on non-Windows platforms.
-// All exported methods are safe for concurrent use.
+//
+// All exported methods are safe for concurrent use, but not all of them are
+// made so here. mu covers the closed/closeErr pair and nothing else; WriteEvent
+// and Rotate hold no lock and rely on goevtx.Writer serialising its own state.
+// That division is load-bearing — a reader who assumes mu protects the write
+// path will misjudge what a change to it can break. TestBinaryEvtxWriter_Concurrent
+// under `go test -race` is what holds the delegated half to its claim.
 type BinaryEvtxWriter struct {
 	w *goevtx.Writer
 
+	// mu guards closed and closeErr only.
 	mu       sync.Mutex
 	closed   bool
 	closeErr error

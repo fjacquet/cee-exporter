@@ -10,6 +10,7 @@
 package evtx
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -22,6 +23,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"github.com/fjacquet/cee-exporter/pkg/metrics"
 	goevtx "github.com/fjacquet/go-evtx"
@@ -167,9 +169,29 @@ func TestBinaryEvtxWriter_EmptyClose(t *testing.T) {
 	}
 }
 
-// TestBinaryEvtxWriter_Concurrent spawns 10 goroutines each writing one event,
-// then calls Close(). Verifies the file exists with non-zero size, proving
-// sync.Mutex is sufficient for concurrent access.
+// utf16LE returns the byte sequence go-evtx writes for s, so a test can locate
+// a field value inside the encoded .evtx without a BinXML parser.
+func utf16LE(s string) []byte {
+	var b bytes.Buffer
+	for _, u := range utf16.Encode([]rune(s)) {
+		b.WriteByte(byte(u))
+		b.WriteByte(byte(u >> 8))
+	}
+	return b.Bytes()
+}
+
+// TestBinaryEvtxWriter_Concurrent spawns goroutines that each write one event
+// carrying a marker unique to that goroutine, then asserts every marker
+// appears in the finished file exactly once.
+//
+// The count is the point. This test previously asserted only that the file
+// existed and was non-empty, which one surviving event out of ten satisfies —
+// so the exact failure a concurrency test exists to catch was the failure it
+// could not see. It also claimed to prove "sync.Mutex is sufficient", but
+// WriteEvent takes no lock: b.mu guards Close alone. Serialisation of writes
+// belongs to go-evtx, and this test plus `go test -race` is what holds it to
+// that. Nothing here would survive moving the lock into WriteEvent either —
+// the assertion is on the output, not the mechanism.
 func TestBinaryEvtxWriter_Concurrent(t *testing.T) {
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "concurrent.evtx")
@@ -180,18 +202,25 @@ func TestBinaryEvtxWriter_Concurrent(t *testing.T) {
 	}
 
 	const goroutines = 10
+	markers := make([]string, goroutines)
+	for i := range markers {
+		markers[i] = fmt.Sprintf("/nas/concurrent-marker-%02d.txt", i)
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
+	start := make(chan struct{})
 
 	for i := 0; i < goroutines; i++ {
 		go func(n int) {
 			defer wg.Done()
+			<-start // widen the window: all goroutines contend at once
 			e := WindowsEvent{
 				EventID:         4663,
 				TimeCreated:     time.Now(),
 				Computer:        "testhost",
 				ProviderName:    "Microsoft-Windows-Security-Auditing",
-				ObjectName:      "/nas/file.txt",
+				ObjectName:      markers[n],
 				SubjectUserSID:  "S-1-5-21-999",
 				SubjectUsername: "user",
 				SubjectDomain:   "DOMAIN",
@@ -204,18 +233,34 @@ func TestBinaryEvtxWriter_Concurrent(t *testing.T) {
 		}(i)
 	}
 
+	close(start)
 	wg.Wait()
 
 	if err := w.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
 
-	info, err := os.Stat(outPath)
+	data, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatalf("output file missing after concurrent writes: %v", err)
 	}
-	if info.Size() == 0 {
-		t.Fatal("output file is empty after concurrent writes")
+
+	var missing, duplicated []string
+	for _, m := range markers {
+		switch n := bytes.Count(data, utf16LE(m)); {
+		case n == 0:
+			missing = append(missing, m)
+		case n > 1:
+			duplicated = append(duplicated, fmt.Sprintf("%s×%d", m, n))
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("%d of %d concurrent events lost: %v",
+			len(missing), goroutines, missing)
+	}
+	if len(duplicated) > 0 {
+		t.Errorf("events written more than once (interleaved records): %v",
+			duplicated)
 	}
 }
 
