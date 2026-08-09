@@ -388,21 +388,32 @@ echo "exit=$?"
 
 Expected: `OK: … 3 records, IDs [4660, 4663, 4670], all 12 EventData fields` and `exit=0`.
 
-- [ ] **Step 4: Falsify it — remove a field from the writer**
+- [ ] **Step 4: Falsify it — a value that should be empty is not**
 
 A verification script that has never failed has verified nothing.
+
+**Corrected during execution 2026-08-09.** This step originally deleted
+`HandleId` from `windowsEventToFields` and expected "missing field" failures.
+It does not fail: go-evtx v0.7.0 renders a fixed per-EventID template with all
+twelve `EventData` slots always emitted, so a missing map key yields an *empty
+value*, not a missing element. The field-name check is therefore structurally
+incapable of failing today — which is exactly the defect class this release
+exists to remove, found inside its own new gate.
+
+Two consequences, both applied: `EXPECTED_VALUES` covers all twelve fields
+rather than seven, and the mutation below targets a value instead of a name.
 
 ```bash
 cd /Users/fjacquet/Projects/cee-exporter
 cp pkg/evtx/writer_evtx_notwindows.go /tmp/w.bak
-rtk perl -0pi -e 's/\t\t"HandleId":          clip\(e\.HandleID\),\n//' pkg/evtx/writer_evtx_notwindows.go
+rtk perl -0pi -e 's/"SubjectUserSid":    clip\(e\.SubjectUserSID\),/"SubjectUserSid":    "S-1-0-0",/' pkg/evtx/writer_evtx_notwindows.go
 rm -f /tmp/evtxcheck-v070.evtx
 rtk go run ./cmd/cee-exporter -config /tmp/evtxcheck.toml -emit-test-events
 cd tools/evtx-debug && rtk uv run python verify_evtx.py /tmp/evtxcheck-v070.evtx; echo "exit=$?"
 cp /tmp/w.bak /Users/fjacquet/Projects/cee-exporter/pkg/evtx/writer_evtx_notwindows.go
 ```
 
-Expected: three `FAIL: record N: EventData is missing HandleId` lines and `exit=1`.
+Expected: three `FAIL: record N: SubjectUserSid = 'S-1-0-0', want ''` lines and `exit=1`. The seven-entry version of `EXPECTED_VALUES` would have passed this.
 
 - [ ] **Step 5: Falsify it again — wrong value, right name**
 
