@@ -11,10 +11,10 @@ CI workflows call these names, so keep their behaviour stable.
 
 ```bash
 make ci             # lint + test + build + vuln — the gate CI runs. Use this.
-make lint           # golangci-lint run --timeout=5m  (NOT go vet)
+make lint           # golangci-lint run --timeout=5m  (NOT go vet); also fails on unformatted code
 make test           # go test -race -coverprofile=coverage.out ./...
 make build          # go build -v ./...  — compiles, produces NO binary
-make format         # golangci-lint fmt
+make format         # golangci-lint fmt — the fix for what `make lint` reports
 make vuln           # govulncheck ./...
 make docs           # mkdocs build --strict  (fails on any broken doc link)
 make sbom           # CycloneDX SBOM → dist/
@@ -90,13 +90,24 @@ are fixed there and consumed here via a version bump — see ADR-014.
 
 `.golangci.yml` (v2 format) enables `errcheck`, `govet`, `ineffassign`,
 `staticcheck`, `unused`, `misspell`, `errorlint`, `copyloopvar`, `unconvert`
-and `nilerr`. Two bite most often:
+and `nilerr` under `linters:`, plus `gofmt` and `goimports` under a separate
+`formatters:` section. Three things bite most often:
 
 - **`errorlint` runs with `comparison: true`** — never compare errors with `==`
   or `!=`, including in tests. Use `errors.Is`. Only `errcheck` is excluded for
-  `_test.go`; every other linter applies to test files too.
+  `_test.go`; every other linter applies to test files too. That exclusion also
+  makes `//nolint:errcheck` in a test file dead weight — drop it, or write
+  `defer func() { _ = f.Close() }()`, which the codebase uses throughout.
 - **`nilerr`** — returning `nil` on a path where `err != nil` is a build failure,
   not a warning.
+- **Formatters are not linters in v2.** Putting `gofmt` under `linters:` is a
+  config error, and omitting the `formatters:` section entirely means
+  `golangci-lint run` checks no formatting at all — which is how `make ci` went
+  green on unformatted code until v5.0.1. `run` executes formatters in
+  check-only mode: it reports, it does not rewrite. `make format` rewrites.
+  `issues.max-same-issues` is set to 0 because every gofmt violation carries
+  the same message text, so the default cap of 3 would report five unformatted
+  files as three.
 
 ## CEPA protocol constraints
 

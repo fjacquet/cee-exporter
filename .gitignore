@@ -14,6 +14,12 @@ coverage.out
 # MkDocs generated site
 /site/
 
+# goreleaser output. `make sbom` and any local `goreleaser build` fill this
+# with the full release matrix — five binaries, ~60 MB — and `make clean`
+# removes it. It was never ignored, so a `git add -A` would happily commit
+# the lot; that is exactly what happened once while writing this commit.
+/dist/
+
 # windmc C header — only useful to C code, which this repo has none of. The
 # .syso (committed) is what the Go linker consumes; `make winres` regenerates
 # this deterministically from pkg/evtx/messages.mc any time it's needed.

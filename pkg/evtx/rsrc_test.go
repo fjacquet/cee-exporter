@@ -33,7 +33,7 @@ func TestMessageResourcePresent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open message resource: %v", err)
 	}
-	defer f.Close() //nolint:errcheck
+	defer func() { _ = f.Close() }()
 
 	var machine uint16
 	if err := binary.Read(f, binary.LittleEndian, &machine); err != nil {

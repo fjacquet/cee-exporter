@@ -9,10 +9,10 @@ func TestParse(t *testing.T) {
 	receiveTime := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name     string
-		input    string
-		wantLen  int
-		wantErr  bool
+		name    string
+		input   string
+		wantLen int
+		wantErr bool
 	}{
 		{
 			name:    "single_event",
