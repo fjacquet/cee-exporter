@@ -55,6 +55,14 @@ each a case of something that looked verified and was not.
   dropped. Its comment also credited a `sync.Mutex` that does not guard the
   write path at all — `b.mu` covers `Close` alone, and serialisation belongs
   to go-evtx.
+- A fourth test in the same family. `TestBuildSyslog5424`'s only subtest was
+  called "all required fields present" while asserting bare substrings for
+  four of the seven `audit@32473` SD-PARAMs — `Domain`, `AccessMask` and
+  `ClientAddr` were unmentioned, so deleting them left it green. It now
+  asserts each rendered `Key="Value"` pair, the header fields, and the message
+  body; every field carries a distinct value so swapping two also fails.
+  `TestBuildSyslog5424ProcID` covers the PROCID nil-value branch. Nine
+  mutations run, nine caught.
 - `/dist/` is gitignored. goreleaser's five-binary output was sitting
   untracked, one `git add -A` away from a 60 MB commit.
 - `docs-lint.yml` uses `actions/checkout@v5`, matching `ci.yml`.

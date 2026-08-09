@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-// TestBuildSyslog5424 tests the pure buildSyslog5424 helper function.
-// It verifies that the output is a valid RFC 5424 message containing all
-// required audit@32473 structured-data fields.
-func TestBuildSyslog5424(t *testing.T) {
-	e := WindowsEvent{
+// syslogTestEvent is the fixture for the buildSyslog5424 tests. Every field
+// carries a value distinct from every other, so an assertion on one cannot be
+// satisfied by another leaking into its place.
+func syslogTestEvent() WindowsEvent {
+	return WindowsEvent{
 		EventID:         4663,
 		Computer:        "nas01.corp.local",
 		TimeCreated:     time.Unix(1700000000, 0).UTC(),
@@ -24,48 +24,98 @@ func TestBuildSyslog5424(t *testing.T) {
 		ClientAddr:      "10.0.0.5",
 		CEPAEventType:   "CEPP_FILE_WRITE",
 	}
+}
 
+// TestBuildSyslog5424 verifies that buildSyslog5424 emits every audit@32473
+// structured-data parameter, as a full Key="Value" pair.
+//
+// The previous version asserted bare substrings: "EventID", "User", "Object",
+// plus three values. Three of the seven SD-PARAMs — Domain, AccessMask,
+// ClientAddr — went unmentioned, so deleting their AddDatum calls left the
+// test green under a name that claimed "all required fields present". The
+// bare-key form was weak even for the keys it did name: "EventID" matches the
+// key alone, so emitting the wrong value, or none, also passed.
+//
+// Asserting the rendered Key="Value" pair fixes both. Because the fixture
+// gives every field a distinct value, swapping two AddDatum arguments fails
+// too — the wrong pairing no longer appears anywhere in the payload.
+func TestBuildSyslog5424(t *testing.T) {
+	e := syslogTestEvent()
+
+	payload, err := buildSyslog5424(e, "cee-exporter")
+	if err != nil {
+		t.Fatalf("buildSyslog5424 returned error: %v", err)
+	}
+	if len(payload) == 0 {
+		t.Fatal("buildSyslog5424 returned empty payload")
+	}
+	msg := string(payload)
+
+	// One entry per AddDatum call in buildSyslog5424. Adding a parameter there
+	// without adding it here leaves it unverified, which is how the three
+	// missing ones got in.
+	sdParams := []string{
+		`EventID="4663"`,
+		`User="testuser"`,
+		`Domain="DOMAIN"`,
+		`Object="/share/file.txt"`,
+		`AccessMask="0x2"`,
+		`ClientAddr="10.0.0.5"`,
+		`CEPAType="CEPP_FILE_WRITE"`,
+	}
+	for _, want := range sdParams {
+		if !strings.Contains(msg, want) {
+			t.Errorf("missing SD-PARAM %s\npayload: %s", want, msg)
+		}
+	}
+
+	// The header fields, which no assertion covered beyond hostname and
+	// app-name appearing somewhere in the string.
+	header := []struct{ name, want string }{
+		{"PRI + version", "<30>1 "},
+		{"timestamp", "2023-11-14T22:13:20Z"},
+		{"hostname", " nas01.corp.local "},
+		{"app-name", " cee-exporter "},
+		{"MSGID (the event ID)", " 4663 ["},
+		{"SD-ID", "[audit@32473 "},
+	}
+	for _, h := range header {
+		if !strings.Contains(msg, h.want) {
+			t.Errorf("%s: expected %q\npayload: %s", h.name, h.want, msg)
+		}
+	}
+
+	// The MSG body is ShortMessage, the same summary every textual writer uses.
+	if !strings.HasSuffix(msg, "] "+e.ShortMessage()) {
+		t.Errorf("payload does not end with the structured data followed by %q\npayload: %s",
+			e.ShortMessage(), msg)
+	}
+}
+
+// TestBuildSyslog5424ProcID covers the one branch in buildSyslog5424 that the
+// test above cannot reach: ProcessID 0 renders as the RFC 5424 nil value "-",
+// any other value renders as the number.
+func TestBuildSyslog5424ProcID(t *testing.T) {
 	tests := []struct {
-		name     string
-		appName  string
-		contains []string
+		name      string
+		processID int
+		want      string
 	}{
-		{
-			name:    "all required fields present",
-			appName: "cee-exporter",
-			contains: []string{
-				"<",                // RFC 5424 PRI field start
-				"audit@32473",      // SD-ID
-				"EventID",          // SD-PARAM key
-				"User",             // SD-PARAM key
-				"Object",           // SD-PARAM key
-				"CEPP_FILE_WRITE",  // SD-PARAM value for CEPAType
-				"nas01.corp.local", // hostname
-				"cee-exporter",     // app-name
-			},
-		},
+		{"zero_becomes_nil_value", 0, " cee-exporter - 4663 "},
+		{"nonzero_is_rendered", 4242, " cee-exporter 4242 4663 "},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			payload, err := buildSyslog5424(e, tc.appName)
+			e := syslogTestEvent()
+			e.ProcessID = tc.processID
+
+			payload, err := buildSyslog5424(e, "cee-exporter")
 			if err != nil {
 				t.Fatalf("buildSyslog5424 returned error: %v", err)
 			}
-			if len(payload) == 0 {
-				t.Fatal("buildSyslog5424 returned empty payload")
-			}
-
-			msg := string(payload)
-
-			if !strings.HasPrefix(msg, "<") {
-				t.Errorf("expected payload to start with '<' (RFC 5424 PRI), got: %.20q", msg)
-			}
-
-			for _, want := range tc.contains {
-				if !strings.Contains(msg, want) {
-					t.Errorf("expected payload to contain %q\npayload: %s", want, msg)
-				}
+			if !strings.Contains(string(payload), tc.want) {
+				t.Errorf("expected PROCID field %q\npayload: %s", tc.want, payload)
 			}
 		})
 	}
