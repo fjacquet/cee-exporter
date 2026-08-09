@@ -147,8 +147,16 @@ func (w *Win32EventLogWriter) Close() error {
 	return w.log.Close()
 }
 
-// formatWin32Message produces the insertion string that maps to the Windows
-// Security Event format expected by SIEM content packs.
+// formatWin32Message produces the insertion string in the same
+// Subject/Object/Access Request Information layout Windows uses for its own
+// Security-auditing events (4660/4663/4670). Combined with the message
+// resource compiled into this executable, that layout is what lets Event
+// Viewer and other Event Log API readers render a real description instead
+// of placeholder text — see docs/windows-verification.md for the verified
+// before/after. Whether a specific SIEM's content pack, built to parse a
+// genuine Security-log event, treats this output as equivalent is a
+// separate, unverified claim; an earlier version of this comment made it
+// ("expected by SIEM content packs") and no longer does.
 func formatWin32Message(e WindowsEvent) string {
 	return fmt.Sprintf(
 		"Subject:\r\n\tSecurity ID:\t%s\r\n\tAccount Name:\t%s\r\n\tAccount Domain:\t%s\r\n\tLogon ID:\t%s\r\n\r\nObject:\r\n\tObject Server:\tSecurity\r\n\tObject Type:\t%s\r\n\tObject Name:\t%s\r\n\r\nProcess Information:\r\n\tProcess ID:\t0x%x\r\n\tProcess Name:\tCEPA\r\n\r\nAccess Request Information:\r\n\tTransaction ID:\t{00000000-0000-0000-0000-000000000000}\r\n\tAccesses:\t%s\r\n\tAccess Mask:\t%s\r\n\r\nNetwork:\r\n\tClient Address:\t%s\r\n\r\nI/O Statistics:\r\n\tBytes Read:\t%d\r\n\tBytes Written:\t%d",

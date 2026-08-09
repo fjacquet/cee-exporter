@@ -18,7 +18,7 @@ Go daemon that receives Dell PowerStore CEPA audit events (HTTP PUT / XML) and f
 - GELF 1.1 output over UDP or TCP → Graylog (Linux primary path)
 - RFC 5424 syslog output over UDP or TCP
 - Beats/Lumberjack v2 output → Logstash or Graylog, with optional TLS
-- Win32 EventLog via `ReportEvent` API on Windows; native `.evtx` files on other platforms
+- Win32 EventLog via `ReportEvent` API on Windows, with a compiled message resource so Event Viewer and Event Log API readers render the real event description (not placeholder text) for IDs 4660/4663/4670; native `.evtx` files on other platforms
 - Multi-target fan-out: write to multiple backends simultaneously
 - TLS listener with four modes: off, manual (operator-supplied cert), ACME (automatic Let's Encrypt), and self-signed (runtime-generated, air-gapped-friendly); certificate expiry surfaced via `/health` on every request, with a warning logged when fewer than 30 days remain
 - Prometheus `/metrics` endpoint on a dedicated port (default 9228)
