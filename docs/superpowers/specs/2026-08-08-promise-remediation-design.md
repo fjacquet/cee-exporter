@@ -281,8 +281,22 @@ The `.syso` is committed to the package directory. The Go linker picks up
 `.syso` files automatically, so this works under `CGO_ENABLED=0`, adds no
 artifact to distribute, and gives an operator no path to get wrong — the
 message resource lives inside `cee-exporter.exe`. The filename must carry the
-`_windows_amd64` suffix so it is not linked into non-Windows builds, and a
-second `_windows_arm64` copy is needed for that release target.
+`_windows_amd64` suffix so it is not linked into non-Windows builds.
+
+> **Update (2026-08-09).** An earlier draft of this section required a second
+> `_windows_arm64` copy. That release target was removed from the GoReleaser
+> build matrix, because Windows Server does not ship for ARM64 and no CI
+> runner exists to execute the artifact. (Go can still cross-compile for
+> windows/arm64 by hand; it is the *published artifact* that is gone, from
+> the next release onward — `v4.1.3` still shipped one.) Only the amd64
+> `.syso` is needed. Producing an arm64 one is possible — `llvm-windres
+> --target=aarch64-w64-mingw32` yields a valid `coff-arm64` object — but it
+> would arm a target nothing tests and nobody runs.
+
+Note also that the two-command recipe above is incomplete as written:
+`windres` shells out to a preprocessor, so `gcc-mingw-w64-x86-64` must be
+installed alongside `binutils-mingw-w64-x86-64` or the step fails with
+`x86_64-w64-mingw32-gcc: not found`.
 
 Then replace `InstallAsEventCreate` with:
 

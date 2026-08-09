@@ -71,7 +71,7 @@ flowchart TD
 | Default output | GELF UDP → localhost:12201 |
 | Binary size | ~11.5 MB (stripped, CGO_ENABLED=0, linux/amd64, measured 2026-08-08 — grown from an earlier ~6 MB as dependencies were added) |
 | Dependencies | Fully static binary (CGO disabled) |
-| Platforms | Linux, Windows, macOS — amd64 and arm64 (see table below) |
+| Platforms | Linux and macOS on amd64 and arm64; Windows on amd64 (see table below) |
 | Go version | 1.26.5 |
 
 ## Supported platforms
@@ -79,8 +79,16 @@ flowchart TD
 | Platform | Architectures | Release artifact |
 |---|---|---|
 | Linux | amd64, arm64 | `tar.gz` |
-| Windows | amd64, arm64 | `zip` |
+| Windows | amd64 | `zip` |
 | macOS | amd64, arm64 | `tar.gz` |
+
+This table describes the **next** release. The currently downloadable
+`v4.1.3` predates the change and still includes a `windows_arm64` zip.
+
+Windows on ARM64 was removed from the GoReleaser build matrix deliberately.
+The exporter runs on a server receiving events from a PowerStore array,
+Windows Server does not ship for ARM64, and no CI runner exists to test it —
+so the artifact was published every release without ever being executed.
 
 The Win32 EventLog writer (`evtx` on Windows) is Windows-only. `SIGHUP`-triggered
 EVTX rotation (see [Operator Guide](operator-guide.md#triggering-rotation-manually))

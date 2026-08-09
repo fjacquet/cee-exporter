@@ -23,6 +23,15 @@ builds:
     goarch:
       - amd64
       - arm64
+    # Windows on ARM64 is not a target for this product: the exporter runs on
+    # a server receiving events from a PowerStore array, and Windows Server
+    # does not ship for ARM64. No CI runner exists for it either — GitHub's
+    # windows runners are x64 — so the artifact was published, never built
+    # against a message resource, and never executed by anything. Dropped
+    # rather than shipped unverifiable.
+    ignore:
+      - goos: windows
+        goarch: arm64
     flags:
       - -trimpath
     ldflags:
