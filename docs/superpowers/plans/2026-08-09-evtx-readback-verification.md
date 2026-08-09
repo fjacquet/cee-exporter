@@ -729,7 +729,13 @@ rtk go run ./cmd/cee-exporter -config /tmp/good.toml -emit-test-events
 
 # Mutated file: a different ObjectName
 cp cmd/cee-exporter/emit_test_events.go /tmp/emit.bak
-rtk perl -0pi -e 's/C:\\\\test\\\\emit-test-events\.txt/C:\\\\test\\\\WRONG.txt/' cmd/cee-exporter/emit_test_events.go
+# Two backslashes, not four. ObjectName is a Go raw string with SINGLE
+# backslashes (`C:\test\emit-test-events.txt`), so \\\\ matches nothing and the
+# "mutation" silently produces a byte-identical file — a mutation test that
+# cannot fail. Corrected during execution 2026-08-09 after exactly that.
+rtk perl -0pi -e 's/C:\\test\\emit-test-events\.txt/C:\\test\\WRONG.txt/' cmd/cee-exporter/emit_test_events.go
+# Confirm the file actually changed before trusting the result:
+rtk grep -c 'WRONG' cmd/cee-exporter/emit_test_events.go
 rm -f /tmp/audit-bad.evtx
 rtk sed 's|audit-good|audit-bad|' /tmp/good.toml > /tmp/bad.toml
 rtk go run ./cmd/cee-exporter -config /tmp/bad.toml -emit-test-events
