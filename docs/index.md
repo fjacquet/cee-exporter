@@ -82,10 +82,13 @@ flowchart TD
 | Windows | amd64 | `zip` |
 | macOS | amd64, arm64 | `tar.gz` |
 
-Windows on ARM64 is deliberately not built. The exporter runs on a server
-receiving events from a PowerStore array, Windows Server does not ship for
-ARM64, and no CI runner exists to test it — so the artifact would be
-published without ever being executed.
+This table describes the **next** release. The currently downloadable
+`v4.1.3` predates the change and still includes a `windows_arm64` zip.
+
+Windows on ARM64 was removed from the GoReleaser build matrix deliberately.
+The exporter runs on a server receiving events from a PowerStore array,
+Windows Server does not ship for ARM64, and no CI runner exists to test it —
+so the artifact was published every release without ever being executed.
 
 The Win32 EventLog writer (`evtx` on Windows) is Windows-only. `SIGHUP`-triggered
 EVTX rotation (see [Operator Guide](operator-guide.md#triggering-rotation-manually))
