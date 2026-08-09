@@ -127,7 +127,7 @@ automated check today; there is no Windows CI runner in this project.
 
 - **Latency:** HTTP handler must ACK within 3 seconds (CEPA heartbeat constraint)
 - **Throughput:** Queue capacity 100,000 events default; handles VCAPS batches of thousands per PUT
-- **Portability:** Single binary; CGO_ENABLED=0; compiles for linux, windows, and macOS on amd64 and arm64 (see the platform table in `docs/index.md`)
+- **Portability:** Single binary; CGO_ENABLED=0; released for linux and macOS on amd64 and arm64, and windows on amd64 (see the platform table in `docs/index.md`). Windows/ARM64 is deliberately not built — no target market and no CI runner to test it
 - **Reliability:** TCP GELF/Beats reconnects automatically; failed backend does not block others (MultiWriter)
 - **Observability:** Health endpoint, Prometheus metrics, and structured logs on every received batch
 - **Security:** GELF and Beats writer transport supports TLS; the syslog writer does not (`SyslogConfig` has no TLS field — RFC 5425 TLS transport is deferred, see `docs/requirements.md`'s Deferred Requirements table, `OUT-F03`) — see [docs/PROMISES.md](PROMISES.md); CEPA listener TLS documented with protocol caveat
