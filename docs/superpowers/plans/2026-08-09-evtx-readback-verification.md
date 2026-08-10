@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Bump `github.com/fjacquet/go-evtx` to v0.7.0 and build the CI loop that reads a Linux-generated `.evtx` back on Windows, so `OUT-06` is closed by a job instead of a claim.
+**Goal:** Bump `github.com/fjacquet/go-evtx` to v0.7.2 and build the CI loop that reads a Linux-generated `.evtx` back on Windows, so `OUT-06` is closed by a job instead of a claim.
+
+**Version history:** the branch first pinned v0.7.0, briefly tried v0.7.1, and shipped v0.7.2.
 
 **Architecture:** Three oracles with stated blind spots. A new `evtx-oracle` job on Linux emits a `.evtx` via the existing `-emit-test-events` flag, verifies it with python-evtx, and uploads it as an artifact. A new `evtx-readback` job on `windows-latest` downloads that artifact and reads it with `Get-WinEvent -Path`. A dated manual protocol on winvm covers the Event Viewer GUI, which neither job can reach.
 
@@ -60,7 +62,7 @@ These were measured on 2026-08-09, not inferred. Contradicting them will produce
 
 | File | Responsibility |
 |---|---|
-| `go.mod`, `go.sum` | Modify — pin go-evtx v0.7.0 |
+| `go.mod`, `go.sum` | Modify — pin go-evtx v0.7.2 |
 | `tools/evtx-debug/verify_evtx.py` | **Create** — the Linux oracle. One job: assert a `.evtx` matches the emit-test-events contract. Exit 0 or 1. |
 | `tools/evtx-debug/README.md` | Modify — the directory stops being "not part of the shipped product"; also fix a phantom config example |
 | `.github/workflows/ci.yml` | Modify — two new jobs, `evtx-oracle` and `evtx-readback` |
@@ -444,7 +446,7 @@ Expected: no modification to `pkg/evtx/writer_evtx_notwindows.go`, tests `ok`.
 
 Replace the whole of `tools/evtx-debug/README.md` with:
 
-```markdown
+````markdown
 # evtx-debug
 
 python-evtx tooling for `BinaryEvtxWriter` output.
@@ -469,7 +471,7 @@ the same flag so the oracle cannot drift under a green build.
 - `verify_evtx.py <path>` — **CI gate.** Asserts a file produced by
   `cee-exporter -emit-test-events` has exactly 3 records, event IDs 4660,
   4663 and 4670, all twelve `EventData` fields, and the expected values for
-  seven of them. Exit 0 or 1.
+  twelve of them. Exit 0 or 1.
 - `debug_evtx.py` — manual chunk/record walk plus python-evtx round-trip.
   Useful when the writer produces a file python-evtx can open but reports
   zero records (chunk header fields valid, record scan failing).
@@ -504,7 +506,7 @@ TOML
 
 go run ./cmd/cee-exporter -config /tmp/evtx-debug.toml -emit-test-events
 ```
-```
+````
 
 Note the config block: the previous README documented `[outputs.evtx]` with a
 `path` key. Neither exists — the real schema is `[output]` with `type` and
@@ -518,7 +520,7 @@ rtk git add tools/evtx-debug/
 rtk git commit -m "test(evtx): add verify_evtx.py, the Linux-side oracle
 
 Asserts a -emit-test-events file has 3 records, event IDs 4660/4663/4670 as a
-set, all twelve EventData field names, and the expected values for seven of
+set, all twelve EventData field names, and the expected values for twelve of
 them. Names alone would pass on a writer emitting twelve correctly-named
 empty fields, so the values are the load-bearing half.
 
@@ -801,7 +803,7 @@ SCM-lifecycle assertions from running at all."
 
 Insert before `## Cleanup` in `docs/windows-verification.md`:
 
-```markdown
+````markdown
 ## 5. Saved-log rendering — the part CI cannot see
 
 `evtx-readback` proves `Get-WinEvent -Path` reads a Linux-generated `.evtx`.
@@ -872,7 +874,7 @@ of scope for this repository.
 | Date | Host | Q1 — opens / placement | Q2 — description | Notes |
 |---|---|---|---|---|
 | | | | | |
-```
+````
 
 - [ ] **Step 2: Run the protocol on winvm and fill the table**
 

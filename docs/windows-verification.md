@@ -363,7 +363,7 @@ event already does) and the event source registered on the host, re-measured
 2026-08-10 on winvm: the same saved `.evtx` generated on Linux renders all
 three descriptions correctly.
 
-```
+```text
 saved log (.evtx generated on Linux):
   id 4660  Message: An object was deleted. test-user
   id 4663  Message: An attempt was made to access an object. test-user

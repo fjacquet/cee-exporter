@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.1.0] - 2026-08-10
 
-Windows can read the `.evtx` files this exporter writes. It never could
-before.
+Windows can read the `.evtx` files the non-Windows build of this exporter
+writes. It never could before.
 
 ### Fixed
 

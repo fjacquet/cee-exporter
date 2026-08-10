@@ -181,7 +181,7 @@ rotation_interval_h = 24
 On Windows this same configuration routes to the Win32 EventLog API and
 `evtx_path` is ignored — the platform decides, there is no separate type.
 
-!!! danger "Every `.evtx` written before v5.1.0 is unreadable"
+!!! danger "Every `.evtx` written on non-Windows hosts before v5.1.0 is unreadable"
 
     On Windows, `Get-WinEvent -Path` on a `.evtx` this exporter produced
     before v5.1.0 returns:
