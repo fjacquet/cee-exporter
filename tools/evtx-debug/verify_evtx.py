@@ -119,6 +119,31 @@ def check(path):
                 else:
                     seen_ids.append(int(event_id_el.text.strip()))
 
+                # These three are what every real mapped event carries
+                # (pkg/mapper.Map always sets them) and what the
+                # -emit-test-events fixture omitted until v5.1.0 -- a shape no
+                # real event has, and one that made Get-WinEvent throw
+                # NullReferenceException on an empty ProviderName. Checking
+                # only EventData, as this script did before, left both CI
+                # jobs green while that fixture bug shipped: the
+                # evtx-readback job's Get-WinEvent failure read like a
+                # go-evtx/library fault rather than a fixture defect. Catch
+                # it here, on Linux, before it ever reaches Windows.
+                provider_el = root.find("./System/Provider")
+                provider_name = provider_el.get("Name") if provider_el is not None else None
+                if provider_name != "PowerStore-CEPA":
+                    failures.append(
+                        f"record {index}: System/Provider Name = {provider_name!r}, want 'PowerStore-CEPA'"
+                    )
+
+                computer_el = root.find("./System/Computer")
+                if computer_el is None or not (computer_el.text or "").strip():
+                    failures.append(f"record {index}: System/Computer is missing or empty")
+
+                time_created_el = root.find("./System/TimeCreated")
+                if time_created_el is None or not (time_created_el.get("SystemTime") or "").strip():
+                    failures.append(f"record {index}: System/TimeCreated has no SystemTime attribute")
+
                 data = {}
                 for el in root.findall("./EventData/Data"):
                     data[el.get("Name")] = el.text if el.text is not None else ""

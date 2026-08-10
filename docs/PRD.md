@@ -111,7 +111,7 @@ Full requirement list: see [requirements.md](requirements.md)
 | OUT-03 | SyslogWriter: RFC 5424 over UDP | 06 | ADR-008 |
 | OUT-04 | SyslogWriter: RFC 5424 over TCP (octet-counting) | 06 | ADR-008 |
 | OUT-05 | BinaryEvtxWriter: native `.evtx` on Linux | 07 | ADR-009 |
-| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — since v5.1.0, **Verified**: `Get-WinEvent` read-back is CI-gated by the `evtx-readback` job; description rendering from a saved log is covered by the dated manual protocol in docs/windows-verification.md. See [docs/PROMISES.md](PROMISES.md) |
+| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — since v5.1.0, **Verified (partial)**: `Get-WinEvent` read-back (file opening, record count, event ID set, `ToXml()`, `ObjectName`) is CI-gated by the `evtx-readback` job on every push; description rendering from a saved log is covered by the dated 2026-08-10 manual protocol in docs/windows-verification.md; the Event Viewer GUI open/placement question has not been run. See [docs/PROMISES.md](PROMISES.md) |
 | TLS-03 | `tls_mode="acme"` auto-provisions via Let's Encrypt | 08 | ADR-011 |
 | TLS-04 | `tls_mode="self-signed"` for air-gapped deployments | 08 | ADR-011 |
 
@@ -119,15 +119,16 @@ Full requirement list: see [requirements.md](requirements.md)
 per-requirement traceability and [docs/PROMISES.md](PROMISES.md) for every
 user-facing claim's verifying job. Since v5.0, DEPLOY-03 and DEPLOY-04
 (Windows Service install/uninstall via the real SCM start/stop lifecycle) are
-verified by the `windows` CI job. Since v5.1.0, OUT-06 is **Verified**: the
+verified by the `windows` CI job. Since v5.1.0, OUT-06 is **Verified (partial)**: the
 `evtx-readback` job reads a Linux-generated `.evtx` on a Windows runner with
 `Get-WinEvent`, covering the file opening, record count, event ID set,
-`ToXml()`, and `ObjectName`; description rendering from a saved log needs a
-host with the event source registered, so it is not CI-gated, but is covered
-by the dated manual protocol in `docs/windows-verification.md` — a
-2026-08-10 reading confirms all three descriptions render once the event
-source is registered. DEPLOY-05 (crash auto-restart) remains unverified —
-nothing simulates a crash to exercise the SCM's recovery action.
+`ToXml()`, and `ObjectName` — CI-gated on every push; description rendering
+from a saved log needs a host with the event source registered, so it is not
+CI-gated, but a 2026-08-10 manual reading confirms all three descriptions
+render once the event source is registered; the Event Viewer GUI
+open/placement question has not been run. DEPLOY-05 (crash auto-restart)
+remains unverified — nothing simulates a crash to exercise the SCM's
+recovery action.
 
 ---
 
@@ -176,7 +177,7 @@ For architectural decisions, see `docs/adr/`.
 | `github.com/elastic/go-lumber` | v0.2.0 | BeatsWriter Lumberjack v2 | CGO-free |
 | `github.com/prometheus/client_golang` | v1.24.1 | Prometheus /metrics | CGO-free (ADR-006) |
 | `golang.org/x/crypto` (promoted) | v0.54.0 | ACME autocert (TLS-ALPN-01) | Was indirect dep (ADR-011) |
-| `github.com/fjacquet/go-evtx` | v0.6.0 | BinaryEvtxWriter EVTX binary encoding | Extracted from cee-exporter (ADR-014, supersedes ADR-009) |
+| `github.com/fjacquet/go-evtx` | v0.7.1 | BinaryEvtxWriter EVTX binary encoding | Extracted from cee-exporter (ADR-014, supersedes ADR-009) |
 
 **No new dependencies for:** systemd unit (text artifact).
 
@@ -205,8 +206,10 @@ below; several are not yet checked by anything.
 - `.evtx` files generated on Linux open correctly in Windows Event Viewer —
   **verified (partial)** since v5.1.0 (`evtx-readback` CI job reads them back
   with `Get-WinEvent`, covering record count, event IDs, `ToXml()`, and
-  `ObjectName`; description rendering from a saved log is measured not to
-  work and is a known limitation; the Event Viewer GUI open/placement
-  question was not run — see `docs/windows-verification.md` section 5)
+  `ObjectName`; description rendering from a saved log needs a host with the
+  event source registered, so it is not CI-gated, but a 2026-08-10 manual
+  reading confirms all three descriptions render once the event source is
+  registered; the Event Viewer GUI open/placement question was not run —
+  see `docs/windows-verification.md` section 5)
 - `curl :9228/metrics` returns Prometheus-formatted counters (verified —
   `pkg/prometheus/handler_test.go`)
