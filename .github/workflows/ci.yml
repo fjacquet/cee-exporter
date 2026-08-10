@@ -217,7 +217,14 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: astral-sh/setup-uv@v9
+      # Exact release, not a bare major. astral-sh/setup-uv publishes no
+      # moving `v9` tag — its highest bare-major alias is `v7`, while the
+      # current release is `v9.0.0`. `@v9` therefore fails the job at action
+      # resolution, before a single step runs:
+      #   Unable to resolve action `astral-sh/setup-uv@v9`, unable to find version `v9`
+      # Reading the latest release name is not the same as checking the ref
+      # resolves. The other actions here do publish moving majors and use them.
+      - uses: astral-sh/setup-uv@v9.0.0
 
       - name: Emit a .evtx with the three mapped event IDs
         run: |
