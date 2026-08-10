@@ -52,7 +52,7 @@ writes. It never could before.
   `-emit-test-events`, which names no channel of its own. Measured on
   Windows Server 2025, same three records, source registered:
 
-  ```
+  ```text
   before   LogName=[]           Message: An object was deleted. test-user
   after    LogName=[Security]   Message: An object was deleted. test-user
   ```
@@ -109,7 +109,7 @@ writes. It never could before.
 
 ### Changed
 
-- `github.com/fjacquet/go-evtx` v0.6.0 → v0.7.3, in three steps. v0.7.0's
+- `github.com/fjacquet/go-evtx` v0.6.0 → v0.7.3, in four steps. v0.7.0's
   BREAKING change removes `Reader.ReadRecord()` and the `Record` struct; this
   project uses only the writer API, so nothing here changed. v0.7.1 tightens
   `<Provider>` rendering — an empty `ProviderName` now omits the `Name`
@@ -138,17 +138,26 @@ writes. It never could before.
   `docs/PROMISES.md`, `docs/requirements.md` and `docs/PRD.md`: the file
   opens, all three records enumerate, all twelve `EventData` fields carry
   correct values, `LogName` resolves to `Security`, and descriptions render.
-  The first three of those are CI-gated on every push via `evtx-readback`;
-  `LogName` is also CI-gated, via `evtx-oracle`'s new `System/Channel`
-  assertion (see Added, above); description rendering from a saved log is
-  covered by the dated manual protocol in `docs/windows-verification.md`,
-  since it needs a host with the event source registered.
+  Which job gates which, because the two check different things and a field
+  regression must not look covered by the wrong one:
 
-    Partial, not closed: opening the saved log in Event Viewer's **GUI** and
-    seeing where it places the events has not been run. `winvm` is reached
-    only over SSH with no interactive desktop session. `Get-WinEvent -Path`
-    is not the GUI, and this project does not grade an unrun check as
-    verified — see the vocabulary at the top of `docs/PROMISES.md`.
+    - `evtx-readback` (windows-latest) — the file opens under
+      `Get-WinEvent -Path`, three records enumerate, the event ID set is
+      {4660, 4663, 4670}, `ToXml()` succeeds per record, and `ObjectName`
+      appears in the rendered XML.
+    - `evtx-oracle` (ubuntu) — the twelve `EventData` names and values, plus
+      `System/Provider` `Name`, `System/Computer` and `System/Channel`. The
+      last is what keeps `LogName` resolving to `Security`.
+    - The dated manual protocol in `docs/windows-verification.md` —
+      description rendering from a saved log, which needs a host with the
+      event source registered and so cannot be a CI check.
+
+    Partial, not closed. One check has not been run: **opening the saved log
+    in Event Viewer's GUI**, which would also answer where it places the
+    events. `winvm` is reached only over SSH with no interactive desktop
+    session. `Get-WinEvent -Path` is not the GUI, and this project does not
+    grade an unrun check as verified — see the vocabulary at the top of
+    `docs/PROMISES.md`.
 
 ## [5.0.1] - 2026-08-09
 

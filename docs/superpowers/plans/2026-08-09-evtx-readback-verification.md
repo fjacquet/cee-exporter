@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Bump `github.com/fjacquet/go-evtx` to v0.7.3 and build the CI loop that reads a Linux-generated `.evtx` back on Windows, so `OUT-06` is closed by a job instead of a claim.
+**Goal:** Bump `github.com/fjacquet/go-evtx` to v0.7.3 and build the CI loop that reads a Linux-generated `.evtx` back on Windows, so the machine-checkable part of `OUT-06` rests on a job instead of a claim. `OUT-06` ends at **Verified (partial)**, not closed: opening the saved log in Event Viewer's GUI is not reachable from CI or from the SSH-only test host, and an unrun check is not a verified one.
 
 **Version history:** the branch first pinned v0.7.0, briefly tried v0.7.1 (rejected), shipped v0.7.2, then moved once more to v0.7.3.
 
