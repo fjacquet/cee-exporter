@@ -598,7 +598,17 @@ The open and the record list are the only operations that should be guarded. `re
 
 Restructure `check()` so that:
 
-1. A narrow `try` wraps only `evtx.Evtx(path)` and `list(log.records())`, returning the `could not open the file` failure on exception. Keep that message text byte-identical — the README and CI logs quote it.
+1. A narrow `try` wraps only `evtx.Evtx(path)` and `list(log.records())`, returning the open-or-enumerate failure on exception.
+
+> **Correction, from execution.** This point originally ended "Keep that message
+> text byte-identical — the README and CI logs quote it." The README does not
+> quote it: `grep` finds the string only in the script itself and in planning
+> documents describing it. The constraint was invented, and it would have
+> blocked a correct fix — CodeRabbit pointed out on PR #25 that the handler
+> guards enumeration as well as opening, so a file that opens and then fails on
+> a corrupt chunk was being reported as a file-access problem. The message is
+> now "python-evtx could not open or enumerate the file: …". Before inheriting
+> a "do not change X, because Y depends on it" constraint, check that Y does.
 2. The per-record assertion loop runs inside the same `with` block but **outside** the `try`, so an exception raised by the assertion logic propagates as a traceback naming the real line instead of being relabelled.
 
 > **Correction, from execution.** Point 1 is not expressible as a `try` nested
@@ -641,7 +651,7 @@ Expected: `OK: … 3 records, IDs [4660, 4663, 4670], all 12 EventData fields` a
 (cd tools/evtx-debug && rtk uv run python verify_evtx.py /tmp/does-not-exist.evtx); echo "exit=$?"
 ```
 
-Expected: a single `FAIL: python-evtx could not open the file: …` line and `exit=1` for each. The message must be unchanged from before this task.
+Expected: a single `FAIL: python-evtx could not open or enumerate the file: …` line and `exit=1` for each.
 
 > **Correction, from execution.** This step originally used
 > `head -c 200 /dev/urandom > /tmp/garbage.evtx`. That input does **not** reach
