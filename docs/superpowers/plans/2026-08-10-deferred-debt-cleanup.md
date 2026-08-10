@@ -82,6 +82,25 @@ If `VERSION=` does not appear in the rendered `-ldflags`, stop and report — th
 
 In `cmd/cee-exporter/version_test.go`, delete `TestVersion_LdflagsStampReachesTheBinary` and its `runtimeIsWindows` helper entirely, and put this in their place. Keep `TestVersion_DefaultIsDev` and `TestVersion_NotHardcodedRelease` untouched.
 
+> **Superseded during execution — the code below is not what shipped.** Read
+> `cmd/cee-exporter/version_test.go` at `4303b7d` for the version that did.
+> Two deviations, both found by review and CI rather than by writing the plan:
+>
+> 1. The code block below builds into the **repository root** and calls that a
+>    cost "accepted deliberately". Review rejected it: the Makefile declares its
+>    output filename as a variable (`Makefile:5-7`), so a command-line override
+>    sends the build to a `t.TempDir()` while still driving the real target,
+>    real `LDFLAGS`, real `-trimpath` and `CGO_ENABLED=0`. `releaseBuildTargetFor`
+>    therefore returns the Makefile *variable name*, not a filename, and the
+>    `t.Cleanup`/`artifactPath` plumbing below is gone.
+> 2. That override must be passed through `filepath.ToSlash`. The recipes use
+>    `VAR=value command`, POSIX shell syntax, so GNU make dispatches them via
+>    `sh` — which eats the backslashes of a Windows path as escapes, sending
+>    `-o` to a drive-relative path in the repo root while `make` still exits 0.
+>    PR #23's `windows` job caught this; nothing on macOS or Linux can. The
+>    shipped test also stats the artifact between build and run, so the next
+>    such failure names itself instead of surfacing as `fork/exec`.
+
 ```go
 // TestVersion_ReleaseBuildStampsTheVersion drives the Makefile target a
 // release actually uses and asserts the produced binary reports the version
@@ -224,13 +243,23 @@ rtk grep -n "^LDFLAGS" Makefile   # confirm restore
 
 Expected: `the release build did not stamp the version`, then the restored `LDFLAGS` line containing `-X main.version=$(VERSION)`.
 
-- [ ] **Step 6: Confirm the working tree is clean**
+- [ ] **Step 6: Confirm the working tree is clean and no artifact leaked**
 
 ```bash
 rtk git status --short | rtk grep -v "^??"
+for f in cee-exporter cee-exporter-darwin cee-exporter.exe; do
+  test -e "$f" && echo "LEAKED: $f" || echo "clean: $f"
+done
 ```
 
-Expected: only `cmd/cee-exporter/version_test.go` modified. If `cee-exporter-darwin` (or the host equivalent) appears, `t.Cleanup` did not fire — investigate before committing; a test that litters the tree will be reported as a defect by the next reviewer.
+Expected: `git status` shows only `cmd/cee-exporter/version_test.go` modified, and all three names report `clean`.
+
+The second command is not redundant with the first. All three binary names are
+gitignored (`.gitignore:2-4`), so `git status` without `--ignored` never lists
+them whether or not they exist on disk — on its own it is a check that cannot
+fail, which is exactly what this plan's Global Constraints warn about. Stat the
+paths. (Note that `rtk test -e` mis-parses the `-e` flag; use plain `test`, or
+`rtk proxy test -e`.)
 
 - [ ] **Step 7: Full gate**
 
@@ -258,10 +287,12 @@ LDFLAGS wiring, CGO_ENABLED=0 and -trimpath as a side effect.
 Watched failing first: with -X main.version removed from LDFLAGS, the test
 reports 'the release build did not stamp the version'.
 
-Two costs taken deliberately and stated in the test: the target writes into
-the repository root rather than a temp dir, so the artifact is removed
-afterwards including on failure; and \`make\` is required, so the test skips
-with a reason where it is absent rather than failing for an unrelated reason."
+The Makefile names its output in a variable, so the test overrides it onto a
+temp dir: the real recipe, the real LDFLAGS, no artifact in the repo root. The
+override goes through filepath.ToSlash because the recipes run under sh, which
+would eat a Windows path's backslashes as escapes. One cost remains: \`make\` is
+required, so the test skips with a reason where it is absent rather than
+failing for an unrelated reason."
 rtk git push
 ```
 
