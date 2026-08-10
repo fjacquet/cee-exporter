@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [5.2.1] - 2026-08-10
 
 ### Changed
 
@@ -52,6 +52,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   registry key and directory sections 1-4 create, but never mentioned the
   directory and file section 5 adds for the saved-log protocol, so following
   the protocol left those behind on the test VM.
+
+## [5.2.0] - 2026-08-10
+
+Written after the fact: v5.2.0 was tagged and published without a CHANGELOG
+entry. This records what it actually shipped, taken from the diff
+`v5.1.1..v5.2.0` rather than from memory.
+
+### Fixed
+
+- **`docker build` worked and `podman build` did not.** The Dockerfile's
+  builder stage said `FROM golang:1.26-alpine`. Docker implies
+  `docker.io/library` for an unqualified name; Podman resolves it through
+  `unqualified-search-registries`, which on RHEL and Fedora does not begin
+  with `docker.io` and may be empty entirely under
+  `short-name-mode=enforcing` — so the build failed outright there. The base
+  image is now fully qualified as `docker.io/library/golang:1.26-alpine`, so
+  both engines resolve it identically.
+
+### Changed
+
+- The version-stamp test drives `make build-<goos> VERSION=…`, the target a
+  release actually uses, instead of passing `-ldflags` to `go build` itself.
+  The old form proved only that the Go linker honours `-X main.version`, which
+  was never in doubt, and would have stayed green if the Makefile dropped the
+  flag — the failure `CLAUDE.md` warns about and the one worth catching.
 
 ## [5.1.1] - 2026-08-10
 
