@@ -72,10 +72,11 @@ only in two `System` values that Windows was already filling in by default.
   provider metadata to resolve a display name against, which is a different
   thing from what the GUI displays — an upstream issue filed against
   go-evtx on the strength of the headless measurement has since been
-  corrected and now stands only as an API-surface note (`Level`, `Task`,
-  `Opcode` and `Keywords` are emitted as literal `0` with their fields-map
-  keys silently dropped, while `Channel` is honoured), with no
-  operator-visible symptom. `docs/PROMISES.md`, `docs/requirements.md`, and
+  corrected: it never had an operator-visible symptom, and the API-surface
+  half of it — `Level`, `Task`, `Opcode` and `Keywords` emitted as literal
+  `0` with their fields-map keys silently dropped, while `Channel` was
+  honoured — describes go-evtx **before v0.7.4**, which this release pins and
+  which fixes it. `docs/PROMISES.md`, `docs/requirements.md`, and
   `docs/PRD.md` are updated to reflect OUT-06's full verification.
 
 ## [5.1.0] - 2026-08-10
