@@ -111,7 +111,7 @@ Full requirement list: see [requirements.md](requirements.md)
 | OUT-03 | SyslogWriter: RFC 5424 over UDP | 06 | ADR-008 |
 | OUT-04 | SyslogWriter: RFC 5424 over TCP (octet-counting) | 06 | ADR-008 |
 | OUT-05 | BinaryEvtxWriter: native `.evtx` on Linux | 07 | ADR-009 |
-| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — **not yet verified; no Windows Event Viewer available in CI or this environment. Tracked as go-evtx F6; see [docs/PROMISES.md](PROMISES.md)** |
+| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — since v5.1.0, **partially verified**: `Get-WinEvent` read-back is CI-gated by the `evtx-readback` job; description rendering from a saved log is a known limitation, not verified. See [docs/PROMISES.md](PROMISES.md) |
 | TLS-03 | `tls_mode="acme"` auto-provisions via Let's Encrypt | 08 | ADR-011 |
 | TLS-04 | `tls_mode="self-signed"` for air-gapped deployments | 08 | ADR-011 |
 
@@ -119,10 +119,14 @@ Full requirement list: see [requirements.md](requirements.md)
 per-requirement traceability and [docs/PROMISES.md](PROMISES.md) for every
 user-facing claim's verifying job. Since v5.0, DEPLOY-03 and DEPLOY-04
 (Windows Service install/uninstall via the real SCM start/stop lifecycle) are
-verified by the `windows` CI job. DEPLOY-05 (crash auto-restart) and OUT-06
-above remain unverified — nothing simulates a crash to exercise the SCM's
-recovery action, and the generated-`.evtx` Event Viewer claim depends on
-go-evtx v0.7.0, not yet released.
+verified by the `windows` CI job. Since v5.1.0, OUT-06 is **Verified
+(partial)**: the `evtx-readback` job reads a Linux-generated `.evtx` on a
+Windows runner with `Get-WinEvent`, covering the file opening, record count,
+event ID set, `ToXml()`, and `ObjectName`; description rendering from a saved
+log is measured not to work even with the event source registered, and is
+recorded as a known limitation rather than pursued further, since fixing it
+would mean changing go-evtx. DEPLOY-05 (crash auto-restart) remains
+unverified — nothing simulates a crash to exercise the SCM's recovery action.
 
 ---
 
@@ -198,6 +202,10 @@ below; several are not yet checked by anything.
   **not yet verified** — nothing reboots the runner or simulates a crash to
   exercise the `OnFailure: "restart"` recovery action
 - `.evtx` files generated on Linux open correctly in Windows Event Viewer —
-  **not yet verified; tracked as go-evtx F6**
+  **verified (partial)** since v5.1.0 (`evtx-readback` CI job reads them back
+  with `Get-WinEvent`, covering record count, event IDs, `ToXml()`, and
+  `ObjectName`; description rendering from a saved log is measured not to
+  work and is a known limitation; the Event Viewer GUI open/placement
+  question was not run — see `docs/windows-verification.md` section 5)
 - `curl :9228/metrics` returns Prometheus-formatted counters (verified —
   `pkg/prometheus/handler_test.go`)

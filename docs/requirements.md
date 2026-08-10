@@ -145,7 +145,7 @@ IDs renumbered `OBS-04`–`OBS-08` — see [ID renumbering](#id-renumbering-note
 | OUT-03 | SyslogWriter forwards RFC 5424 over UDP | Delivered | `pkg/evtx/writer_syslog_test.go::TestBuildSyslog5424` |
 | OUT-04 | SyslogWriter forwards RFC 5424 over TCP (octet-counting) | Delivered | `pkg/evtx/writer_syslog_test.go::TestSyslogTCPFraming` (via `net.Pipe`) |
 | OUT-05 | BinaryEvtxWriter writes native `.evtx` files on Linux | Delivered | `pkg/evtx/writer_evtx_notwindows_test.go` (`TestBinaryEvtxWriter_WriteClose`, `TestBinaryEvtxWriter_ChunkLayout`, and others) |
-| OUT-06 | Generated `.evtx` files open correctly in Windows Event Viewer and parse with forensics tools | **Unverified** | Nothing. Tracked in the go-evtx repository. No Windows Event Viewer available in this environment. |
+| OUT-06 | Generated `.evtx` files open correctly in Windows Event Viewer and parse with forensics tools | **Verified (partial)** | `evtx-readback` job (`Get-WinEvent -Path` on `windows-latest`, reading the artifact from `evtx-oracle`) covers opening the file, 3 records, the event ID set {4660, 4663, 4670}, per-record `ToXml()`, and `ObjectName` in the rendered XML; `evtx-oracle` job (python-evtx via `tools/evtx-debug/verify_evtx.py`) is the independent-parser half. Description rendering from a saved log is measured NOT to work — winvm, 2026-08-10, with the event source confirmed registered in the same session — and is recorded as a known limitation, see `docs/windows-verification.md` section 5. The Event Viewer GUI open/placement question was not run; it needs interactive desktop access unavailable on that host. |
 
 ---
 
