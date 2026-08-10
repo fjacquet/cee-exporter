@@ -38,6 +38,29 @@ no recorded request has no series at all.
 
 `cee_cepa_registrations_total` counts handshakes only.
 
+### What a peer is, and what this therefore cannot detect
+
+A peer is a **CEE server**, not a NAS Data Mover. The publishing chain is
+
+```
+Data Mover(s) --(cepp.conf: pool name / servers=)--> CEE server --(CEPA API)--> cee-exporter
+```
+
+One CEE server aggregates many Data Movers, so these metrics detect a CEE host
+that has gone silent. They do **not** detect a Data Mover that stopped
+publishing into a CEE server that is still healthy — that path stays green.
+Saying otherwise would be exactly the kind of overclaim this repository's
+documentation discipline exists to catch. Detecting per-Data-Mover silence
+would need something the CEPA payload carries, not the transport, and is out
+of scope here.
+
+Two further transport caveats: CEE can deliver to a partner over MSRPC or
+HTTPS as well as HTTP, and under an MSRPC deployment nothing reaches this
+exporter's HTTP listener at all — the metric correctly reports no peers.
+`NumberOfThreads` defaults to 20 in `emc_cee_config.xml`, so a single CEE host
+can hold up to 20 concurrent connections; this is why the ephemeral port must
+be stripped rather than merely capped.
+
 `cee_cepa_peers_dropped_total` exists so that hitting the peer cap is visible
 rather than silent. See Cardinality.
 
@@ -144,8 +167,11 @@ alongside the existing eight.
 
 ## Alerting
 
-Shipped in the operator guide. The default heartbeat interval is 10s
-(`HeartBeatIntervalSecs`), so 60s is six missed beats:
+Shipped in the operator guide. The heartbeat interval is CEE's
+`HeartBeatIntervalSecs`, which defaults to 10 in `emc_cee_config.xml` (Dell CEE
+Linux configuration; the same key exists on the Windows registry path). 60s is
+therefore six missed beats. Deployments that raise `HeartBeatIntervalSecs` must
+raise this threshold with it:
 
 ```yaml
 - alert: CEEPublisherSilent
@@ -220,3 +246,8 @@ actually committed.
   response shape and its tests; separate change if wanted.
 - CI validation of the dashboard JSON.
 - Expiry of stale peers — see Cardinality for why it is the wrong shape here.
+- Per-Data-Mover liveness — see "What a peer is".
+- The default listener port. `12228` is CEE's own Platform-to-CEE port, not the
+  partner port, so this exporter's default collides with a co-resident CEE.
+  Tracked separately; changing it is a breaking change and does not belong in
+  this work.
