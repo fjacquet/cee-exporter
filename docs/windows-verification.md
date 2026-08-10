@@ -237,6 +237,130 @@ Removing that Deny ACE afterward required taking ownership of the key
 even the object's own reads/writes to its ACL, not just data access, so
 undoing it is not a plain `Set-Acl`. See the cleanup note below.
 
+## 5. Saved-log rendering — the part CI cannot see
+
+`evtx-readback` proves `Get-WinEvent -Path` reads a Linux-generated `.evtx`.
+It does not open Event Viewer, and it deliberately does not assert on
+`.Message` or `.LogName`. This section covers what is left.
+
+**Prerequisite — register the event source first, with an `evtx`-type
+config.** On a host where `PowerStore-CEPA` is not registered, `Message` is
+null and `LogName` is empty for reasons that have nothing to do with the
+file itself, and that would look exactly like a rendering defect.
+
+`.\cee-exporter.exe -emit-test-events` with no `-config` flag does **not**
+register anything on Windows: it falls back to the built-in default config,
+whose output type is `gelf`, so the Win32 writer never runs. Measured
+2026-08-10 on winvm: `AFTER registered: False` under the default config. A
+config with `type = "evtx"` is required to reach the Win32 writer at all —
+Windows routes that type to `Win32EventLogWriter` regardless of `evtx_path`,
+but the config loader still requires that field to be non-empty:
+
+```toml
+[listen]
+addr = "0.0.0.0:12228"
+
+[output]
+type      = "evtx"
+evtx_path = "C:\\evtxman\\audit.evtx"
+
+[metrics]
+addr = "0.0.0.0:9228"
+```
+
+```powershell
+# As Administrator. This registers the source against the binary carrying the
+# message resource; see ADR-015.
+.\cee-exporter.exe -config config.toml -emit-test-events
+```
+
+Expected log line: `win32_writer_ready source=PowerStore-CEPA
+message_file=C:\evtxman\cee-exporter.exe` — confirmed on winvm 2026-08-10.
+Then confirm the registry key:
+
+```powershell
+Test-Path 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\PowerStore-CEPA'
+```
+
+Expected: `True`. If it is `False`, stop — anything observed below is
+meaningless.
+
+### Generate the file on Linux and copy it over
+
+```bash
+cat > /tmp/evtx-manual.toml <<'TOML'
+[listen]
+addr = "127.0.0.1:12997"
+[output]
+type = "evtx"
+evtx_path = "/tmp/manual.evtx"
+[metrics]
+addr = "127.0.0.1:19997"
+TOML
+
+go run ./cmd/cee-exporter -config /tmp/evtx-manual.toml -emit-test-events
+scp /tmp/manual.evtx winvm:C:/manual.evtx
+```
+
+### Question 1 — does it open, and where do the events land?
+
+Open Event Viewer, **Action → Open Saved Log…**, select `C:\manual.evtx`.
+
+Our records carry an empty `Channel`, so `LogName` resolves empty. Record
+what Event Viewer does with that: does it open, does it prompt to convert,
+under what node do the three events appear, and are all three listed?
+
+**Not run on 2026-08-10.** This question needs Event Viewer's GUI, and
+`winvm` is reached only over SSH with no interactive desktop session
+available. "Did not investigate" is recorded below rather than left blank.
+
+### Question 2 — does the Description pane show our text?
+
+Select the 4663 record. The Description pane should read *"An attempt was
+made to access an object."* followed by the payload.
+
+**Measured 2026-08-10 on winvm**, in the same session as the registration
+confirmed above. The saved log opens and all three records enumerate, but
+none of them render a description:
+
+```
+saved log (.evtx generated on Linux):
+  id 4660  LogName=[]  Message: <null>
+  id 4663  LogName=[]  Message: <null>
+  id 4670  LogName=[]  Message: <null>
+```
+
+This is **not** the registration trap the prerequisite above warns about —
+registration was confirmed working, in the same session, against the live
+Application log for the same three event IDs:
+
+```
+live Application log, same three events:
+  id 4660  LogName=[Application]  Message: An object was deleted. Subject:
+  id 4663  LogName=[Application]  Message: An attempt was made to access an object. Subject:
+  id 4670  LogName=[Application]  Message: Permissions on an object were changed. Subject:
+```
+
+So: the file opens, all three records enumerate, and all twelve `EventData`
+fields carry correct values (the same fields `evtx-readback`'s `ObjectName`
+assertion checks one of) — but descriptions do not render from a saved log.
+Stated hypothesis, not confirmed: our records carry an empty `Channel`, so
+`LogName` resolves empty, and Windows cannot bind a saved-log record to the
+registered provider without one. Fixing it would mean changing go-evtx,
+which is out of scope for this repository.
+
+### Record the outcome
+
+`Qualifiers='2727'` appears in the rendered XML; Windows echoes it back
+without objecting, so it is recorded as observed-and-unexplained. Chasing it
+would mean changing go-evtx, which is out of scope for this repository.
+
+"Did not investigate" is an acceptable recorded outcome. Silence is not.
+
+| Date | Host | Q1 — opens / placement | Q2 — description | Notes |
+|---|---|---|---|---|
+| 2026-08-10 | winvm (Windows Server 2025 Datacenter) | Not run — needs GUI access, unreachable over the SSH-only connection to this host | Does not render: all three records enumerate with `LogName=[]` and `Message: <null>` from the saved log, while the same three IDs render correctly (`LogName=[Application]`, real description text) from the live Application log in the same session — ruling out the registration trap above as the cause | Hypothesis: an empty `Channel` on our records leaves `LogName` unresolved, so Windows cannot bind a saved-log record to the registered provider. Confirming or fixing this would mean changing go-evtx, out of scope here |
+
 ## Cleanup
 
 Every file copied to the VM and the registry key created by these steps must
