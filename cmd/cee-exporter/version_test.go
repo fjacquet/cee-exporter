@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -30,41 +31,86 @@ func TestVersion_NotHardcodedRelease(t *testing.T) {
 	}
 }
 
-// TestVersion_LdflagsStampReachesTheBinary builds the command with
-// -ldflags "-X main.version=..." and asserts the running binary reports that
-// value.
+// TestVersion_ReleaseBuildStampsTheVersion drives the Makefile target a
+// release actually uses and asserts the produced binary reports the version
+// it was told to.
 //
-// The two tests above check the *default* and that it is not a hardcoded
-// literal. Neither proves the stamp arrives: a Makefile that dropped the
-// -ldflags argument, a rename of the `version` variable, or a change of
-// package path would all leave them green while every release shipped a
-// binary reporting "dev". That gap was found by audit, not by CI, and every
-// release up to v5.1.1 was checked by a human reading startup output instead.
+// The two tests above check the default and that it is not a hardcoded
+// literal. Neither proves the stamp arrives. An earlier version of this test
+// did not either: it passed -ldflags to `go build` itself, which proves the
+// Go linker honours -X main.version — never in doubt — while staying green if
+// the Makefile dropped the flag. That is the failure CLAUDE.md warns about
+// ("a binary reporting dev means the stamp did not reach it") and the one
+// worth catching, so this builds through `make build-<goos>` instead. It
+// therefore also covers the target's CGO_ENABLED=0 and -trimpath.
 //
-// GELF over UDP is used as the output because it needs no listener, no file
-// and no privileges — the exporter sends into a closed port and exits. An
-// evtx-typed config would route to the Win32 Event Log on Windows and require
-// Administrator.
-func TestVersion_LdflagsStampReachesTheBinary(t *testing.T) {
+// The output path is overridden onto a temp dir because the recipes' output
+// filename is a plain Makefile variable (BINARY_NAME / BINARY_DARWIN /
+// BINARY_WINDOWS), not a literal baked into the recipe — a command-line
+// assignment redirects it without touching the recipe or its LDFLAGS. What
+// this test actually asserts, the -X main.version stamp, still comes from
+// the real recipe: same LDFLAGS, same -trimpath, same CGO_ENABLED=0.
+//
+// `make` is required. GitHub's windows-latest image is not guaranteed to
+// have it, so the test skips with a reason rather than failing for something
+// unrelated. Windows release artifacts are cross-compiled from Linux by
+// goreleaser, where this does run.
+func TestVersion_ReleaseBuildStampsTheVersion(t *testing.T) {
 	if testing.Short() {
-		t.Skip("builds a binary; skipped under -short")
+		t.Skip("invokes make and builds a binary; skipped under -short")
+	}
+	if _, err := exec.LookPath("make"); err != nil {
+		t.Skip("make is not on PATH; the release build entry point cannot be driven here")
+	}
+
+	target, binVar := releaseBuildTargetFor(runtime.GOOS)
+	if target == "" {
+		t.Skipf("no Makefile build target for GOOS=%s", runtime.GOOS)
+	}
+
+	probePath := filepath.Join(t.TempDir(), "cee-exporter-probe")
+	if runtime.GOOS == "windows" {
+		probePath += ".exe"
+	}
+	// The recipes use the `VAR=value command` prefix form, which is POSIX
+	// shell syntax, so make dispatches them through sh even on Windows (via
+	// MSYS/Git Bash) rather than cmd.exe. Two hazards follow from that:
+	//   - -o $(BINARY_DARWIN) etc. is expanded unquoted, so a path containing
+	//     whitespace would be split by the shell and the build would fail for
+	//     a reason unrelated to the version stamp. t.TempDir() paths do not
+	//     normally contain spaces, but guard it rather than assume.
+	//   - on Windows, probePath is a native backslash path, and sh treats a
+	//     backslash as an escape character: \U, \A, \L, \T, \0, \c and so on
+	//     are consumed, turning C:\Users\... into garbage like C:UsersRUNNER
+	//     that make(1) still resolves — relative to the repo root, dropping a
+	//     bogus file exactly where Finding A's fix exists to prevent. Go's -o
+	//     accepts forward slashes on Windows and MSYS sh leaves them alone, so
+	//     the override sent to make is forward-slashed; probePath itself,
+	//     used below to run the binary, stays in native form.
+	if strings.ContainsAny(probePath, " \t") {
+		t.Skip("temp dir path contains whitespace; the Makefile recipe expands -o unquoted")
 	}
 
 	const want = "v0.0.0-stamp-probe"
 
-	dir := t.TempDir()
-	bin := filepath.Join(dir, "cee-exporter-probe")
-	if runtimeIsWindows() {
-		bin += ".exe"
-	}
-
-	build := exec.Command("go", "build", "-ldflags", "-X main.version="+want, "-o", bin, ".")
+	// Tests run in the package directory; the Makefile lives two levels up.
+	repoRoot := filepath.Join("..", "..")
+	build := exec.Command("make", target,
+		"VERSION="+want,
+		binVar+"="+filepath.ToSlash(probePath))
+	build.Dir = repoRoot
 	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("go build: %v\n%s", err, out)
+		t.Fatalf("make %s: %v\n%s", target, err, out)
+	}
+	if _, err := os.Stat(probePath); err != nil {
+		t.Fatalf("make %s exited 0 but did not write %s (is the %s override reaching the recipe?): %v",
+			target, probePath, binVar, err)
 	}
 
-	cfg := filepath.Join(dir, "probe.toml")
-	// Port 1 is reserved and closed; UDP send succeeds regardless.
+	cfg := filepath.Join(t.TempDir(), "probe.toml")
+	// GELF over UDP needs no listener, no file and no privileges: the binary
+	// sends into a closed port and exits. An evtx config would route to the
+	// Win32 Event Log on Windows and demand Administrator.
 	const cfgBody = `
 [listen]
 addr = "127.0.0.1:0"
@@ -80,22 +126,32 @@ enabled = false
 		t.Fatalf("write config: %v", err)
 	}
 
-	run := exec.Command(bin, "-config", cfg, "-emit-test-events")
+	run := exec.Command(probePath, "-config", cfg, "-emit-test-events")
 	out, err := run.CombinedOutput()
 	if err != nil {
-		t.Fatalf("run stamped binary: %v\n%s", err, out)
+		t.Fatalf("run built binary: %v\n%s", err, out)
 	}
 
-	// The startup line is JSON: {"...","msg":"cee_exporter_starting","version":"..."}
 	needle := `"version":"` + want + `"`
 	if !strings.Contains(string(out), needle) {
-		t.Errorf("stamped binary did not report the ldflags version.\nwant substring: %s\ngot output:\n%s", needle, out)
+		t.Errorf("the release build did not stamp the version.\nwant substring: %s\ngot output:\n%s", needle, out)
 	}
 }
 
-// runtimeIsWindows avoids importing runtime just for one constant in a file
-// that is otherwise stdlib-light; the build tag cannot help here because this
-// test is meant to run on every platform.
-func runtimeIsWindows() bool {
-	return os.PathSeparator == '\\'
+// releaseBuildTargetFor maps a GOOS to the Makefile target that builds a
+// release artifact for it and the Makefile variable name that target's
+// recipe uses for its output path (BINARY_NAME / BINARY_DARWIN /
+// BINARY_WINDOWS). Kept beside the test because it encodes the Makefile's
+// naming, which the test would otherwise duplicate inline three times.
+func releaseBuildTargetFor(goos string) (target, binVar string) {
+	switch goos {
+	case "linux":
+		return "build-linux", "BINARY_NAME"
+	case "darwin":
+		return "build-darwin", "BINARY_DARWIN"
+	case "windows":
+		return "build-windows", "BINARY_WINDOWS"
+	default:
+		return "", ""
+	}
 }
