@@ -41,6 +41,7 @@ tools:
 	go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
 lint:
+	go mod tidy -diff
 	golangci-lint run --timeout=5m
 
 format:
