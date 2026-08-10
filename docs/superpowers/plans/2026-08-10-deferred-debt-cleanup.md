@@ -601,6 +601,16 @@ Restructure `check()` so that:
 1. A narrow `try` wraps only `evtx.Evtx(path)` and `list(log.records())`, returning the `could not open the file` failure on exception. Keep that message text byte-identical — the README and CI logs quote it.
 2. The per-record assertion loop runs inside the same `with` block but **outside** the `try`, so an exception raised by the assertion logic propagates as a traceback naming the real line instead of being relabelled.
 
+> **Correction, from execution.** Point 1 is not expressible as a `try` nested
+> inside `with evtx.Evtx(path) as log:`. `Evtx.__enter__` — not `__init__` —
+> performs the `open()`/`mmap()`, and Python evaluates `__enter__` before the
+> suite begins, so no `try` inside the suite can guard its own statement's
+> entry. What shipped uses `contextlib.ExitStack`: the narrow `try` guards
+> `stack.enter_context(evtx.Evtx(path))` plus `list(log.records())`, and the
+> assertion loop follows inside the still-open `with contextlib.ExitStack()`
+> block. Both the implementer and the reviewer reproduced the semantics
+> independently before accepting the deviation.
+
 Update the `NOTE (deviation from task-2-brief.md …)` comment above the `try`: keep the mmap explanation, which is still the reason the loop lives inside `with`, and add that the `try` is deliberately narrower than the `with` so a script bug is not reported as a file problem.
 
 - [ ] **Step 3: Confirm a good file still passes**
@@ -626,11 +636,21 @@ Expected: `OK: … 3 records, IDs [4660, 4663, 4670], all 12 EventData fields` a
 - [ ] **Step 4: Confirm an unreadable file still reports the open failure**
 
 ```bash
-head -c 200 /dev/urandom > /tmp/garbage.evtx
-(cd tools/evtx-debug && rtk uv run python verify_evtx.py /tmp/garbage.evtx); echo "exit=$?"
+: > /tmp/empty.evtx
+(cd tools/evtx-debug && rtk uv run python verify_evtx.py /tmp/empty.evtx); echo "exit=$?"
+(cd tools/evtx-debug && rtk uv run python verify_evtx.py /tmp/does-not-exist.evtx); echo "exit=$?"
 ```
 
-Expected: a single `FAIL: python-evtx could not open the file: …` line and `exit=1`. The message must be unchanged from before this task.
+Expected: a single `FAIL: python-evtx could not open the file: …` line and `exit=1` for each. The message must be unchanged from before this task.
+
+> **Correction, from execution.** This step originally used
+> `head -c 200 /dev/urandom > /tmp/garbage.evtx`. That input does **not** reach
+> the open-failure path on python-evtx 0.8.1 — it lands on
+> `expected 3 records, got 0`, before and after the change, so the step tested
+> nothing it claimed to. A zero-byte file (`cannot mmap an empty file`) and a
+> missing file (`FileNotFoundError`) both raise inside `Evtx.__enter__` and are
+> what actually exercise the branch. Measured twice, independently, by the
+> implementer and the reviewer.
 
 - [ ] **Step 5: Confirm the existing mutations still fire with their existing messages**
 
@@ -782,15 +802,29 @@ now writes produce three events and a 69632-byte file locally, exit 0."
 - Consumes: nothing.
 - Produces: nothing other tasks use.
 
-**Why.** Cleanup removes `C:\Windows\Temp\winverify` and the registry key, but section 5 introduces paths of its own that it never mentions. An operator who follows the protocol to the end leaves a directory and an event-source registration on a shared VM.
+**Why.** Cleanup removes `C:\Windows\Temp\winverify` and the registry key, but section 5 introduces paths of its own that it never mentions. An operator who follows the protocol to the end leaves a directory and a file on a shared VM.
+
+> **Correction, from execution.** This paragraph originally said the operator
+> also leaves "an event-source registration" behind. That is false: the
+> `reg delete` for `PowerStore-CEPA` already existed and section 5 reuses the
+> same key, so the registration was covered before this task and the task never
+> touched it. The two genuinely uncovered paths are `C:\evtxman` and
+> `C:\manual.evtx`. The claim survived into the Task 7 CHANGELOG text and into
+> a dispatch built from this paragraph; it was caught by reading the bullet
+> against the commit it described. Measured on `winvm` the same day: no
+> `PowerStore-CEPA` registration exists under any EventLog channel.
 
 - [ ] **Step 1: Find every path section 5 creates**
 
-```bash
-rtk grep -nE "C:\\\\[A-Za-z0-9_\\\\.-]+" docs/windows-verification.md | rtk sed -n '/^3[0-9][0-9]:/,$p' | head -20
-```
+Read section 5 of `docs/windows-verification.md` end to end and list the distinct directories and files it tells the operator to create. Do not guess from this plan — the section is the source of truth, and it may have moved since this was written.
 
-Read the hits and list the distinct directories and files section 5 tells the operator to create. Do not guess from this plan — the section is the source of truth, and it may have moved since this was written.
+> **Correction, from execution.** This step originally prescribed a search:
+> `rtk grep -nE "C:\\\\…" docs/windows-verification.md | rtk sed -n '/^3[0-9][0-9]:/,$p'`.
+> That pipeline drops every hit before line 300, and `C:\evtxman` — one of the
+> two paths the step exists to find — appears only at lines 265 and 278. It
+> would have reported a clean, confident, incomplete answer. Reading the
+> section is what found both paths. A search whose window is guessed from a
+> line number the document is free to change is not a search.
 
 - [ ] **Step 2: Extend the Cleanup block**
 
