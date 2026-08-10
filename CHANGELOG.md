@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `github.com/fjacquet/go-evtx` v0.7.4 → v0.8.2 (`refs/tags/v0.8.2`,
+  `42f02cc`). Everything in v0.8.0 through v0.8.2 is reader-side or CLI —
+  `ErrChunkUnreadable` so a chunk that cannot be read stops reporting as a
+  clean end of stream, a FILETIME conversion covering the format's whole
+  range, `Reader.FileInfo`, a new `evtx dump`/`evtx info` binary, and a fix to
+  that binary's flat shape rounding integers above 2^53. This exporter uses
+  the writer, so none of it reaches the event path. Recorded as hygiene, not
+  as a fix for anything observed here.
+
+  Checked rather than assumed, because "reader-side" is a claim about someone
+  else's code: a `.evtx` generated under v0.8.2 renders XML identical to one
+  generated under v0.7.4, field for field, apart from `TimeCreated` and
+  `Computer` — both of which differ between any two runs on a host whose name
+  has changed. A byte comparison is useless here and was discarded once
+  measured: two runs of the *same* version already differ, because the
+  timestamp shifts every offset and CRC in the chunk.
+
 - `make lint` now fails on an untidy `go.sum`. Stale hash lines were
   introduced and removed twice during v5.1.0 because nothing checked; one
   `go mod tidy -diff` closes it.

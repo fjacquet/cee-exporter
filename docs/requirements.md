@@ -169,7 +169,7 @@ IDs renumbered `TLS-03`–`TLS-07` — see [ID renumbering](#id-renumbering-note
 
 | ID | Requirement | Status | Verified by |
 |----|-------------|--------|-------------|
-| EXT-01 | `github.com/fjacquet/go-evtx` exists as an independent Go module with its own repo, CI, README | Delivered (partial) | `go.mod`/`go.sum` (`github.com/fjacquet/go-evtx v0.7.4`). The module's own repository, CI, and README are external and not verifiable from this repo. |
+| EXT-01 | `github.com/fjacquet/go-evtx` exists as an independent Go module with its own repo, CI, README | Delivered (partial) | `go.mod`/`go.sum` (`github.com/fjacquet/go-evtx v0.8.2`). The module's own repository, CI, and README are external and not verifiable from this repo. |
 | EXT-02 | go-evtx exposes a low-level `WriteRaw(chunk []byte) error` API | **Unverified from this repo** | cee-exporter does not call `WriteRaw`; go-evtx's own test suite is external, not observable here. |
 | EXT-03 | go-evtx exposes a high-level `WriteRecord(eventID int, fields map[string]string) error` API | Delivered | `pkg/evtx/writer_evtx_notwindows.go:49` calls `b.w.WriteRecord(...)` |
 | EXT-04 | Existing pkg/evtx EVTX tests are ported to go-evtx and pass in its CI | **Unverified from this repo** | External repository/CI, not observable from here. |
