@@ -1,7 +1,7 @@
 # EVTX read-back verification — design
 
 **Date:** 2026-08-09
-**Status:** implemented, shipped on go-evtx v0.7.2
+**Status:** implemented, shipped on go-evtx v0.7.3
 **Target release:** v5.1.0
 
 ## Problem

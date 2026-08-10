@@ -109,7 +109,7 @@ writes. It never could before.
 
 ### Changed
 
-- `github.com/fjacquet/go-evtx` v0.6.0 → v0.7.2, in two steps. v0.7.0's
+- `github.com/fjacquet/go-evtx` v0.6.0 → v0.7.3, in three steps. v0.7.0's
   BREAKING change removes `Reader.ReadRecord()` and the `Record` struct; this
   project uses only the writer API, so nothing here changed. v0.7.1 tightens
   `<Provider>` rendering — an empty `ProviderName` now omits the `Name`
@@ -119,10 +119,21 @@ writes. It never could before.
   (`Origin.Hash e39994d`, `refs/tags/v0.7.2`), which carries the write-time
   validation suggested when
   [fjacquet/go-evtx#10](https://github.com/fjacquet/go-evtx/issues/10) was
-  closed. v0.7.2 is the pin this project stays on; the full chain was re-run
-  against it — build, 149 tests under `-race`, the Linux python-evtx oracle,
-  and `Get-WinEvent` on Windows Server 2025 reading three records with
-  descriptions and `LogName=[Security]`.
+  closed. It moved again, to v0.7.3 (`Origin.Hash 5fba621`,
+  `refs/tags/v0.7.3`), which declares an EVTX template once per chunk instead
+  of once per record (F19). Regenerating the `-emit-test-events` fixture
+  shows 2907 bytes differ from the v0.7.2 output for identical input, so the
+  bump reaches this project's write path — but the file size itself does not
+  change: both v0.7.2 and v0.7.3 produce a 69632-byte file, because EVTX
+  chunks are fixed-size and padded and a three-record fixture is one chunk
+  regardless of pin. Upstream reports a 46% size reduction on its own corpus;
+  that is upstream's claim about its own corpus, not this project's, and the
+  benefit — more records per chunk — would only be visible in a VCAPS batch
+  of thousands, which this project has not measured. v0.7.3 is the pin this
+  project stays on; the full chain was re-run against it — build, 152 tests
+  under `-race` across 9 packages, `go mod tidy -diff` clean, the Linux
+  python-evtx oracle, and `Get-WinEvent` on Windows Server 2025 reading three
+  records with descriptions and `LogName=[Security]`.
 - OUT-06 moves from **Unverified** to **Verified (partial)** in
   `docs/PROMISES.md`, `docs/requirements.md` and `docs/PRD.md`: the file
   opens, all three records enumerate, all twelve `EventData` fields carry

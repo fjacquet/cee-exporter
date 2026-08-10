@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Bump `github.com/fjacquet/go-evtx` to v0.7.2 and build the CI loop that reads a Linux-generated `.evtx` back on Windows, so `OUT-06` is closed by a job instead of a claim.
+**Goal:** Bump `github.com/fjacquet/go-evtx` to v0.7.3 and build the CI loop that reads a Linux-generated `.evtx` back on Windows, so `OUT-06` is closed by a job instead of a claim.
 
-**Version history:** the branch first pinned v0.7.0, briefly tried v0.7.1, and shipped v0.7.2.
+**Version history:** the branch first pinned v0.7.0, briefly tried v0.7.1 (rejected), shipped v0.7.2, then moved once more to v0.7.3.
 
 **Architecture:** Three oracles with stated blind spots. A new `evtx-oracle` job on Linux emits a `.evtx` via the existing `-emit-test-events` flag, verifies it with python-evtx, and uploads it as an artifact. A new `evtx-readback` job on `windows-latest` downloads that artifact and reads it with `Get-WinEvent -Path`. A dated manual protocol on winvm covers the Event Viewer GUI, which neither job can reach.
 
@@ -62,7 +62,7 @@ These were measured on 2026-08-09, not inferred. Contradicting them will produce
 
 | File | Responsibility |
 |---|---|
-| `go.mod`, `go.sum` | Modify — pin go-evtx v0.7.2 |
+| `go.mod`, `go.sum` | Modify — pin go-evtx v0.7.3 |
 | `tools/evtx-debug/verify_evtx.py` | **Create** — the Linux oracle. One job: assert a `.evtx` matches the emit-test-events contract. Exit 0 or 1. |
 | `tools/evtx-debug/README.md` | Modify — the directory stops being "not part of the shipped product"; also fix a phantom config example |
 | `.github/workflows/ci.yml` | Modify — two new jobs, `evtx-oracle` and `evtx-readback` |

@@ -203,6 +203,16 @@ On Windows this same configuration routes to the Win32 EventLog API and
     Windows-native `evtx` output which uses the Win32 Event Log API rather
     than writing files. Only the non-Windows `.evtx` file output is involved.
 
+**`LogName` now resolves to `Security`.** Before v5.1.0, generated records
+carried an empty `Channel`, so `Get-WinEvent`/Event Viewer resolved `LogName`
+to the empty string — the events belonged to no log. As of v5.1.0 the
+channel is passed through, and `LogName` resolves to `Security` (measured on
+Windows Server 2025: the same three records went from `LogName=[]` to
+`LogName=[Security]`). This is CI-gated: `evtx-oracle` asserts
+`System/Channel == "Security"` in the generated XML on every push. Anyone
+filtering or routing on `LogName` should expect `Security`, not empty, from
+files written by v5.1.0 and later.
+
 ### Triggering rotation manually
 
 On non-Windows platforms, `SIGHUP` rotates the active `.evtx` file immediately —
