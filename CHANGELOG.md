@@ -30,9 +30,17 @@ only in two `System` values that Windows was already filling in by default.
     Cosmetic on its own, and worth saying so plainly: Event Viewer supplies its
     own defaults for the zeros, so a v5.1.0 file already displayed Level
     "Information" and Keywords "None" — confirmed in the GUI on 2026-08-10.
-    What this fixes is one product emitting two shapes. The one observable
-    gain is that `Get-WinEvent`'s `.LevelDisplayName` now resolves to
-    "Information" for file records instead of returning the empty string.
+    What this fixes is one product emitting two shapes.
+
+    The one observable gain is narrower than first stated here, and the
+    qualification matters: `Get-WinEvent`'s `.LevelDisplayName` resolves to
+    "Information" for file records **only on a host where the event source is
+    registered**. On a host without the registration it stays empty, exactly
+    as before — re-measured on 2026-08-10 against the released v5.1.1 binary.
+    A trap for anyone repeating the measurement: the provider metadata is
+    cached per process, so a PowerShell session that read the file before the
+    source was registered keeps returning the empty string until a fresh
+    process is started.
 
     An upstream issue was filed claiming this made Event Viewer's columns
     blank. That claim was wrong and has been corrected: the columns render
