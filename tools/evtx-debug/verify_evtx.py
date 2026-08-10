@@ -68,6 +68,19 @@ EXPECTED_VALUES = {
 }
 
 
+def _as_int(text):
+    """Parse a System-block numeric value, hex or decimal, or None if unparseable.
+
+    Renderers disagree on formatting the same value: python-evtx zero-pads
+    Keywords to sixteen hex digits, Windows does not. Comparing the number
+    sidesteps that without loosening the assertion.
+    """
+    try:
+        return int(text, 0) if text else None
+    except ValueError:
+        return None
+
+
 def strip_namespaces(root):
     """Drop XML namespaces so plain tag paths work.
 
@@ -156,6 +169,32 @@ def check(path):
                 if channel != "Security":
                     failures.append(
                         f"record {index}: System/Channel = {channel!r}, want 'Security'"
+                    )
+
+                # Level and Keywords make this writer agree with the Win32 one,
+                # which stamps every event Level 4 with the CLASSIC keyword.
+                # Until v5.1.1 the file path emitted 0 and 0x0 for the same
+                # events. Event Viewer hides the difference behind its own
+                # defaults, so nothing but an assertion will notice a
+                # regression here.
+                # Compared numerically, not as strings: python-evtx renders
+                # Keywords zero-padded to sixteen hex digits
+                # (0x0080000000000000) while Windows renders 0x80000000000000.
+                # A string comparison would pass on one reader and fail on the
+                # other for no reason that concerns correctness.
+                level_el = root.find("./System/Level")
+                level = (level_el.text or "").strip() if level_el is not None else ""
+                if _as_int(level) != 4:
+                    failures.append(
+                        f"record {index}: System/Level = {level!r}, want 4 (EVENTLOG_INFORMATION_TYPE)"
+                    )
+
+                keywords_el = root.find("./System/Keywords")
+                keywords = (keywords_el.text or "").strip() if keywords_el is not None else ""
+                if _as_int(keywords) != 0x80000000000000:
+                    failures.append(
+                        f"record {index}: System/Keywords = {keywords!r}, "
+                        f"want 0x80000000000000 (EVENTLOG_CLASSIC)"
                     )
 
                 data = {}

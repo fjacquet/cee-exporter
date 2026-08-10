@@ -113,6 +113,28 @@ const (
 	maxFieldBytes = 8192
 	// truncationMarker is appended in place of the removed bytes.
 	truncationMarker = "…[truncated]"
+
+	// levelInformation and keywordsClassic are what the Win32 writer produces
+	// for the very same events, and this writer produced neither until v5.1.1.
+	//
+	// On Windows, Win32EventLogWriter calls eventlog.Info, i.e.
+	// EVENTLOG_INFORMATION_TYPE, and Windows stamps the record Level 4 with the
+	// CLASSIC keyword. Read back on Windows Server 2025, a live event from that
+	// path reports `Level=4 Keywords=0x80000000000000`, matching any ordinary
+	// third-party event; the same event written to a file reported `Level=0
+	// Keywords=0x0`. Two outputs of one product, two shapes.
+	//
+	// These are constants rather than WindowsEvent fields because every event
+	// this exporter emits is an informational audit record — there is no error
+	// or warning path to distinguish. go-evtx honours both keys from v0.7.4
+	// onward (before that it emitted literal 0 and dropped the keys silently).
+	//
+	// Cosmetic only, deliberately: Event Viewer supplies its own defaults for
+	// the zero values, so a v5.1.0 file already displays Level "Information"
+	// and Keywords "None" in the GUI — verified there on 2026-08-10. What this
+	// fixes is the disagreement between our two writers, not a visible symptom.
+	levelInformation = "4"                // EVENTLOG_INFORMATION_TYPE
+	keywordsClassic  = "0x80000000000000" // EVENTLOG_CLASSIC keyword bit
 )
 
 // encodedLen returns the number of bytes go-evtx will write for s: a 2-byte
@@ -233,6 +255,8 @@ func windowsEventToFields(e WindowsEvent) map[string]string {
 	fields := map[string]string{
 		"ProviderName":      clip(providerName),
 		"Channel":           clip(channel),
+		"Level":             levelInformation,
+		"Keywords":          keywordsClassic,
 		"Computer":          clip(e.Computer),
 		"TimeCreated":       e.TimeCreated.UTC().Format(time.RFC3339Nano),
 		"SubjectUserSid":    clip(e.SubjectUserSID),
