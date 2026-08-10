@@ -319,35 +319,37 @@ available. "Did not investigate" is recorded below rather than left blank.
 Select the 4663 record. The Description pane should read *"An attempt was
 made to access an object."* followed by the payload.
 
-**Measured 2026-08-10 on winvm**, in the same session as the registration
-confirmed above. The saved log opens and all three records enumerate, but
-none of them render a description:
+**First measured 2026-08-10 on winvm**, in the same session as the
+registration confirmed above: the saved log opened and all three records
+enumerated, but none rendered a description (`LogName=[]`, `Message:
+<null>` for all three). That reading was mis-attributed. The `-emit-test-events`
+fixture used to generate the file left `ProviderName` empty — something no
+event `pkg/mapper` ever produces — and this project's own code, not
+go-evtx or the saved-log format, was the cause. See the `[5.1.0]` entry in
+`CHANGELOG.md` for the isolation on Windows Server 2025 that found it: three
+records with `ProviderName` set read back cleanly under `Get-WinEvent`
+regardless of how many `EventData` fields were empty; the same three
+records with `ProviderName` empty threw a `NullReferenceException`. The
+empty-`Channel` hypothesis this section previously recorded was wrong and is
+not replaced with a new one.
+
+With `-emit-test-events` fixed to set `ProviderName` (as every real mapped
+event already does) and the event source registered on the host, re-measured
+2026-08-10 on winvm: the same saved `.evtx` generated on Linux renders all
+three descriptions correctly.
 
 ```
 saved log (.evtx generated on Linux):
-  id 4660  LogName=[]  Message: <null>
-  id 4663  LogName=[]  Message: <null>
-  id 4670  LogName=[]  Message: <null>
+  id 4660  Message: An object was deleted. test-user
+  id 4663  Message: An attempt was made to access an object. test-user
+  id 4670  Message: Permissions on an object were changed. test-user
 ```
 
-This is **not** the registration trap the prerequisite above warns about —
-registration was confirmed working, in the same session, against the live
-Application log for the same three event IDs:
-
-```
-live Application log, same three events:
-  id 4660  LogName=[Application]  Message: An object was deleted. Subject:
-  id 4663  LogName=[Application]  Message: An attempt was made to access an object. Subject:
-  id 4670  LogName=[Application]  Message: Permissions on an object were changed. Subject:
-```
-
-So: the file opens, all three records enumerate, and all twelve `EventData`
-fields carry correct values (the same fields `evtx-readback`'s `ObjectName`
-assertion checks one of) — but descriptions do not render from a saved log.
-Stated hypothesis, not confirmed: our records carry an empty `Channel`, so
-`LogName` resolves empty, and Windows cannot bind a saved-log record to the
-registered provider without one. Fixing it would mean changing go-evtx,
-which is out of scope for this repository.
+`LogName` is still empty in this output — that turns out not to matter for
+description resolution. So: the file opens, all three records enumerate, all
+twelve `EventData` fields carry correct values (the same fields
+`evtx-readback`'s `ObjectName` assertion checks one of), and descriptions
+render — the full set OUT-06 promises.
 
 ### Record the outcome
 
@@ -359,7 +361,7 @@ would mean changing go-evtx, which is out of scope for this repository.
 
 | Date | Host | Q1 — opens / placement | Q2 — description | Notes |
 |---|---|---|---|---|
-| 2026-08-10 | winvm (Windows Server 2025 Datacenter) | Not run — needs GUI access, unreachable over the SSH-only connection to this host | Does not render: all three records enumerate with `LogName=[]` and `Message: <null>` from the saved log, while the same three IDs render correctly (`LogName=[Application]`, real description text) from the live Application log in the same session — ruling out the registration trap above as the cause | Hypothesis: an empty `Channel` on our records leaves `LogName` unresolved, so Windows cannot bind a saved-log record to the registered provider. Confirming or fixing this would mean changing go-evtx, out of scope here |
+| 2026-08-10 | winvm (Windows Server 2025 Datacenter) | Not run — needs GUI access, unreachable over the SSH-only connection to this host | Renders correctly: all three records enumerate and each shows its own description text (e.g. `An attempt was made to access an object.` for 4663), with the event source registered on the host | An earlier reading the same day recorded all three as `Message: <null>`. That was this project's own `-emit-test-events` fixture leaving `ProviderName` empty, not a go-evtx or saved-log defect — see the `[5.1.0]` `CHANGELOG.md` entry for the isolation. `LogName` is still empty in the corrected output; that does not affect description resolution |
 
 ## Cleanup
 

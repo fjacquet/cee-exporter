@@ -111,7 +111,7 @@ Full requirement list: see [requirements.md](requirements.md)
 | OUT-03 | SyslogWriter: RFC 5424 over UDP | 06 | ADR-008 |
 | OUT-04 | SyslogWriter: RFC 5424 over TCP (octet-counting) | 06 | ADR-008 |
 | OUT-05 | BinaryEvtxWriter: native `.evtx` on Linux | 07 | ADR-009 |
-| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — since v5.1.0, **partially verified**: `Get-WinEvent` read-back is CI-gated by the `evtx-readback` job; description rendering from a saved log is a known limitation, not verified. See [docs/PROMISES.md](PROMISES.md) |
+| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — since v5.1.0, **Verified**: `Get-WinEvent` read-back is CI-gated by the `evtx-readback` job; description rendering from a saved log is covered by the dated manual protocol in docs/windows-verification.md. See [docs/PROMISES.md](PROMISES.md) |
 | TLS-03 | `tls_mode="acme"` auto-provisions via Let's Encrypt | 08 | ADR-011 |
 | TLS-04 | `tls_mode="self-signed"` for air-gapped deployments | 08 | ADR-011 |
 
@@ -119,14 +119,15 @@ Full requirement list: see [requirements.md](requirements.md)
 per-requirement traceability and [docs/PROMISES.md](PROMISES.md) for every
 user-facing claim's verifying job. Since v5.0, DEPLOY-03 and DEPLOY-04
 (Windows Service install/uninstall via the real SCM start/stop lifecycle) are
-verified by the `windows` CI job. Since v5.1.0, OUT-06 is **Verified
-(partial)**: the `evtx-readback` job reads a Linux-generated `.evtx` on a
-Windows runner with `Get-WinEvent`, covering the file opening, record count,
-event ID set, `ToXml()`, and `ObjectName`; description rendering from a saved
-log is measured not to work even with the event source registered, and is
-recorded as a known limitation rather than pursued further, since fixing it
-would mean changing go-evtx. DEPLOY-05 (crash auto-restart) remains
-unverified — nothing simulates a crash to exercise the SCM's recovery action.
+verified by the `windows` CI job. Since v5.1.0, OUT-06 is **Verified**: the
+`evtx-readback` job reads a Linux-generated `.evtx` on a Windows runner with
+`Get-WinEvent`, covering the file opening, record count, event ID set,
+`ToXml()`, and `ObjectName`; description rendering from a saved log needs a
+host with the event source registered, so it is not CI-gated, but is covered
+by the dated manual protocol in `docs/windows-verification.md` — a
+2026-08-10 reading confirms all three descriptions render once the event
+source is registered. DEPLOY-05 (crash auto-restart) remains unverified —
+nothing simulates a crash to exercise the SCM's recovery action.
 
 ---
 
