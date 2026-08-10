@@ -5,7 +5,7 @@ go 1.26.5
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/crewjam/rfc5424 v0.1.0
-	github.com/fjacquet/go-evtx v0.7.1
+	github.com/fjacquet/go-evtx v0.7.2
 	github.com/kardianos/service v1.3.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/sys v0.47.0

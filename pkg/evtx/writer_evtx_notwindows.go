@@ -215,8 +215,24 @@ func windowsEventToFields(e WindowsEvent) map[string]string {
 		providerName = DefaultProviderName
 	}
 
+	// Channel was populated by pkg/mapper on every event since v2 and dropped
+	// here: it was never in this map, so every record this writer produced
+	// rendered as <Channel></Channel> and Windows resolved LogName to the empty
+	// string. Passing it through gives LogName="Security" — measured on Windows
+	// Server 2025, where the same three records went from LogName=[] to
+	// LogName=[Security].
+	//
+	// The default matters as much as the pass-through: -emit-test-events does
+	// not set Channel, and 4660/4663/4670 are Security-log event IDs, so an
+	// empty one would put them nowhere.
+	channel := e.Channel
+	if channel == "" {
+		channel = DefaultChannel
+	}
+
 	fields := map[string]string{
 		"ProviderName":      clip(providerName),
+		"Channel":           clip(channel),
 		"Computer":          clip(e.Computer),
 		"TimeCreated":       e.TimeCreated.UTC().Format(time.RFC3339Nano),
 		"SubjectUserSid":    clip(e.SubjectUserSID),

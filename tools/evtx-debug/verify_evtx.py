@@ -144,6 +144,20 @@ def check(path):
                 if time_created_el is None or not (time_created_el.get("SystemTime") or "").strip():
                     failures.append(f"record {index}: System/TimeCreated has no SystemTime attribute")
 
+                # Channel was set by pkg/mapper on every event since v2 and
+                # dropped by windowsEventToFields, so every record rendered as
+                # <Channel></Channel> and Windows resolved LogName to the empty
+                # string -- the record belonged to no log at all. Measured on
+                # Windows Server 2025: passing it through moves LogName from
+                # [] to [Security]. Nothing else in either CI job would notice
+                # it going missing again.
+                channel_el = root.find("./System/Channel")
+                channel = (channel_el.text or "").strip() if channel_el is not None else None
+                if channel != "Security":
+                    failures.append(
+                        f"record {index}: System/Channel = {channel!r}, want 'Security'"
+                    )
+
                 data = {}
                 for el in root.findall("./EventData/Data"):
                     data[el.get("Name")] = el.text if el.text is not None else ""
