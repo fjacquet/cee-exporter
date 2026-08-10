@@ -498,6 +498,32 @@ func TestWindowsEventToFields_AllFieldsMaxed(t *testing.T) {
 	}
 }
 
+// TestWindowsEventToFields_DefaultsEmptyProviderName verifies that an empty
+// ProviderName is defaulted to DefaultProviderName, and that a real,
+// explicitly-set provider name is passed through unchanged rather than
+// silently overwritten.
+func TestWindowsEventToFields_DefaultsEmptyProviderName(t *testing.T) {
+	tests := []struct {
+		name         string
+		providerName string
+		want         string
+	}{
+		{"empty is defaulted", "", DefaultProviderName},
+		{"explicit value passes through", "Microsoft-Windows-Security-Auditing", "Microsoft-Windows-Security-Auditing"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := testWindowsEvent()
+			e.ProviderName = tt.providerName
+
+			fields := windowsEventToFields(e)
+			if got := fields["ProviderName"]; got != tt.want {
+				t.Errorf("ProviderName = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestEncodedLen verifies the UTF-16LE accounting the budget relies on.
 func TestEncodedLen(t *testing.T) {
 	tests := []struct {

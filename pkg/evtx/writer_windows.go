@@ -33,7 +33,7 @@ import (
 	"golang.org/x/sys/windows/svc/eventlog"
 )
 
-const win32SourceName = "PowerStore-CEPA"
+const win32SourceName = DefaultProviderName
 
 // eventLogKey is where Windows stores event source registration.
 const eventLogKey = `SYSTEM\CurrentControlSet\Services\EventLog\Application\` + win32SourceName

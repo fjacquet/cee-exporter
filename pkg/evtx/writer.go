@@ -11,6 +11,14 @@ import (
 	"time"
 )
 
+// DefaultProviderName is the event source name Windows resolves the compiled
+// message resource against (see pkg/evtx/messages.mc). It lives here, not in
+// pkg/mapper, because both the Win32 writer (writer_windows.go) and the
+// mapper (which imports pkg/evtx) must agree on the exact same string, and
+// pkg/evtx is the only package both of them can import without creating an
+// import cycle (pkg/mapper -> pkg/evtx, never the reverse).
+const DefaultProviderName = "PowerStore-CEPA"
+
 // WindowsEvent is the normalized event structure that all writers consume.
 // It carries both the Windows semantic fields and CEPA-specific metadata.
 type WindowsEvent struct {

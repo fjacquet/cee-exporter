@@ -203,8 +203,20 @@ func windowsEventToFields(e WindowsEvent) map[string]string {
 		return v
 	}
 
+	// A record whose ProviderName is empty renders as <Provider></Provider>
+	// with no Name attribute; Get-WinEvent throws a NullReferenceException
+	// reading it (measured on Windows Server 2025), and an upcoming go-evtx
+	// release is expected to reject such a record at write time rather than
+	// writing it. Defaulting here means neither can happen from this
+	// codebase: every caller either supplies a real provider name or gets
+	// DefaultProviderName instead of an empty one.
+	providerName := e.ProviderName
+	if providerName == "" {
+		providerName = DefaultProviderName
+	}
+
 	fields := map[string]string{
-		"ProviderName":      clip(e.ProviderName),
+		"ProviderName":      clip(providerName),
 		"Computer":          clip(e.Computer),
 		"TimeCreated":       e.TimeCreated.UTC().Format(time.RFC3339Nano),
 		"SubjectUserSid":    clip(e.SubjectUserSID),

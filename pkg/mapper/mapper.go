@@ -74,8 +74,10 @@ var accessDescFor = map[string]string{
 // a real mapped event: a record whose ProviderName is empty renders without a
 // Name attribute on <Provider>, and Get-WinEvent throws a
 // NullReferenceException reading it (measured on Windows Server 2025 against
-// go-evtx v0.7.1). A second literal would let the two drift apart silently.
-const ProviderName = "PowerStore-CEPA"
+// go-evtx v0.7.1). Aliased to evtx.DefaultProviderName rather than a second
+// literal, so the mapper and the Win32 writer (pkg/evtx/writer_windows.go)
+// cannot drift apart silently.
+const ProviderName = evtx.DefaultProviderName
 
 // Map converts a CEPAEvent to a WindowsEvent.
 // The hostname parameter is the computer name embedded in the event (use the
