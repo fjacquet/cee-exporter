@@ -111,7 +111,7 @@ Full requirement list: see [requirements.md](requirements.md)
 | OUT-03 | SyslogWriter: RFC 5424 over UDP | 06 | ADR-008 |
 | OUT-04 | SyslogWriter: RFC 5424 over TCP (octet-counting) | 06 | ADR-008 |
 | OUT-05 | BinaryEvtxWriter: native `.evtx` on Linux | 07 | ADR-009 |
-| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — since v5.1.0, **Verified (partial)**: `Get-WinEvent` read-back (file opening, record count, event ID set, `ToXml()`, `ObjectName`) and `System/Channel == "Security"` are CI-gated by the `evtx-readback`/`evtx-oracle` jobs on every push; description rendering from a saved log, and `LogName` resolving to `Security` there, are covered by the dated 2026-08-10 manual protocol in docs/windows-verification.md; the Event Viewer GUI open/placement question has not been run. See [docs/PROMISES.md](PROMISES.md) |
+| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — since v5.1.0, **Verified**: `Get-WinEvent` read-back (file opening, record count, event ID set, `ToXml()`, `ObjectName`) and `System/Channel == "Security"` are CI-gated by the `evtx-readback`/`evtx-oracle` jobs on every push; description rendering, `LogName` resolving to `Security`, and the Event Viewer GUI open/placement question are each covered by the dated 2026-08-10 manual protocol in docs/windows-verification.md, not CI-gated since they need a registered event source and, for the GUI, an interactive desktop session. See [docs/PROMISES.md](PROMISES.md) |
 | TLS-03 | `tls_mode="acme"` auto-provisions via Let's Encrypt | 08 | ADR-011 |
 | TLS-04 | `tls_mode="self-signed"` for air-gapped deployments | 08 | ADR-011 |
 
@@ -119,7 +119,7 @@ Full requirement list: see [requirements.md](requirements.md)
 per-requirement traceability and [docs/PROMISES.md](PROMISES.md) for every
 user-facing claim's verifying job. Since v5.0, DEPLOY-03 and DEPLOY-04
 (Windows Service install/uninstall via the real SCM start/stop lifecycle) are
-verified by the `windows` CI job. Since v5.1.0, OUT-06 is **Verified (partial)**: the
+verified by the `windows` CI job. Since v5.1.0, OUT-06 is **Verified**: the
 `evtx-readback` job reads a Linux-generated `.evtx` on a Windows runner with
 `Get-WinEvent`, covering the file opening, record count, event ID set,
 `ToXml()`, and `ObjectName` — CI-gated on every push; the sibling
@@ -131,8 +131,19 @@ same day, see `CHANGELOG.md`'s `[5.1.0]` entry. Description rendering from a
 saved log, and `LogName` resolving there, need a host with the event source
 registered, so that part is not CI-gated, but a 2026-08-10 manual reading
 confirms all three descriptions render and `LogName` resolves to `Security`
-once the event source is registered; the Event Viewer GUI open/placement
-question has not been run. DEPLOY-05 (crash auto-restart) remains
+once the event source is registered. The Event Viewer GUI open/placement
+question was run on 2026-08-10, over an RDP session to winvm (the earlier
+SSH-only connection had no interactive desktop), against the released v5.1.0
+binary downloaded from GitHub: the saved log opens under Saved Logs, all
+three events land there, and `Log Name: Security` shows in the General pane
+— the last part of OUT-06 that was not yet CI-gated or manually measured. A
+pre-run prediction that the Level/Task Category/Keywords columns would
+render blank — based on `Get-WinEvent`'s `*DisplayName` properties returning
+empty strings headlessly — was falsified: Event Viewer supplies its own
+defaults (`Information`/`None`/`Info`/`None`) for those zero values, because
+the empty PowerShell properties reflect missing provider metadata to resolve
+against, not an absent GUI value. See `docs/windows-verification.md` section
+5 for the full record. DEPLOY-05 (crash auto-restart) remains
 unverified — nothing simulates a crash to exercise the SCM's recovery
 action.
 
@@ -210,7 +221,7 @@ below; several are not yet checked by anything.
   **not yet verified** — nothing reboots the runner or simulates a crash to
   exercise the `OnFailure: "restart"` recovery action
 - `.evtx` files generated on Linux open correctly in Windows Event Viewer —
-  **verified (partial)** since v5.1.0 (`evtx-readback` CI job reads them back
+  **verified** since v5.1.0 (`evtx-readback` CI job reads them back
   with `Get-WinEvent`, covering record count, event IDs, `ToXml()`, and
   `ObjectName`; the sibling `evtx-oracle` job also asserts
   `System/Channel == "Security"`, catching a now-fixed defect that used to
@@ -219,7 +230,14 @@ below; several are not yet checked by anything.
   resolving there, need a host with the event source registered, so that
   part is not CI-gated, but a 2026-08-10 manual reading confirms all three
   descriptions render and `LogName` resolves to `Security` once the event
-  source is registered; the Event Viewer GUI open/placement question was not
-  run — see `docs/windows-verification.md` section 5)
+  source is registered; the Event Viewer GUI open/placement question was run
+  on 2026-08-10, over an RDP session to winvm, against the released v5.1.0
+  binary downloaded from GitHub — the saved log opens under Saved Logs, all
+  three events land there, `Log Name: Security` shows in the General pane,
+  and a pre-run prediction that the Level/Task Category/Keywords columns
+  would render blank (based on `Get-WinEvent`'s `*DisplayName` properties
+  returning empty strings headlessly) was falsified — Event Viewer supplies
+  its own defaults for those zero values — see `docs/windows-verification.md`
+  section 5)
 - `curl :9228/metrics` returns Prometheus-formatted counters (verified —
   `pkg/prometheus/handler_test.go`)

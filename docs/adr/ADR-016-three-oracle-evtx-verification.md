@@ -119,12 +119,29 @@ code path in this repository can drive it empty, because go-evtx backfills it.
 It is kept as defence against a future encoder change and recorded as
 defence-in-depth rather than counted as a guard.
 
-**The claim is `Verified (partial)`, not `Verified`.** Layers 1 and 2 are
-CI-gated on every push. Description rendering rests on a dated manual
-measurement. The Event Viewer GUI question — whether it opens the saved log
-and where it places the events — **has not been run**: the test host is
-reachable only over SSH with no interactive desktop. `Get-WinEvent -Path` is
-not the GUI, and an unrun check is not a verified one.
+**The claim is now `Verified`, not `Verified (partial)`.** Layers 1 and 2
+are CI-gated on every push. Description rendering and the Event Viewer GUI
+question both rest on dated manual measurements, not on CI — that division
+does not go away just because the claim is now fully covered, and this
+project's vocabulary keeps it visible rather than letting a CI-gated part
+and a manually-verified part blur into one undifferentiated "Verified".
+Layer 3 was run on 2026-08-10, over an RDP session to `winvm` (the earlier
+SSH-only connection had no interactive desktop), against the **released
+v5.1.0 binary downloaded from GitHub**, not a local build: the saved log
+opened via Action → Open Saved Log…, listed under Saved Logs →
+released-v5.1.0 with all three records present, and the General pane showed
+`Log Name: Security` for event 4660 — see `docs/windows-verification.md`
+section 5 for the full output. A prediction made ahead of that run — that
+the Level/Task Category/Keywords columns would render blank, based on
+`Get-WinEvent`'s `*DisplayName` properties returning empty strings
+headlessly — was falsified: Event Viewer supplies its own defaults for
+those zero values, because the empty PowerShell properties reflect missing
+provider metadata to resolve against, not an absent GUI value. This does not
+change what layer 3 is: a point-in-time check, run and recorded on a date,
+not a guard that runs again on the next push. A future encoder or mapper
+change that breaks GUI rendering without breaking `Get-WinEvent -Path` would
+not be caught until the next dated manual run — the claim depends on that
+discipline continuing, not on CI for this portion.
 
 **CI gains a Python dependency.** `tools/evtx-debug` stops being "not part of
 the shipped product". `uv sync --frozen` against a committed `uv.lock` pins

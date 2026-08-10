@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- OUT-06 moves from **Verified (partial)** to **Verified**. The one check
+  that had not been run — opening the saved log in Event Viewer's GUI — was
+  run on 2026-08-10, over an RDP session to `winvm` (Windows Server 2025
+  Datacenter; the earlier SSH-only connection had no interactive desktop),
+  against the **released v5.1.0 binary downloaded from GitHub**, not a local
+  build. It passed completely: the saved log opens via Action → Open Saved
+  Log…, lists under Saved Logs → released-v5.1.0 with "Number of events: 3",
+  all three IDs {4660, 4663, 4670} present, and the General pane for event
+  4660 shows `Log Name: Security` — the `Channel` fix from v5.1.0, now
+  visible in the GUI itself and not only in `Get-WinEvent -Path`'s
+  `.LogName` property. Full output in `docs/windows-verification.md`
+  section 5.
+
+  A prediction made ahead of this run was falsified. A headless
+  `Get-WinEvent` measurement had found `.LevelDisplayName`,
+  `.TaskDisplayName`, `.OpcodeDisplayName` and `.KeywordsDisplayNames` all
+  returning empty strings for these records, and predicted the Event Viewer
+  columns would therefore render blank. They did not: Event Viewer supplies
+  its own defaults for the zero values and rendered `Information` / `None` /
+  `Info` / `None`. The PowerShell properties are empty because there is no
+  provider metadata to resolve a display name against, which is a different
+  thing from what the GUI displays — an upstream issue filed against
+  go-evtx on the strength of the headless measurement has since been
+  corrected and now stands only as an API-surface note (`Level`, `Task`,
+  `Opcode` and `Keywords` are emitted as literal `0` with their fields-map
+  keys silently dropped, while `Channel` is honoured), with no
+  operator-visible symptom. `docs/PROMISES.md`, `docs/requirements.md`, and
+  `docs/PRD.md` are updated to reflect OUT-06's full verification.
+
 ## [5.1.0] - 2026-08-10
 
 Windows can read the `.evtx` files the non-Windows build of this exporter

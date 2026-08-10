@@ -332,9 +332,71 @@ resolves — it now does — but what Event Viewer's GUI does with a saved log
 that carries `LogName=Security`: does it open, does it prompt to convert,
 under what node do the three events appear, and are all three listed?
 
-**Not run on 2026-08-10.** This question needs Event Viewer's GUI, and
-`winvm` is reached only over SSH with no interactive desktop session
-available. "Did not investigate" is recorded below rather than left blank.
+**Run on 2026-08-10, over RDP.** The SSH-only limitation recorded above no
+longer blocks this: this session reached `winvm` over RDP, which supplies the
+interactive desktop the GUI needs. The file under test was not a local
+build — it was the `.evtx` produced by the **released v5.1.0 binary
+downloaded from GitHub**, so this measures what ships, not what a worktree
+produces.
+
+Opened via **Action → Open Saved Log…**. The log appears in the tree under
+**Saved Logs → released-v5.1.0**, "Number of events: 3":
+
+```text
+Level         Date and Time          Source            Event ID  Task Category
+Information   8/10/2026 6:48:56 AM   PowerStore-CEPA   4670      None
+Information   8/10/2026 6:48:56 AM   PowerStore-CEPA   4663      None
+Information   8/10/2026 6:48:56 AM   PowerStore-CEPA   4660      None
+```
+
+The General pane for event 4660:
+
+```text
+An object was deleted. test-user
+
+Log Name:       Security
+Source:         PowerStore-CEPA        Logged:         8/10/2026 6:48:56 AM
+Event ID:       4660                   Task Category:  None
+Level:          Information            Keywords:       None
+User:           N/A                    Computer:       mbp-fj.local
+OpCode:         Info
+```
+
+Three things worth drawing out:
+
+- `Log Name: Security` is the `Channel` fix from v5.1.0, now visible in the
+  GUI itself rather than only in `Get-WinEvent -Path`'s `.LogName` property.
+- `User: N/A` is expected, not a defect: the `-emit-test-events` fixture
+  leaves `SubjectUserSid` empty.
+- `Computer: mbp-fj.local` is the host that generated the file — correct,
+  since generation happens on the machine running the exporter, not on
+  `winvm`.
+
+All three events are listed under the one saved log, matching the event ID
+set {4660, 4663, 4670} `evtx-readback` already asserts. This answers the
+question this section opened with: it opens, without a convert prompt, under
+**Saved Logs**, and all three events land there.
+
+**A prediction made ahead of this run was falsified, and that is recorded
+here rather than quietly corrected.** Before this session, a headless
+measurement via `Get-WinEvent` found `.LevelDisplayName`, `.TaskDisplayName`,
+`.OpcodeDisplayName` and `.KeywordsDisplayNames` all returning empty strings
+for these records, and predicted the Level/Task Category/Keywords columns
+above — and the equivalent fields in the General pane — would render blank.
+They did not: Event Viewer supplies its own defaults for the zero values
+those properties reflect, and rendered `Information` / `None` / `Info` /
+`None`, exactly as shown above. The two observations are not in tension —
+they are answers to different questions. The PowerShell properties are empty
+because there is no provider metadata (no registered message-resource
+entries for these enum values) for `Get-WinEvent` to resolve a display name
+against, and it returns an empty string rather than guessing; that is a
+statement about what `Get-WinEvent` can resolve headlessly, not about what
+the GUI displays. An upstream issue was filed against go-evtx on the
+strength of the headless measurement and has since been corrected, with two
+follow-up comments; it now stands only as an API-surface note — `Level`,
+`Task`, `Opcode` and `Keywords` are emitted as literal `0` and their
+fields-map keys are silently dropped, while `Channel` is honoured — with no
+operator-visible symptom, which this run confirms directly.
 
 ### Question 2 — does the Description pane show our text?
 
@@ -393,7 +455,8 @@ would mean changing go-evtx, which is out of scope for this repository.
 
 | Date | Host | Q1 — opens / placement | Q2 — description | Notes |
 |---|---|---|---|---|
-| 2026-08-10 | winvm (Windows Server 2025 Datacenter) | Not run — needs GUI access, unreachable over the SSH-only connection to this host. Narrowed to only the open/placement question: `LogName` resolution (see Notes) is fixed | Renders correctly: all three records enumerate and each shows its own description text (e.g. `An attempt was made to access an object.` for 4663), with the event source registered on the host | An earlier reading the same day recorded all three as `Message: <null>`. That was this project's own `-emit-test-events` fixture leaving `ProviderName` empty, not a go-evtx or saved-log defect — see the `[5.1.0]` `CHANGELOG.md` entry for the isolation. `LogName` was also empty in that reading, traced separately to `windowsEventToFields` dropping the `Channel` field `pkg/mapper` sets on every event; fixed the same day — measured before/after on the same three records: `LogName=[]` → `LogName=[Security]` |
+| 2026-08-10 | winvm (Windows Server 2025 Datacenter), SSH-only session | Not run — needs GUI access, unreachable over the SSH-only connection available in this session | Renders correctly: all three records enumerate and each shows its own description text (e.g. `An attempt was made to access an object.` for 4663), with the event source registered on the host | An earlier reading the same day recorded all three as `Message: <null>`. That was this project's own `-emit-test-events` fixture leaving `ProviderName` empty, not a go-evtx or saved-log defect — see the `[5.1.0]` `CHANGELOG.md` entry for the isolation. `LogName` was also empty in that reading, traced separately to `windowsEventToFields` dropping the `Channel` field `pkg/mapper` sets on every event; fixed the same day — measured before/after on the same three records: `LogName=[]` → `LogName=[Security]` |
+| 2026-08-10 | winvm (Windows Server 2025 Datacenter), RDP session | Run, and it opens: **Action → Open Saved Log…** places the log under **Saved Logs → released-v5.1.0**, "Number of events: 3", all three IDs {4660, 4663, 4670} listed, no convert prompt | (same as row above — description rendering was already confirmed; this row is scoped to the open/placement question) | Run against the **released v5.1.0 binary downloaded from GitHub**, not a local build. A pre-run prediction — that the Level/Task Category/Keywords columns would render blank, based on `Get-WinEvent`'s `*DisplayName` properties returning empty strings headlessly — was falsified: Event Viewer supplies its own defaults (`Information`/`None`/`Info`/`None`) for the zero values those properties reflect; see the falsified-prediction paragraph above for why the headless properties mislead. `User: N/A` is expected (the `-emit-test-events` fixture leaves `SubjectUserSid` empty, not a defect); `Computer: mbp-fj.local` correctly names the generating host, not `winvm`. With this row, both Q1 and Q2 are answered — see `CHANGELOG.md`'s Unreleased entry and `docs/PROMISES.md`/`docs/requirements.md`/`docs/PRD.md`'s OUT-06 rows, all moved to **Verified** |
 
 ## Cleanup
 
