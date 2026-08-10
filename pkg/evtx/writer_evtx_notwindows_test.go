@@ -524,6 +524,37 @@ func TestWindowsEventToFields_DefaultsEmptyProviderName(t *testing.T) {
 	}
 }
 
+// TestWindowsEventToFields_LevelAndKeywords pins the two System values that
+// make this writer agree with the Win32 one.
+//
+// Until v5.1.1 they were absent from the map, so records carried Level 0 and
+// Keywords 0x0 while the very same events written through the Win32 API
+// carried Level 4 and the CLASSIC keyword. Event Viewer papers over the zeros
+// with its own defaults, so nothing was visible — which is exactly why a test
+// is the only thing that will notice them going missing again.
+func TestWindowsEventToFields_LevelAndKeywords(t *testing.T) {
+	fields := windowsEventToFields(testWindowsEvent())
+
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"Level", "4"},                   // EVENTLOG_INFORMATION_TYPE
+		{"Keywords", "0x80000000000000"}, // EVENTLOG_CLASSIC
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			got, present := fields[tt.key]
+			if !present {
+				t.Fatalf("%s is absent from the field map; the record would carry 0 where the Win32 writer carries %s", tt.key, tt.want)
+			}
+			if got != tt.want {
+				t.Errorf("%s = %q, want %q", tt.key, got, tt.want)
+			}
+		})
+	}
+}
+
 // TestWindowsEventToFields_Channel verifies the field reaches the map at all,
 // and that an empty one is defaulted rather than passed through.
 //

@@ -393,10 +393,11 @@ against, and it returns an empty string rather than guessing; that is a
 statement about what `Get-WinEvent` can resolve headlessly, not about what
 the GUI displays. An upstream issue was filed against go-evtx on the
 strength of the headless measurement and has since been corrected, with two
-follow-up comments; it now stands only as an API-surface note — `Level`,
-`Task`, `Opcode` and `Keywords` are emitted as literal `0` and their
-fields-map keys are silently dropped, while `Channel` is honoured — with no
-operator-visible symptom, which this run confirms directly.
+follow-up comments. It never had an operator-visible symptom, which this run
+confirms directly. Its API-surface half — `Level`, `Task`, `Opcode` and
+`Keywords` emitted as literal `0` with their fields-map keys silently
+dropped, while `Channel` was honoured — described go-evtx **before v0.7.4**,
+which honours all five and which cee-exporter pins from v5.1.1 onward.
 
 ### Question 2 — does the Description pane show our text?
 
