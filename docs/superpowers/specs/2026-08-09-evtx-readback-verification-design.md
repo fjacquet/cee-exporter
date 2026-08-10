@@ -150,16 +150,24 @@ Python verification script, and documentation.
 
 1. Build the binary.
 2. Run it with an `evtx`-typed config and `-emit-test-events`.
-3. `astral-sh/setup-uv@v9` — pinned to a major, like every other action in
+3. `astral-sh/setup-uv@v9.0.0` — an exact release, not a major, unlike every
+   other action in
    this repo after the v5.0.1 `actions/checkout@v4` correction — then
    `uv sync --frozen` in `tools/evtx-debug`. The committed `uv.lock` pins
    python-evtx 0.8.1, so the oracle cannot drift under us.
 4. Run `verify_evtx.py <path>`; non-zero exit fails the job.
 5. `actions/upload-artifact@v7` the `.evtx`.
 
-Action majors checked against their latest releases on 2026-08-09:
-`upload-artifact` v7, `download-artifact` v8 (they version independently —
-do not assume a matching pair), `setup-uv` v9.
+Action refs checked on 2026-08-09: `upload-artifact` v7, `download-artifact`
+v8 — they version independently, so do not assume a matching pair.
+
+**Corrected during execution.** This originally said `setup-uv` v9, read off
+its latest release name. `astral-sh/setup-uv` publishes no moving `v9` tag —
+its highest bare-major alias is `v7`, while the current release is `v9.0.0` —
+so `@v9` failed the job at action resolution, before any step ran:
+`Unable to resolve action astral-sh/setup-uv@v9, unable to find version v9`.
+Reading a release name is not checking that a ref resolves. Verify each with
+`gh api repos/OWNER/REPO/git/ref/tags/TAG` rather than by inspection.
 
 `verify_evtx.py` asserts:
 

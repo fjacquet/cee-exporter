@@ -21,7 +21,7 @@
 - No `_linux.go` suffix ever. Non-Windows files use `_notwindows.go` with `//go:build !windows`.
 - Tests are stdlib-only, white-box (same package), table-driven with `t.Run`.
 - `errorlint` runs with `comparison: true` — never `==`/`!=` on errors, including in tests. Use `errors.Is`.
-- Action majors, checked 2026-08-09: `actions/checkout@v5`, `actions/setup-go@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v8`, `astral-sh/setup-uv@v9`. Upload and download version independently — the mismatch is correct.
+- Action majors, checked 2026-08-09: `actions/checkout@v5`, `actions/setup-go@v6`, `actions/upload-artifact@v7`, `actions/download-artifact@v8`, `astral-sh/setup-uv@v9.0.0`. Upload and download version independently — the mismatch is correct. setup-uv is an exact release, not a major: no moving `v9` tag exists, and `@v9` fails at action resolution before any step runs. Check every ref with `gh api repos/OWNER/REPO/git/ref/tags/TAG`.
 - Every claim added to `docs/PROMISES.md` must cite a real job or test. The `docs-lint` workflow fails the build on a `Test[A-Z]…` name that is not a real `func` in a `*_test.go`.
 - All work happens on branch `feat/v5.1-evtx-readback`, one PR at the end.
 
@@ -584,7 +584,7 @@ Add to the end of `.github/workflows/ci.yml`:
         with:
           go-version-file: go.mod
 
-      - uses: astral-sh/setup-uv@v9
+      - uses: astral-sh/setup-uv@v9.0.0
 
       - name: Emit a .evtx with the three mapped event IDs
         run: |
