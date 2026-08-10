@@ -13,6 +13,8 @@ github.com/elastic/go-lumber v0.2.0 h1:BVGh+jq6tmp5ajAQ4QaPLcwC8vYqQ0yzt0tmWfuz7
 github.com/elastic/go-lumber v0.2.0/go.mod h1:HHaWnZamYKWsR9/eZNHqRHob8iQDKnchHmmskT/SKko=
 github.com/fjacquet/go-evtx v0.7.0 h1:1WYoPh/AahXTbCtgk3d2W1KYMAwqLVZj1jo0AI6CSDI=
 github.com/fjacquet/go-evtx v0.7.0/go.mod h1:784o3EwYJh8AqSMVq1rk5exGhJKKA15fUp8aT72/14w=
+github.com/fjacquet/go-evtx v0.7.1 h1:4EE4MhB12hFpkqQ/F8DSlzCv4LdCXhxZyyTm/cORIQg=
+github.com/fjacquet/go-evtx v0.7.1/go.mod h1:784o3EwYJh8AqSMVq1rk5exGhJKKA15fUp8aT72/14w=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
 github.com/kardianos/service v1.3.0 h1:/LGy+xPP2TM+GLTiCZ2di7cy0Jd/qrawlTUfqKYFdTI=
