@@ -118,14 +118,21 @@ def check(path):
     # ExitStack instead lets us guard exactly the open, then let the
     # per-record assertion loop run in the same still-open scope but outside
     # the try, so a bug in the assertion logic raises as itself -- naming the
-    # real line -- instead of being relabelled "could not open the file" and
-    # pointing the next reader at the fixture instead of the script.
+    # real line -- instead of being relabelled a file problem and pointing the
+    # next reader at the fixture instead of the script.
     with contextlib.ExitStack() as stack:
         try:
             log = stack.enter_context(evtx.Evtx(path))
             records = list(log.records())
         except Exception as exc:  # noqa: BLE001 - any open/parse failure is a failure
-            return [f"python-evtx could not open the file: {type(exc).__name__}: {exc}"]
+            # "or enumerate": list(log.records()) parses chunk and record
+            # headers, so a file that opens and then fails on a corrupt chunk
+            # lands here too. Saying only "open" would send the next reader
+            # after file access when the fault is in the records.
+            return [
+                "python-evtx could not open or enumerate the file: "
+                f"{type(exc).__name__}: {exc}"
+            ]
 
         if len(records) != 3:
             failures.append(f"expected 3 records, got {len(records)}")
