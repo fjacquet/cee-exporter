@@ -241,13 +241,11 @@ func run(ctx context.Context) {
 		if emitErr != nil {
 			slog.Error("emit_test_events_failed", "err", emitErr)
 		}
-		if err := w.Close(); err != nil {
-			slog.Warn("emit_test_events_writer_close_failed", "err", err)
+		closeErr := w.Close()
+		if closeErr != nil {
+			slog.Error("emit_test_events_writer_close_failed", "err", closeErr)
 		}
-		if emitErr != nil {
-			os.Exit(1)
-		}
-		os.Exit(0)
+		os.Exit(emitExitCode(emitErr, closeErr))
 	}
 
 	// Wire SIGHUP → immediate EVTX rotation (no-op on Windows).
