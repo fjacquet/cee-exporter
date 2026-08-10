@@ -467,8 +467,12 @@ directories or a `PowerStore-CEPA` registration on a shared VM:
 
 ```powershell
 Remove-Item -Recurse -Force C:\Windows\Temp\winverify
+Remove-Item -Recurse -Force C:\evtxman
+Remove-Item -Force C:\manual.evtx
 reg delete "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Application\PowerStore-CEPA" /f
 Test-Path C:\Windows\Temp\winverify   # expect False
+Test-Path C:\evtxman   # expect False
+Test-Path C:\manual.evtx   # expect False
 Test-Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\PowerStore-CEPA"   # expect False
 ```
 

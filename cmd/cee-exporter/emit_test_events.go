@@ -49,3 +49,25 @@ func emitTestEvents(w evtx.Writer, hostname string) error {
 	slog.Info("test_events_emitted", "count", 3, "provider", mapper.ProviderName, "computer", hostname)
 	return nil
 }
+
+// emitExitCode maps the -emit-test-events path's two failures to a process
+// exit code.
+//
+// A Close() failure is not cosmetic here: Close finalises the .evtx chunk, so
+// it can leave a file that is present and non-empty but unfinalised. The
+// evtx-oracle CI job reads this exit code before it parses the artifact, so
+// exiting 0 tells it the output is good when it may not be. Until v5.1.x a
+// Close failure logged a warning and exited 0.
+//
+// The rule is uniform rather than per-writer. Distinguishing a file writer
+// from a socket writer would mean main interrogating the writer's type, a
+// coupling the code avoids, and would only matter to someone running this
+// diagnostic flag against gelf and expecting a zero — which neither CI nor
+// the manual protocol does. On a flag whose whole job is producing verifiable
+// output, a false failure costs less than a false success.
+func emitExitCode(emitErr, closeErr error) int {
+	if emitErr != nil || closeErr != nil {
+		return 1
+	}
+	return 0
+}

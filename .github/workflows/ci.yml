@@ -229,14 +229,14 @@ jobs:
       - name: Emit a .evtx with the three mapped event IDs
         run: |
           set -euo pipefail
+          # Only [output] is read on this path: -emit-test-events exits before
+          # the HTTP listener or the metrics server binds, so a [listen] or
+          # [metrics] address here would suggest they are exercised when they
+          # are not. evtx_path is required by config validation.
           cat > /tmp/evtx-ci.toml <<'TOML'
-          [listen]
-          addr = "127.0.0.1:12997"
           [output]
           type = "evtx"
           evtx_path = "/tmp/audit.evtx"
-          [metrics]
-          addr = "127.0.0.1:19997"
           TOML
           go run ./cmd/cee-exporter -config /tmp/evtx-ci.toml -emit-test-events
           test -s /tmp/audit.evtx
