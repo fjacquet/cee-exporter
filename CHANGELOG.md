@@ -25,7 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `verify_evtx.py` reported a bug in its own assertion logic as
   `python-evtx could not open the file`, pointing the reader at the `.evtx`
-  rather than at the script. The `try` now guards only the file open. A
+  rather than at the script. The `try` now guards only opening the file and
+  materialising the record list — every assertion runs outside it. A
   non-numeric `<EventID>` — malformed data rather than a script bug — used to
   escape the same way, as an uncaught traceback, while its `Level` and
   `Keywords` neighbours were already guarded. That parse is now guarded too,
