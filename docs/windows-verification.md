@@ -306,20 +306,31 @@ scp /tmp/manual.evtx winvm:C:/manual.evtx
 
 Open Event Viewer, **Action → Open Saved Log…**, select `C:\manual.evtx`.
 
-Our records carry an empty `Channel`, so `LogName` resolves empty. Record
-what Event Viewer does with that: does it open, does it prompt to convert,
-under what node do the three events appear, and are all three listed?
+**The empty `Channel` this question started from is fixed.** Our records
+used to carry an empty `Channel`, so `LogName` resolved to the empty string.
+The cause was not that the value was unknown — `pkg/mapper` has set
+`Channel: "Security"` on every mapped event since v2 — it was that nothing
+read the field: `windowsEventToFields` in
+`pkg/evtx/writer_evtx_notwindows.go` never put it in the map handed to
+go-evtx, and no other writer referenced it either. So `WindowsEvent.Channel`
+was populated and then dropped, for real events as much as for the
+`-emit-test-events` fixture. That is now corrected — `Channel` is passed
+through, with `evtx.DefaultChannel = "Security"` covering
+`-emit-test-events`, which names no channel of its own. Measured on Windows
+Server 2025, same three records, source registered:
 
-**Where the empty `Channel` comes from, for whoever picks this up.** It is not
-that the value is unknown — `pkg/mapper` sets `Channel: "Security"` on every
-mapped event. It is that nothing reads the field: `windowsEventToFields` in
-`pkg/evtx/writer_evtx_notwindows.go` does not include it in the map handed to
-go-evtx, and no other writer references it either. So `WindowsEvent.Channel`
-is populated and then dropped, for real events as much as for the
-`-emit-test-events` fixture. Passing it through is the obvious first thing to
-try, but it was not attempted here: whether go-evtx honours a `Channel` key is
-unverified, and the effect can only be judged in the GUI this question is
-already blocked on.
+```
+before   LogName=[]           Message: An object was deleted. test-user
+after    LogName=[Security]   Message: An object was deleted. test-user
+```
+
+See the `[5.1.0]` entry in `CHANGELOG.md` for the fix and the mutation
+testing behind it.
+
+What is left of this question is narrower than it was: not whether `LogName`
+resolves — it now does — but what Event Viewer's GUI does with a saved log
+that carries `LogName=Security`: does it open, does it prompt to convert,
+under what node do the three events appear, and are all three listed?
 
 **Not run on 2026-08-10.** This question needs Event Viewer's GUI, and
 `winvm` is reached only over SSH with no interactive desktop session
@@ -341,8 +352,11 @@ go-evtx or the saved-log format, was the cause. See the `[5.1.0]` entry in
 records with `ProviderName` set read back cleanly under `Get-WinEvent`
 regardless of how many `EventData` fields were empty; the same three
 records with `ProviderName` empty threw a `NullReferenceException`. The
-empty-`Channel` hypothesis this section previously recorded was wrong and is
-not replaced with a new one.
+empty-`Channel` hypothesis this section previously recorded, for *why
+descriptions did not render*, was wrong and is not replaced with a new one —
+that stays traced to the empty `ProviderName` alone. The empty `Channel`
+itself was real and separate: diagnosed and fixed later the same day, see
+Question 1 above and the `[5.1.0]` entry in `CHANGELOG.md`.
 
 With `-emit-test-events` fixed to set `ProviderName` (as every real mapped
 event already does) and the event source registered on the host, re-measured
@@ -356,11 +370,18 @@ saved log (.evtx generated on Linux):
   id 4670  Message: Permissions on an object were changed. test-user
 ```
 
-`LogName` is still empty in this output — that turns out not to matter for
-description resolution. So: the file opens, all three records enumerate, all
+`LogName` was still empty in this measurement — that turned out not to
+matter for description resolution, which is a separate mechanism. The empty
+`LogName` was itself a real, separate defect (`windowsEventToFields` dropping
+the `Channel` field `pkg/mapper` sets on every event), diagnosed and fixed
+later the same day — see Question 1 above and the `[5.1.0]` entry in
+`CHANGELOG.md`. Repeating this same saved log after that fix resolves
+`LogName=[Security]` instead of `LogName=[]`.
+
+So, as of this section: the file opens, all three records enumerate, all
 twelve `EventData` fields carry correct values (the same fields
-`evtx-readback`'s `ObjectName` assertion checks one of), and descriptions
-render — the full set OUT-06 promises.
+`evtx-readback`'s `ObjectName` assertion checks one of), descriptions render,
+and `LogName` resolves to `Security` — the full set OUT-06 promises.
 
 ### Record the outcome
 
@@ -372,7 +393,7 @@ would mean changing go-evtx, which is out of scope for this repository.
 
 | Date | Host | Q1 — opens / placement | Q2 — description | Notes |
 |---|---|---|---|---|
-| 2026-08-10 | winvm (Windows Server 2025 Datacenter) | Not run — needs GUI access, unreachable over the SSH-only connection to this host | Renders correctly: all three records enumerate and each shows its own description text (e.g. `An attempt was made to access an object.` for 4663), with the event source registered on the host | An earlier reading the same day recorded all three as `Message: <null>`. That was this project's own `-emit-test-events` fixture leaving `ProviderName` empty, not a go-evtx or saved-log defect — see the `[5.1.0]` `CHANGELOG.md` entry for the isolation. `LogName` is still empty in the corrected output; that does not affect description resolution |
+| 2026-08-10 | winvm (Windows Server 2025 Datacenter) | Not run — needs GUI access, unreachable over the SSH-only connection to this host. Narrowed to only the open/placement question: `LogName` resolution (see Notes) is fixed | Renders correctly: all three records enumerate and each shows its own description text (e.g. `An attempt was made to access an object.` for 4663), with the event source registered on the host | An earlier reading the same day recorded all three as `Message: <null>`. That was this project's own `-emit-test-events` fixture leaving `ProviderName` empty, not a go-evtx or saved-log defect — see the `[5.1.0]` `CHANGELOG.md` entry for the isolation. `LogName` was also empty in that reading, traced separately to `windowsEventToFields` dropping the `Channel` field `pkg/mapper` sets on every event; fixed the same day — measured before/after on the same three records: `LogName=[]` → `LogName=[Security]` |
 
 ## Cleanup
 
