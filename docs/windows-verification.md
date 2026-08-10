@@ -310,6 +310,17 @@ Our records carry an empty `Channel`, so `LogName` resolves empty. Record
 what Event Viewer does with that: does it open, does it prompt to convert,
 under what node do the three events appear, and are all three listed?
 
+**Where the empty `Channel` comes from, for whoever picks this up.** It is not
+that the value is unknown — `pkg/mapper` sets `Channel: "Security"` on every
+mapped event. It is that nothing reads the field: `windowsEventToFields` in
+`pkg/evtx/writer_evtx_notwindows.go` does not include it in the map handed to
+go-evtx, and no other writer references it either. So `WindowsEvent.Channel`
+is populated and then dropped, for real events as much as for the
+`-emit-test-events` fixture. Passing it through is the obvious first thing to
+try, but it was not attempted here: whether go-evtx honours a `Channel` key is
+unverified, and the effect can only be judged in the GUI this question is
+already blocked on.
+
 **Not run on 2026-08-10.** This question needs Event Viewer's GUI, and
 `winvm` is reached only over SSH with no interactive desktop session
 available. "Did not investigate" is recorded below rather than left blank.
