@@ -181,6 +181,38 @@ rotation_interval_h = 24
 On Windows this same configuration routes to the Win32 EventLog API and
 `evtx_path` is ignored — the platform decides, there is no separate type.
 
+!!! danger "Every `.evtx` written on non-Windows hosts before v5.1.0 is unreadable"
+
+    On Windows, `Get-WinEvent -Path` on a `.evtx` this exporter produced
+    before v5.1.0 returns:
+
+    ```text
+    The event log file is corrupted
+    ```
+
+    Event Viewer refuses them for the same reason. The cause was in the
+    EVTX encoder (go-evtx before v0.7.0), which wrote a byte combination that
+    occurs nowhere in real Windows event logs.
+
+    **These files cannot be repaired.** The bytes are wrong, the source
+    events are gone, and no conversion exists. If you have been archiving
+    them, that archive is not readable and upgrading does not change it —
+    only files written by v5.1.0 and later are.
+
+    **What is unaffected:** the `gelf`, `syslog` and `beats` outputs, and the
+    Windows-native `evtx` output which uses the Win32 Event Log API rather
+    than writing files. Only the non-Windows `.evtx` file output is involved.
+
+**`LogName` now resolves to `Security`.** Before v5.1.0, generated records
+carried an empty `Channel`, so `Get-WinEvent`/Event Viewer resolved `LogName`
+to the empty string — the events belonged to no log. As of v5.1.0 the
+channel is passed through, and `LogName` resolves to `Security` (measured on
+Windows Server 2025: the same three records went from `LogName=[]` to
+`LogName=[Security]`). This is CI-gated: `evtx-oracle` asserts
+`System/Channel == "Security"` in the generated XML on every push. Anyone
+filtering or routing on `LogName` should expect `Security`, not empty, from
+files written by v5.1.0 and later.
+
 ### Triggering rotation manually
 
 On non-Windows platforms, `SIGHUP` rotates the active `.evtx` file immediately —

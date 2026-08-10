@@ -498,6 +498,68 @@ func TestWindowsEventToFields_AllFieldsMaxed(t *testing.T) {
 	}
 }
 
+// TestWindowsEventToFields_DefaultsEmptyProviderName verifies that an empty
+// ProviderName is defaulted to DefaultProviderName, and that a real,
+// explicitly-set provider name is passed through unchanged rather than
+// silently overwritten.
+func TestWindowsEventToFields_DefaultsEmptyProviderName(t *testing.T) {
+	tests := []struct {
+		name         string
+		providerName string
+		want         string
+	}{
+		{"empty is defaulted", "", DefaultProviderName},
+		{"explicit value passes through", "Microsoft-Windows-Security-Auditing", "Microsoft-Windows-Security-Auditing"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := testWindowsEvent()
+			e.ProviderName = tt.providerName
+
+			fields := windowsEventToFields(e)
+			if got := fields["ProviderName"]; got != tt.want {
+				t.Errorf("ProviderName = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestWindowsEventToFields_Channel verifies the field reaches the map at all,
+// and that an empty one is defaulted rather than passed through.
+//
+// Both halves are load-bearing. Until v5.1.0 Channel was absent from the map
+// entirely: pkg/mapper set it to "Security" on every event since v2 and
+// windowsEventToFields dropped it, so every record rendered as
+// <Channel></Channel> and Windows resolved LogName to the empty string. The
+// presence case is what stops that recurring; the default is what covers
+// -emit-test-events, which sets no channel and whose event IDs are Security
+// IDs.
+func TestWindowsEventToFields_Channel(t *testing.T) {
+	tests := []struct {
+		name    string
+		channel string
+		want    string
+	}{
+		{"empty is defaulted", "", DefaultChannel},
+		{"explicit value passes through", "Application", "Application"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := testWindowsEvent()
+			e.Channel = tt.channel
+
+			fields := windowsEventToFields(e)
+			got, present := fields["Channel"]
+			if !present {
+				t.Fatal("Channel is absent from the field map; Windows resolves LogName to the empty string without it")
+			}
+			if got != tt.want {
+				t.Errorf("Channel = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestEncodedLen verifies the UTF-16LE accounting the budget relies on.
 func TestEncodedLen(t *testing.T) {
 	tests := []struct {

@@ -69,8 +69,15 @@ var accessDescFor = map[string]string{
 	"CEPP_SETACL_DIRECTORY": "WRITE_DAC",
 }
 
-// providerName is embedded in every generated event.
-const providerName = "PowerStore-CEPA"
+// ProviderName is embedded in every generated event. Exported because
+// cmd/cee-exporter's -emit-test-events must produce the same provider name as
+// a real mapped event: a record whose ProviderName is empty renders without a
+// Name attribute on <Provider>, and Get-WinEvent throws a
+// NullReferenceException reading it (measured on Windows Server 2025 against
+// go-evtx v0.7.1). Aliased to evtx.DefaultProviderName rather than a second
+// literal, so the mapper and the Win32 writer (pkg/evtx/writer_windows.go)
+// cannot drift apart silently.
+const ProviderName = evtx.DefaultProviderName
 
 // Map converts a CEPAEvent to a WindowsEvent.
 // The hostname parameter is the computer name embedded in the event (use the
@@ -96,7 +103,7 @@ func Map(e parser.CEPAEvent, hostname string) evtx.WindowsEvent {
 
 	return evtx.WindowsEvent{
 		EventID:      eventID,
-		ProviderName: providerName,
+		ProviderName: ProviderName,
 		Computer:     hostname,
 		Channel:      "Security",
 		TimeCreated:  e.Timestamp,

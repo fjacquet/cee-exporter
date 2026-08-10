@@ -237,7 +237,7 @@ func run(ctx context.Context) {
 		// calls it — which also means deferred calls never run, so Close is
 		// called explicitly below rather than deferred, on every exit path,
 		// so whatever was written before a failure still reaches disk.
-		emitErr := emitTestEvents(w)
+		emitErr := emitTestEvents(w, hostname)
 		if emitErr != nil {
 			slog.Error("emit_test_events_failed", "err", emitErr)
 		}

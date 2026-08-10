@@ -111,7 +111,7 @@ Full requirement list: see [requirements.md](requirements.md)
 | OUT-03 | SyslogWriter: RFC 5424 over UDP | 06 | ADR-008 |
 | OUT-04 | SyslogWriter: RFC 5424 over TCP (octet-counting) | 06 | ADR-008 |
 | OUT-05 | BinaryEvtxWriter: native `.evtx` on Linux | 07 | ADR-009 |
-| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — **not yet verified; no Windows Event Viewer available in CI or this environment. Tracked as go-evtx F6; see [docs/PROMISES.md](PROMISES.md)** |
+| OUT-06 | Generated `.evtx` opens in Windows Event Viewer | 07 | ADR-009 — since v5.1.0, **Verified (partial)**: `Get-WinEvent` read-back (file opening, record count, event ID set, `ToXml()`, `ObjectName`) and `System/Channel == "Security"` are CI-gated by the `evtx-readback`/`evtx-oracle` jobs on every push; description rendering from a saved log, and `LogName` resolving to `Security` there, are covered by the dated 2026-08-10 manual protocol in docs/windows-verification.md; the Event Viewer GUI open/placement question has not been run. See [docs/PROMISES.md](PROMISES.md) |
 | TLS-03 | `tls_mode="acme"` auto-provisions via Let's Encrypt | 08 | ADR-011 |
 | TLS-04 | `tls_mode="self-signed"` for air-gapped deployments | 08 | ADR-011 |
 
@@ -119,10 +119,22 @@ Full requirement list: see [requirements.md](requirements.md)
 per-requirement traceability and [docs/PROMISES.md](PROMISES.md) for every
 user-facing claim's verifying job. Since v5.0, DEPLOY-03 and DEPLOY-04
 (Windows Service install/uninstall via the real SCM start/stop lifecycle) are
-verified by the `windows` CI job. DEPLOY-05 (crash auto-restart) and OUT-06
-above remain unverified — nothing simulates a crash to exercise the SCM's
-recovery action, and the generated-`.evtx` Event Viewer claim depends on
-go-evtx v0.7.0, not yet released.
+verified by the `windows` CI job. Since v5.1.0, OUT-06 is **Verified (partial)**: the
+`evtx-readback` job reads a Linux-generated `.evtx` on a Windows runner with
+`Get-WinEvent`, covering the file opening, record count, event ID set,
+`ToXml()`, and `ObjectName` — CI-gated on every push; the sibling
+`evtx-oracle` job additionally asserts `System/Channel == "Security"` on
+every push, since a separate defect (`windowsEventToFields` dropping the
+`Channel` field `pkg/mapper` sets on every event) used to resolve `LogName`
+to the empty string on every record this exporter ever wrote — fixed the
+same day, see `CHANGELOG.md`'s `[5.1.0]` entry. Description rendering from a
+saved log, and `LogName` resolving there, need a host with the event source
+registered, so that part is not CI-gated, but a 2026-08-10 manual reading
+confirms all three descriptions render and `LogName` resolves to `Security`
+once the event source is registered; the Event Viewer GUI open/placement
+question has not been run. DEPLOY-05 (crash auto-restart) remains
+unverified — nothing simulates a crash to exercise the SCM's recovery
+action.
 
 ---
 
@@ -171,7 +183,7 @@ For architectural decisions, see `docs/adr/`.
 | `github.com/elastic/go-lumber` | v0.2.0 | BeatsWriter Lumberjack v2 | CGO-free |
 | `github.com/prometheus/client_golang` | v1.24.1 | Prometheus /metrics | CGO-free (ADR-006) |
 | `golang.org/x/crypto` (promoted) | v0.54.0 | ACME autocert (TLS-ALPN-01) | Was indirect dep (ADR-011) |
-| `github.com/fjacquet/go-evtx` | v0.6.0 | BinaryEvtxWriter EVTX binary encoding | Extracted from cee-exporter (ADR-014, supersedes ADR-009) |
+| `github.com/fjacquet/go-evtx` | v0.7.3 | BinaryEvtxWriter EVTX binary encoding | Extracted from cee-exporter (ADR-014, supersedes ADR-009) |
 
 **No new dependencies for:** systemd unit (text artifact).
 
@@ -198,6 +210,16 @@ below; several are not yet checked by anything.
   **not yet verified** — nothing reboots the runner or simulates a crash to
   exercise the `OnFailure: "restart"` recovery action
 - `.evtx` files generated on Linux open correctly in Windows Event Viewer —
-  **not yet verified; tracked as go-evtx F6**
+  **verified (partial)** since v5.1.0 (`evtx-readback` CI job reads them back
+  with `Get-WinEvent`, covering record count, event IDs, `ToXml()`, and
+  `ObjectName`; the sibling `evtx-oracle` job also asserts
+  `System/Channel == "Security"`, catching a now-fixed defect that used to
+  resolve `LogName` to the empty string on every record — see `CHANGELOG.md`'s
+  `[5.1.0]` entry; description rendering from a saved log, and `LogName`
+  resolving there, need a host with the event source registered, so that
+  part is not CI-gated, but a 2026-08-10 manual reading confirms all three
+  descriptions render and `LogName` resolves to `Security` once the event
+  source is registered; the Event Viewer GUI open/placement question was not
+  run — see `docs/windows-verification.md` section 5)
 - `curl :9228/metrics` returns Prometheus-formatted counters (verified —
   `pkg/prometheus/handler_test.go`)
