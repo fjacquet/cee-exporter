@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `make lint` now fails on an untidy `go.sum`. Stale hash lines were
+  introduced and removed twice during v5.1.0 because nothing checked; one
+  `go mod tidy -diff` closes it.
+- `-emit-test-events` exits non-zero when the writer's `Close()` fails. It
+  logged a warning and exited 0, while `Close()` is what finalises the `.evtx`
+  chunk — so the `evtx-oracle` CI job could be told the output was good when
+  the file was unfinalised. The decision is extracted as `emitExitCode` and
+  table-tested across all four error combinations.
+- The `evtx-oracle` job's generated config no longer carries `[listen]` and
+  `[metrics]` addresses. `-emit-test-events` exits before either binds, so
+  they suggested coverage that does not exist.
+
+### Fixed
+
+- `verify_evtx.py` reported a bug in its own assertion logic as
+  `python-evtx could not open the file`, pointing the reader at the `.evtx`
+  rather than at the script. The `try` now guards only the file open. A
+  non-numeric `<EventID>` — malformed data rather than a script bug — used to
+  escape the same way, as an uncaught traceback, while its `Level` and
+  `Keywords` neighbours were already guarded. That parse is now guarded too,
+  reported as a `FAIL:` line naming the offending text.
+- `docs/windows-verification.md`'s Cleanup section already removed the
+  registry key and directory sections 1-4 create, but never mentioned the
+  directory and file section 5 adds for the saved-log protocol, so following
+  the protocol left those behind on the test VM.
+
 ## [5.1.1] - 2026-08-10
 
 Consistency and verification follow-up to v5.1.0. Nothing an operator's SIEM
