@@ -123,15 +123,21 @@ before.
   against it — build, 149 tests under `-race`, the Linux python-evtx oracle,
   and `Get-WinEvent` on Windows Server 2025 reading three records with
   descriptions and `LogName=[Security]`.
-- OUT-06 moves from **Unverified** to **Verified** in `docs/PROMISES.md`,
-  `docs/requirements.md` and `docs/PRD.md`: the file opens, all three
-  records enumerate, all twelve `EventData` fields carry correct values,
-  `LogName` resolves to `Security`, and descriptions render. The first three
-  of those are CI-gated on every push via `evtx-readback`; `LogName` is also
-  CI-gated, via `evtx-oracle`'s new `System/Channel` assertion (see Added,
-  above); description rendering from a saved log is covered by the dated
-  manual protocol in `docs/windows-verification.md`, since it needs a host
-  with the event source registered.
+- OUT-06 moves from **Unverified** to **Verified (partial)** in
+  `docs/PROMISES.md`, `docs/requirements.md` and `docs/PRD.md`: the file
+  opens, all three records enumerate, all twelve `EventData` fields carry
+  correct values, `LogName` resolves to `Security`, and descriptions render.
+  The first three of those are CI-gated on every push via `evtx-readback`;
+  `LogName` is also CI-gated, via `evtx-oracle`'s new `System/Channel`
+  assertion (see Added, above); description rendering from a saved log is
+  covered by the dated manual protocol in `docs/windows-verification.md`,
+  since it needs a host with the event source registered.
+
+    Partial, not closed: opening the saved log in Event Viewer's **GUI** and
+    seeing where it places the events has not been run. `winvm` is reached
+    only over SSH with no interactive desktop session. `Get-WinEvent -Path`
+    is not the GUI, and this project does not grade an unrun check as
+    verified — see the vocabulary at the top of `docs/PROMISES.md`.
 
 ## [5.0.1] - 2026-08-09
 
