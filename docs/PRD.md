@@ -194,7 +194,7 @@ For architectural decisions, see `docs/adr/`.
 | `github.com/elastic/go-lumber` | v0.2.0 | BeatsWriter Lumberjack v2 | CGO-free |
 | `github.com/prometheus/client_golang` | v1.24.1 | Prometheus /metrics | CGO-free (ADR-006) |
 | `golang.org/x/crypto` (promoted) | v0.54.0 | ACME autocert (TLS-ALPN-01) | Was indirect dep (ADR-011) |
-| `github.com/fjacquet/go-evtx` | v0.7.3 | BinaryEvtxWriter EVTX binary encoding | Extracted from cee-exporter (ADR-014, supersedes ADR-009) |
+| `github.com/fjacquet/go-evtx` | v0.7.4 | BinaryEvtxWriter EVTX binary encoding | Extracted from cee-exporter (ADR-014, supersedes ADR-009) |
 
 **No new dependencies for:** systemd unit (text artifact).
 

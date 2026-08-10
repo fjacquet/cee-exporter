@@ -7,8 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-08-10
+
+Consistency and verification follow-up to v5.1.0. Nothing an operator's SIEM
+receives changes; the `.evtx` files this release writes differ from v5.1.0's
+only in two `System` values that Windows was already filling in by default.
+
+### Fixed
+
+- **The two Windows-facing writers disagreed on `Level` and `Keywords`.** The
+  same audit event written through `Win32EventLogWriter` carried Level 4 and
+  the CLASSIC keyword — Windows stamps those for `EVENTLOG_INFORMATION_TYPE` —
+  while the same event written to a `.evtx` file carried Level 0 and Keywords
+  0x0. Measured on Windows Server 2025, before and after:
+
+    ```text
+    before   Win32 live  : Level=4 Keywords=0x80000000000000
+             file        : Level=0 Keywords=0x0
+    after    both        : Level=4 Keywords=0x80000000000000
+    ```
+
+    Cosmetic on its own, and worth saying so plainly: Event Viewer supplies its
+    own defaults for the zeros, so a v5.1.0 file already displayed Level
+    "Information" and Keywords "None" — confirmed in the GUI on 2026-08-10.
+    What this fixes is one product emitting two shapes. The one observable
+    gain is that `Get-WinEvent`'s `.LevelDisplayName` now resolves to
+    "Information" for file records instead of returning the empty string.
+
+    An upstream issue was filed claiming this made Event Viewer's columns
+    blank. That claim was wrong and has been corrected: the columns render
+    either way. See [fjacquet/go-evtx#13](https://github.com/fjacquet/go-evtx/issues/13).
+
 ### Changed
 
+- `github.com/fjacquet/go-evtx` v0.7.3 → v0.7.4 (`Origin.Hash 4bd5d03`,
+  `refs/tags/v0.7.4`), which honours `Level`, `Version`, `Task`, `Opcode` and
+  `Keywords` from the fields map. Before it, those keys were accepted without
+  error and silently dropped — which is how the disagreement above went
+  unnoticed: passing them looked like it worked.
+- `evtx-oracle` now asserts `System/Level` and `System/Keywords`, compared
+  numerically rather than by string: python-evtx renders Keywords zero-padded
+  to sixteen hex digits and Windows does not, so a string assertion would pass
+  on one reader and fail on the other for no reason that concerns correctness.
 - OUT-06 moves from **Verified (partial)** to **Verified**. The one check
   that had not been run — opening the saved log in Event Viewer's GUI — was
   run on 2026-08-10, over an RDP session to `winvm` (Windows Server 2025
