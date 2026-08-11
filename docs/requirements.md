@@ -125,6 +125,9 @@ IDs renumbered `OBS-04`–`OBS-08` — see [ID renumbering](#id-renumbering-note
 | OBS-06 | Operator can scrape `cee_queue_depth` from `/metrics` | Delivered | `pkg/prometheus/handler_test.go::TestMetricsHandler_AllRequiredMetrics` |
 | OBS-07 | Operator can scrape `cee_writer_errors_total` from `/metrics` | Delivered | `pkg/prometheus/handler_test.go::TestMetricsHandler_AllRequiredMetrics` |
 | OBS-08 | `/metrics` is served on a configurable dedicated port (default 9228) | Delivered (partial) | `cmd/cee-exporter/main.go` (`[metrics] addr`, default `0.0.0.0:9228`); no test exercises a non-default value end-to-end. |
+| OBS-10 | Operator can scrape per-publisher CEPA liveness (`cee_cepa_last_request_unix_seconds{remote}`) from `/metrics` | Delivered | `pkg/prometheus/handler_test.go::TestMetricsHandler_CEPAPeerMetrics`, `pkg/server/server_test.go::TestServeHTTP_StampsPeerOnEveryPath` |
+| OBS-11 | Operator can scrape per-publisher handshake counts (`cee_cepa_registrations_total{remote}`) from `/metrics` | Delivered | `pkg/prometheus/handler_test.go::TestMetricsHandler_CEPAPeerMetrics`, `pkg/server/server_test.go::TestServeHTTP_CountsRegistrationsOnly` |
+| OBS-12 | The `remote` label is bounded — port stripped, publishers capped at 64, overflow counted in `cee_cepa_peers_dropped_total` | Delivered | `pkg/metrics/metrics_test.go::TestStore_PeerCap`, `pkg/server/server_test.go::TestServeHTTP_StampsPeerWithoutPort`, `pkg/server/server_test.go::TestPeerHost` |
 
 ### Service Deployment
 
