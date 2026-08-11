@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -467,6 +469,14 @@ func TestPeerHost(t *testing.T) {
 	}
 }
 
+// errReader is a request body that fails mid-read, exercising the readBody
+// error path in ServeHTTP.
+type errReader struct{}
+
+func (errReader) Read([]byte) (int, error) {
+	return 0, errors.New("simulated body read failure")
+}
+
 // TestServeHTTP_StampsPeerOnEveryPath is the liveness guard. The metric must
 // answer "is this publisher still talking to us", so every path that
 // represents a publisher reaching us — including the failures — stamps it.
@@ -475,11 +485,18 @@ func TestPeerHost(t *testing.T) {
 func TestServeHTTP_StampsPeerOnEveryPath(t *testing.T) {
 	cases := []struct {
 		name string
-		body string
+		body io.Reader
 	}{
-		{"register request", `<RegisterRequest/>`},
-		{"event batch", singleEventXML},
-		{"parse error", "<not-well-formed"},
+		{"register request", strings.NewReader(`<RegisterRequest/>`)},
+		{"event batch", strings.NewReader(singleEventXML)},
+		{"parse error", strings.NewReader("<not-well-formed")},
+		// The body-read failure is the case that pins the stamp's placement.
+		// The other three read their bodies successfully, so a stamp moved
+		// after readBody would still pass them; only a body that errors mid-read
+		// distinguishes "before readBody" from "after it". Without this case the
+		// claim in docs/PROMISES.md that *every* request path stamps its
+		// publisher is broader than what is tested.
+		{"body read error", errReader{}},
 	}
 
 	for _, tc := range cases {
@@ -487,7 +504,7 @@ func TestServeHTTP_StampsPeerOnEveryPath(t *testing.T) {
 			resetPeers(t)
 			h := newTestHandler(t, &stubWriter{}, 10, 1)
 
-			req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(tc.body))
+			req := httptest.NewRequest(http.MethodPut, "/", tc.body)
 			req.RemoteAddr = "10.0.2.250:54321"
 			rec := httptest.NewRecorder()
 
@@ -512,9 +529,11 @@ func TestServeHTTP_StampsPeerWithoutPort(t *testing.T) {
 	h := newTestHandler(t, &stubWriter{}, 10, 1)
 
 	for _, port := range []string{":54321", ":54322", ":54323"} {
-		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`<RegisterRequest/>`))
-		req.RemoteAddr = "10.0.2.250" + port
-		h.ServeHTTP(httptest.NewRecorder(), req)
+		t.Run("port"+port, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`<RegisterRequest/>`))
+			req.RemoteAddr = "10.0.2.250" + port
+			h.ServeHTTP(httptest.NewRecorder(), req)
+		})
 	}
 
 	snap := metrics.M.PeerSnapshot()
