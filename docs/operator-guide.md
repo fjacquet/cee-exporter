@@ -287,11 +287,13 @@ cee-exporter registers with these recovery settings automatically at install:
 A systemd unit file is included for production deployments:
 
 ```bash
-# From a repo checkout:
+# From a repo checkout — builds the binary, installs it to
+# /usr/local/bin/cee-exporter, and installs the unit:
 sudo make install-systemd
 sudo install -m 644 config.toml /etc/cee-exporter/config.toml
+sudo systemctl enable --now cee-exporter
 
-# Or manually:
+# Or manually (e.g. from a release tarball, no toolchain on the host):
 sudo install -m 755 cee-exporter /usr/local/bin/cee-exporter
 sudo install -d -m 755 /etc/cee-exporter
 sudo install -m 644 config.toml /etc/cee-exporter/config.toml

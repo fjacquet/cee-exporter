@@ -14,6 +14,8 @@ LDFLAGS        := -s -w -X main.version=$(VERSION)
 
 SYSTEMD_UNIT_SRC := deploy/systemd/cee-exporter.service
 SYSTEMD_UNIT_DST := /etc/systemd/system/cee-exporter.service
+# Must match ExecStart= in $(SYSTEMD_UNIT_SRC).
+BINARY_INSTALL_PATH := /usr/local/bin/cee-exporter
 
 DIST  ?= dist
 COVER ?= coverage.out
@@ -103,10 +105,17 @@ coverage:
 
 # Requires root. Run as: sudo make install-systemd
 # The unit uses DynamicUser, so no system account needs to be created.
+# Builds for the host architecture — build-linux pins amd64, and a wrong-arch
+# binary at ExecStart fails as status=203/EXEC, indistinguishable from a
+# missing file.
 install-systemd: $(SYSTEMD_UNIT_SRC)
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(shell go env GOARCH) \
+	  go build -trimpath -ldflags="$(LDFLAGS)" -o $(BINARY_NAME) $(CMD_PATH)
 	install -d -m 755 /etc/cee-exporter
+	install -m 755 $(BINARY_NAME) $(BINARY_INSTALL_PATH)
 	install -m 644 $(SYSTEMD_UNIT_SRC) $(SYSTEMD_UNIT_DST)
 	systemctl daemon-reload
+	@echo "Binary installed to $(BINARY_INSTALL_PATH)"
 	@echo "Unit installed. Place your config, keeping it world-readable (DynamicUser"
 	@echo "requires this — config.toml has no secrets; put those in env instead):"
 	@echo "  install -m 644 config.toml /etc/cee-exporter/config.toml"
