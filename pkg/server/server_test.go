@@ -435,3 +435,112 @@ func TestServeHTTP_LargeBatchACKsWellUnder3s(t *testing.T) {
 		t.Errorf("EventsReceivedTotal = %d, want %d", got, eventCount)
 	}
 }
+
+// resetPeers isolates the metrics.M peer table for a test and restores an
+// empty table afterwards, matching resetEventsReceived's shape.
+func resetPeers(t *testing.T) {
+	t.Helper()
+	metrics.M.ResetPeers()
+	t.Cleanup(metrics.M.ResetPeers)
+}
+
+func TestPeerHost(t *testing.T) {
+	cases := []struct {
+		name string
+		addr string
+		want string
+	}{
+		{"ipv4 with port", "10.0.2.250:54321", "10.0.2.250"},
+		{"ipv6 with port", "[2001:db8::1]:12228", "2001:db8::1"},
+		{"no port", "10.0.2.250", "10.0.2.250"},
+		{"empty", "", ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := peerHost(tc.addr); got != tc.want {
+				t.Errorf("peerHost(%q) = %q, want %q", tc.addr, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestServeHTTP_StampsPeerOnEveryPath is the liveness guard. The metric must
+// answer "is this publisher still talking to us", so every path that
+// represents a publisher reaching us — including the failures — stamps it.
+// A publisher whose payloads no longer parse is broken but alive, and must
+// not read as dead.
+func TestServeHTTP_StampsPeerOnEveryPath(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"register request", `<RegisterRequest/>`},
+		{"event batch", singleEventXML},
+		{"parse error", "<not-well-formed"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetPeers(t)
+			h := newTestHandler(t, &stubWriter{}, 10, 1)
+
+			req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(tc.body))
+			req.RemoteAddr = "10.0.2.250:54321"
+			rec := httptest.NewRecorder()
+
+			h.ServeHTTP(rec, req)
+
+			snap := metrics.M.PeerSnapshot()
+			if _, ok := snap["10.0.2.250"]; !ok {
+				t.Fatalf("peer 10.0.2.250 not stamped on the %q path; snapshot = %v", tc.name, snap)
+			}
+			if got := snap["10.0.2.250"].LastRequestUnix; got == 0 {
+				t.Errorf("LastRequestUnix = 0 on the %q path, want a real timestamp", tc.name)
+			}
+		})
+	}
+}
+
+// TestServeHTTP_StampsPeerWithoutPort confirms the ephemeral port is stripped.
+// CEE's NumberOfThreads defaults to 20, so leaving the port on would create
+// up to 20 label values per publisher and grow without bound over time.
+func TestServeHTTP_StampsPeerWithoutPort(t *testing.T) {
+	resetPeers(t)
+	h := newTestHandler(t, &stubWriter{}, 10, 1)
+
+	for _, port := range []string{":54321", ":54322", ":54323"} {
+		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`<RegisterRequest/>`))
+		req.RemoteAddr = "10.0.2.250" + port
+		h.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	snap := metrics.M.PeerSnapshot()
+	if len(snap) != 1 {
+		t.Fatalf("PeerSnapshot has %d entries for one host on three ports, want 1: %v", len(snap), snap)
+	}
+	if _, ok := snap["10.0.2.250"]; !ok {
+		t.Errorf("peer keyed as %v, want the bare host 10.0.2.250", snap)
+	}
+}
+
+// TestServeHTTP_CountsRegistrationsOnly confirms registrations count the
+// handshake and nothing else — an event batch is not a registration.
+func TestServeHTTP_CountsRegistrationsOnly(t *testing.T) {
+	resetPeers(t)
+	h := newTestHandler(t, &stubWriter{}, 10, 1)
+
+	send := func(body string) {
+		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(body))
+		req.RemoteAddr = "10.0.2.250:54321"
+		h.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	send(`<RegisterRequest/>`)
+	send(`<RegisterRequest/>`)
+	send(singleEventXML)
+
+	if got := metrics.M.PeerSnapshot()["10.0.2.250"].Registrations; got != 2 {
+		t.Errorf("Registrations = %d, want 2 (two handshakes; the event batch is not one)", got)
+	}
+}
