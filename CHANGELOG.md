@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.3.1] - 2026-08-11
+
+### Fixed
+
+- **`make install-systemd` now installs the binary** (#34). The target
+  installed the unit file and created `/etc/cee-exporter`, but never put a
+  binary at the unit's `ExecStart` path (`/usr/local/bin/cee-exporter`), so a
+  fresh `sudo make install-systemd && systemctl enable --now cee-exporter`
+  failed as `status=203/EXEC` in a restart loop — with no message from the
+  daemon, which never ran.
+
+  The build targets the host architecture rather than reusing `build-linux`,
+  which pins `GOARCH=amd64`: a wrong-arch binary is also reported as
+  `203/EXEC`, indistinguishable from a missing file. Note that the target now
+  runs `go build`, so under `sudo`'s reset PATH the host may not find `go`;
+  the operator guide's manual path covers hosts with no Go toolchain.
+
 ## [5.3.0] - 2026-08-11
 
 ### Added
