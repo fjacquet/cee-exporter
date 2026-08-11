@@ -40,3 +40,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 .venv/
+
+# Local compose secrets — never commit a real password
+deploy/.env
+.env
