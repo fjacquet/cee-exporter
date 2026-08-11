@@ -70,9 +70,64 @@ func newRegistry() *prometheus.Registry {
 			},
 			func() float64 { return float64(metrics.M.EventsTruncatedTotal.Load()) },
 		),
+		prometheus.NewCounterFunc(
+			prometheus.CounterOpts{
+				Name: "cee_cepa_peers_dropped_total",
+				Help: "Total CEPA publishers not recorded because the MaxPeers " +
+					"cap was reached. Non-zero means the remote label is " +
+					"truncated and a real publisher may be missing.",
+			},
+			func() float64 { return float64(metrics.M.PeersDropped()) },
+		),
 	)
 
+	reg.MustRegister(cepaCollector{})
+
 	return reg
+}
+
+// The two per-publisher series need a dynamic label set, which
+// prometheus.CounterFunc and prometheus.GaugeFunc cannot carry — hence a
+// hand-written collector rather than another entry in newRegistry's
+// MustRegister list.
+var (
+	cepaLastRequestDesc = prometheus.NewDesc(
+		"cee_cepa_last_request_unix_seconds",
+		"Unix timestamp of the last CEPA request received from this publisher, "+
+			"whether handshake, event batch, or failed payload. Alert when "+
+			"time()-this exceeds several times CEE's HeartBeatIntervalSecs "+
+			"(default 10). The publisher is a CEE server, not a NAS Data Mover: "+
+			"a Data Mover that stops publishing into a healthy CEE server is not "+
+			"visible here.",
+		[]string{"remote"}, nil,
+	)
+	cepaRegistrationsDesc = prometheus.NewDesc(
+		"cee_cepa_registrations_total",
+		"Total CEPA RegisterRequest handshakes received from this publisher.",
+		[]string{"remote"}, nil,
+	)
+)
+
+// cepaCollector emits the per-publisher CEPA series from a single snapshot
+// per scrape, which keeps the two series mutually consistent.
+type cepaCollector struct{}
+
+func (cepaCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- cepaLastRequestDesc
+	ch <- cepaRegistrationsDesc
+}
+
+func (cepaCollector) Collect(ch chan<- prometheus.Metric) {
+	for host, p := range metrics.M.PeerSnapshot() {
+		ch <- prometheus.MustNewConstMetric(
+			cepaLastRequestDesc, prometheus.GaugeValue,
+			float64(p.LastRequestUnix), host,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			cepaRegistrationsDesc, prometheus.CounterValue,
+			float64(p.Registrations), host,
+		)
+	}
 }
 
 // NewMetricsHandler returns an http.Handler that serves Prometheus text-format
