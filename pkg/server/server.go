@@ -16,6 +16,7 @@ package server
 import (
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -48,6 +49,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Stamp the publisher before anything can fail. A publisher whose body
+	// is unreadable or unparseable is broken but alive; recording it only on
+	// the success paths would report it as dead. peer is a CEE server, not a
+	// NAS Data Mover — see docs/superpowers/specs/2026-08-10-cepa-heartbeat-metrics-design.md.
+	peer := peerHost(r.RemoteAddr)
+	metrics.M.RecordPeerRequestAt(peer, start)
+
 	defer func() { _ = r.Body.Close() }()
 	body, err := readBody(w, r)
 	if err != nil {
@@ -58,6 +66,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// -- Handshake -----------------------------------------------------------
 	if parser.IsRegisterRequest(body) {
+		metrics.M.RecordPeerRegistration(peer)
 		slog.Info("cepa_register_request",
 			"remote", r.RemoteAddr,
 			"body_bytes", len(body),
@@ -122,4 +131,15 @@ func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	const maxBody = 64 << 20 // 64 MiB
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	return io.ReadAll(r.Body)
+}
+
+// peerHost reduces a RemoteAddr to its host, dropping the ephemeral port.
+// The port changes per connection, so leaving it on would make the remote
+// label unbounded. An address that does not parse is used as-is; the
+// MaxPeers cap in pkg/metrics still bounds it.
+func peerHost(addr string) string {
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		return h
+	}
+	return addr
 }

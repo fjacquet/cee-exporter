@@ -343,6 +343,73 @@ Available metrics:
 | `cee_queue_depth` | Gauge | Current event queue depth |
 | `cee_last_fsync_unix_seconds` | Gauge | Unix timestamp of the last successful fsync to the EVTX file. 0 = none yet; alert when `time() - this > flush_interval_s * 2` |
 | `cee_build_info` | Gauge | Always 1; labelled with `version` and `go_version` — join on it to correlate other metrics with a release |
+| `cee_cepa_last_request_unix_seconds` | Gauge | Unix timestamp of the last CEPA request from a publisher, labelled `remote`. Stamped on every PUT — handshake, event batch, or failed payload. Alert when `time() - this > 60` |
+| `cee_cepa_registrations_total` | Counter | CEPA `RegisterRequest` handshakes received from a publisher, labelled `remote` |
+| `cee_cepa_peers_dropped_total` | Counter | Requests from publishers not recorded because the 64-peer cap was reached — increments on every such request, not once per distinct publisher. Non-zero means a real publisher may be missing from the labelled series above |
+
+### Publisher liveness
+
+`cee_events_received_total` sitting at zero is ambiguous: the NAS may be quiet,
+or the publisher may have stopped and every event is being lost. Prometheus's
+own `up` does not separate the two — it says this process answers a scrape, not
+that anything is still publishing to it. The `cee_cepa_*` series above answer
+that question directly:
+
+```yaml
+- alert: CEEPublisherSilent
+  expr: time() - cee_cepa_last_request_unix_seconds > 60
+  for: 2m
+  annotations:
+    summary: "CEE publisher {{ $labels.remote }} has not sent a request in over a minute"
+```
+
+CEE contacts its configured endpoint unprompted every `HeartBeatIntervalSecs`,
+which defaults to 10 (`emc_cee_config.xml` on Linux; the equivalent registry
+value on Windows). 60s is therefore six missed beats. **Raise this threshold if
+you raise `HeartBeatIntervalSecs`.**
+
+**Cold start.** The peer table lives in cee-exporter's process memory and
+starts empty on every restart. These series only cover publishers seen
+**since the exporter started** — a publisher that was already dead before
+startup never gets a series at all, and `CEEPublisherSilent` cannot fire for
+something with no series to compare against. Guard against total silence with:
+
+```yaml
+- alert: CEENoPublishers
+  expr: absent(cee_cepa_last_request_unix_seconds)
+  for: 5m
+  annotations:
+    summary: "cee-exporter has seen no CEPA publisher at all since it started"
+```
+
+Where the expected publisher set is known, a per-publisher `absent()` rule
+catches an individual one that never showed up after a restart:
+
+```yaml
+- alert: CEEExpectedPublisherMissing
+  expr: absent(cee_cepa_last_request_unix_seconds{remote="10.0.2.250"})
+  for: 5m
+  annotations:
+    summary: "Expected CEE publisher 10.0.2.250 has no series — dead since before the exporter started, or never reachable"
+```
+
+**What this does and does not detect.** A `remote` label is a **CEE server**,
+not a NAS Data Mover. The publishing chain is Data Movers → CEE server →
+cee-exporter, and one CEE server aggregates many Data Movers. These metrics
+catch a CEE host that has gone silent. They do **not** catch a Data Mover that
+stopped publishing into a CEE server that is still healthy — that path stays
+green.
+
+**Cardinality.** The `remote` label is the source host with the ephemeral port
+stripped, capped at 64 distinct publishers. Past the cap, new publishers are
+not recorded and `cee_cepa_peers_dropped_total` increments — if that counter is
+non-zero, the labelled series are incomplete. Peers are never expired, because
+deleting the series for a publisher that went dark would destroy exactly the
+signal the alert depends on.
+
+To cross-check a publisher against CEE's own view, enable CEE debug logging
+(`Debug` and `Verbose` set to 63 in `emc_cee_config.xml`, then restart the
+service) and read `/opt/CEEPack/emc_cee_svc.log`.
 
 Example Prometheus scrape config:
 

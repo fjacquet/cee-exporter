@@ -90,3 +90,66 @@ func TestBuildInfoMetric(t *testing.T) {
 		t.Errorf("go_version label missing from cee_build_info:\n%s", body)
 	}
 }
+
+// TestMetricsHandler_CEPAPeerMetrics verifies the per-publisher series are
+// scrapeable with their remote label, for more than one publisher — a single
+// aggregate would stay green while one of three publishers went dark, which
+// is the case these metrics exist to catch.
+func TestMetricsHandler_CEPAPeerMetrics(t *testing.T) {
+	metrics.M.ResetPeers()
+	t.Cleanup(metrics.M.ResetPeers)
+
+	metrics.M.RecordPeerRequestAt("10.0.2.250", time.Unix(1_700_000_000, 0))
+	metrics.M.RecordPeerRegistration("10.0.2.250")
+	metrics.M.RecordPeerRegistration("10.0.2.250")
+	metrics.M.RecordPeerRequestAt("10.0.2.251", time.Unix(1_700_000_030, 0))
+
+	h := NewMetricsHandler()
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+
+	required := []string{
+		`cee_cepa_last_request_unix_seconds{remote="10.0.2.250"} 1.7e+09`,
+		`cee_cepa_registrations_total{remote="10.0.2.250"} 2`,
+		`cee_cepa_last_request_unix_seconds{remote="10.0.2.251"} 1.70000003e+09`,
+		`cee_cepa_registrations_total{remote="10.0.2.251"} 0`,
+		"cee_cepa_peers_dropped_total 0",
+	}
+	for _, want := range required {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in scrape output, not found\nBody:\n%s", want, body)
+		}
+	}
+}
+
+// TestMetricsHandler_CEPAPeerMetricsEmpty confirms no peers means no series —
+// in particular no remote="" artefact, which would alert as a dead publisher
+// that never existed.
+func TestMetricsHandler_CEPAPeerMetricsEmpty(t *testing.T) {
+	metrics.M.ResetPeers()
+	t.Cleanup(metrics.M.ResetPeers)
+
+	h := NewMetricsHandler()
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+
+	if strings.Contains(body, `cee_cepa_last_request_unix_seconds{`) {
+		t.Errorf("expected no cee_cepa_last_request_unix_seconds series with no peers\nBody:\n%s", body)
+	}
+	if strings.Contains(body, `remote=""`) {
+		t.Errorf("empty remote label in scrape output\nBody:\n%s", body)
+	}
+	// The label-free drop counter is always present.
+	if !strings.Contains(body, "cee_cepa_peers_dropped_total") {
+		t.Errorf("cee_cepa_peers_dropped_total missing from scrape output\nBody:\n%s", body)
+	}
+}
