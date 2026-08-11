@@ -90,8 +90,10 @@ that went dark, destroying exactly the signal the alert depends on.
 ## State — `pkg/metrics`
 
 `pkg/metrics` continues to own all state; `pkg/prometheus` only exposes it.
-This keeps `client_golang` out of the event path and lets `Snapshot()` carry
-the peer table.
+This keeps `client_golang` out of the event path, and puts the peer table
+where `/health` could read it later without moving state between packages.
+The existing `Snapshot()` is deliberately left alone: nothing consumes a peer
+table today, and `/health` is out of scope here.
 
 ```go
 // MaxPeers bounds the remote-label cardinality.
