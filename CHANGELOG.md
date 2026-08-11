@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.3.3] - 2026-08-11
+
+### Fixed
+
+- **`verify-artifacts` failed its own first run** on `v5.3.2`, against a release
+  whose artifacts were correct. `${archive%.*}` strips only `.gz`, so each
+  tarball extracted to a `...tar` directory and the version-stamp step looked
+  for `extracted/cee-exporter_5.3.2_linux_amd64/cee-exporter`, which did not
+  exist. Both extensions are now stripped explicitly.
+
+  The `v5.3.2` artifacts were verified by hand while this was fixed: checksums
+  match, and the shipped `darwin_arm64` binary serves
+  `cee_build_info{go_version="go1.26.5",version="5.3.2"} 1`. This release is
+  the job's first end-to-end execution.
+
 ## [5.3.2] - 2026-08-11
 
 No runtime code changed in this release. What changed is what the project can
