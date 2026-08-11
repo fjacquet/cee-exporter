@@ -5,6 +5,78 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.3.0] - 2026-08-11
+
+### Added
+
+- **Per-publisher CEPA liveness metrics** (#27). `/metrics` now exposes
+  `cee_cepa_last_request_unix_seconds{remote}`,
+  `cee_cepa_registrations_total{remote}` and a label-free
+  `cee_cepa_peers_dropped_total`. Until now `cee_events_received_total == 0`
+  could not distinguish a quiet NAS from a publisher that had died and was
+  losing every event; Prometheus's own `up` does not separate them either,
+  since it reports only that this process answers a scrape.
+
+  The timestamp is stamped on every request path — handshake, event batch,
+  unparseable payload and unreadable body alike — so a broken-but-alive
+  publisher does not read as dead. The `remote` label departs from the
+  deliberately label-free design of the other metrics because the signal has
+  to be per-publisher to be useful: a single aggregate stays green while one
+  of three publishers goes dark. Cardinality is bounded by stripping the
+  ephemeral port and capping distinct publishers at 64, with overflow counted
+  rather than silently dropped.
+
+  **This does not detect a NAS Data Mover that stopped publishing into a
+  healthy CEE server** — a `remote` label is a CEE host, and one CEE host
+  aggregates many Data Movers.
+
+- **Grafana dashboard and monitoring stack.** `dashboards/cee-exporter.json`
+  plus `deploy/compose.yaml`, which brings up Prometheus and Grafana with the
+  datasource, dashboard and six alert rules provisioned. Both services bind to
+  loopback and Grafana requires an admin password; the exporter itself is
+  deliberately not containerised, because that would change the source address
+  CEE sees, which is the `remote` label.
+
+### Fixed
+
+- **CEE sends UTF-16LE; the parser only read ASCII** (#32). `IsRegisterRequest`
+  and `Parse` compared raw ASCII bytes, so no CEPA handshake ever matched:
+  every one fell through to the parse-error branch,
+  `cee_cepa_registrations_total` sat at 0 permanently, and each publisher
+  logged an ERROR every 10 seconds. A UTF-16 event payload was ACKed with
+  HTTP 200 and dropped.
+
+  The integration worked only because the parse-error branch returns 200 with
+  an empty body — exactly what the handshake requires. That coincidence is why
+  a full test suite never saw it. Found by deploying against three live CEE
+  9.2.0.0 publishers and reading `/metrics`, not by reading code.
+
+  Payloads are now transcoded once at the head of both entry points using
+  stdlib `unicode/utf16` — no new dependency. BOM'd LE/BE and the no-BOM form
+  CEE actually sends are all handled; UTF-8 passes through untouched. A
+  truncated payload (an odd trailing byte) is rejected rather than decoded to
+  a well-formed prefix, which would turn a partial write into a whole audit
+  record.
+
+  **Still unverified:** whether CEE encodes *event* payloads as UTF-16 the way
+  it encodes handshakes. No array publishes to the test hosts, so only
+  handshakes are observable. The decoder is correct either way.
+
+### Verified against live CEE
+
+Measured on 2026-08-11 against CEE 9.2.0.0 on RHEL 9.8, SLES 15 SP7 and
+Windows Server, three publishers to one exporter:
+
+- `HeartBeatIntervalSecs` defaults to 10s — the 60s alert threshold is six
+  missed beats.
+- `CEEPublisherSilent` fires for a stopped publisher only, leaving the other
+  two green; `CEEExporterDown` fires when the exporter itself stops while the
+  publisher alerts stay silent, so a scrape failure is not misreported as
+  every publisher dying at once.
+- All 8 dashboard panel expressions return data.
+
+See `docs/PROMISES.md` for what remains **Unverified**.
+
 ## [5.2.1] - 2026-08-10
 
 ### Changed
