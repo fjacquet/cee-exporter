@@ -421,6 +421,40 @@ Example Prometheus scrape config:
     - targets: ['cee-exporter-host:9228']
 ```
 
+### Grafana dashboard
+
+`dashboards/cee-exporter.json` renders the metrics above. It is provisioned
+automatically by the monitoring stack in `deploy/compose.yaml`:
+
+```bash
+docker compose -f deploy/compose.yaml up -d
+# Grafana on :3000, Prometheus on :9090
+```
+
+[![cee-exporter Grafana dashboard: publisher silence, registrations per
+publisher, event throughput, queue depth, seconds since last fsync, and
+requests dropped at the label cap](assets/grafana-dashboard.png)](assets/grafana-dashboard.png)
+
+*Click for full resolution — the panel labels are unreadable at page width.*
+
+The screenshot above is a real capture (Grafana 11.5.1, 2026-08-11) against a
+live exporter with one CEE publisher. Read it as proof the panels provision and
+render — not as a performance baseline:
+
+- The traffic is a single short burst at 18:00 on an otherwise idle window.
+  Queue depth flat at zero and `dropped` at zero mean the queue was never put
+  under pressure, not that it holds up under a VCAPS batch load.
+- **Publisher silence** turns yellow at 30 s. That threshold must sit above
+  your CEE `HeartBeatIntervalSecs` plus jitter — see
+  [Publisher liveness](#publisher-liveness) — or an idle-but-healthy system
+  will sit permanently yellow.
+- `received` and `written` overlap on the throughput panel when nothing is
+  being dropped, so one line can hide the other. Read the legend values, not
+  the shape.
+
+No CI job checks this dashboard. Its verification status is tracked in
+[PROMISES.md](PROMISES.md).
+
 ---
 
 ## TLS / HTTPS setup
@@ -547,6 +581,25 @@ CEPA (Common Event Publishing Agent) is the PowerStore mechanism that sends file
 | PowerStore shows **TLS handshake error** | Certificate SAN mismatch, or cert not imported into PowerStore trust store |
 | No events in Graylog after registration | Check `gelf_host`/`gelf_port` in config; verify Graylog GELF Input is active |
 | `cepa_parse_error` in cee-exporter logs | Unsupported CEPA payload format — open an issue with the raw payload |
+
+### PowerScale (OneFS) — not supported, testable
+
+OneFS forwards protocol audit events by HTTP PUT to a CEE server URI on the
+same port this daemon listens on (`http://host:12228/cee`), and the handler
+routes on method, not path — so a cluster can be pointed straight at
+cee-exporter with no Dell CEE server in between.
+
+That is a documented transport match, **not** a working integration. OneFS
+names its audited events `create`/`close`/`delete`/`rename`/`set_security`,
+while `pkg/mapper` keys on the `CEPP_*` family PowerStore emits; whether the
+CEE payload normalises between them is undocumented and unmeasured, as is
+whether OneFS performs the `RegisterRequest` handshake at all. No OneFS
+cluster has ever sent this daemon a packet.
+
+[PowerScale verification protocol](powerscale-verification.md) is the
+step-by-step procedure for settling it — OneFS Simulator on ESXi first, then a
+physical cluster — including the packet capture that has to happen before the
+first PUT, because the forwarder does not replay it.
 
 ---
 

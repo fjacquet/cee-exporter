@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.3.2] - 2026-08-11
+
+No runtime code changed in this release. What changed is what the project can
+prove about the binary it ships.
+
+### Added
+
+- **`static-binary` CI job** — runs on every push. Asserts four independent
+  signals on the built Linux binary (`file` says `statically linked`, `ldd`
+  says `not a dynamic executable`, `readelf -d` shows no `NEEDED` entry, and
+  `go version -m` records `CGO_ENABLED=0`), then runs a **negative control**: a
+  deliberate `CGO_ENABLED=1` build that must come out dynamic. Without the
+  control, a broken assertion is indistinguishable from a clean binary.
+
+  The job failed its own first run — on the assertion, not the binary. `ldd`
+  exits 1 on a static binary, which is how it reports "not a dynamic
+  executable", so piping it into `grep` under `set -o pipefail` failed the step
+  on exactly the outcome being asserted.
+
+- **`verify-artifacts` release job** — runs on every `v*` tag, after goreleaser.
+  Downloads the published assets, verifies them against the published
+  `checksums.txt`, then asserts, on the artifacts users actually download:
+  static linking and no `NEEDED` entries (Linux), `CGO_ENABLED=0` (all), a
+  `LICENSE` entry in every archive, that the shipped binary reports the tag's
+  version in `cee_build_info` and serves a healthy `/health` — failing
+  explicitly on `version="dev"`, which is what a lost `-ldflags` produces and
+  what no unit test can catch — and that the published container tags are a
+  multi-arch index. This release is its first execution.
+
+- **`docs/powerscale-verification.md`** — the procedure for determining whether
+  PowerScale (OneFS) can publish to this daemon, for a OneFS Simulator on ESXi
+  and for a physical cluster. Explicitly marked as never executed. OneFS
+  forwards protocol audit events by HTTP PUT to a CEE server URI on port 12228
+  and `pkg/server` routes on method rather than path, so the transport matches
+  by documentation — but OneFS names its audited events
+  `create`/`close`/`delete`/`rename`/`set_security` while `pkg/mapper` keys on
+  the `CEPP_*` family, and nothing has measured which appears on the wire.
+  `docs/PROMISES.md` records PowerScale as **Unverified**.
+
+- **Grafana dashboard screenshot** in the operator guide, with its caveats
+  stated next to it: one traffic burst on an otherwise idle window, a queue
+  never put under pressure, and a silence threshold that must be raised above
+  the CEE `HeartBeatIntervalSecs` in use.
+
+### Changed
+
+- **The "single static binary" claim is now scoped correctly.** The darwin
+  binaries are not statically linked and cannot be: `otool -L` on the released
+  `v5.3.1` artifact shows `libSystem.B.dylib`, `libresolv.9.dylib`,
+  `CoreFoundation` and `Security`, which Go links on macOS regardless of CGO.
+  The static half of the claim is Linux; the CGO-free half holds on every
+  platform. `docs/index.md` states this rather than implying full static
+  linking everywhere.
+
+- **`docs/PROMISES.md`** — several rows moved from build-configuration
+  arguments to artifact measurements taken against the released `v5.3.1`
+  assets: the static-binary claim, the version stamp reaching the running
+  binary, the release build matrix (five archives, no windows/arm64), the
+  `LICENSE`-in-every-archive claim, and the multi-arch container index. Adds a
+  "Where this stands" preamble with the current status counts and what
+  verification means here.
+
 ## [5.3.1] - 2026-08-11
 
 ### Fixed

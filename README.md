@@ -29,8 +29,9 @@ Go daemon that receives Dell PowerStore CEPA audit events (HTTP PUT / XML) and f
 - TLS listener with four modes: off, manual (operator-supplied cert), ACME (automatic Let's Encrypt), and self-signed (runtime-generated, air-gapped-friendly); certificate expiry surfaced via `/health` on every request, with a warning logged when fewer than 30 days remain
 - Prometheus `/metrics` endpoint on a dedicated port (default 9228)
 - A Grafana dashboard for these metrics is in
-  [`dashboards/cee-exporter.json`](dashboards/cee-exporter.json). It is not
-  validated by CI — see `docs/PROMISES.md`.
+  [`dashboards/cee-exporter.json`](dashboards/cee-exporter.json) — see the
+  [screenshot and caveats](https://fjacquet.github.io/cee-exporter/operator-guide/#grafana-dashboard).
+  It is not validated by CI — see `docs/PROMISES.md`.
 - Windows Service registration (`cee-exporter.exe install`) and a hardened Linux systemd unit
 - Async queue — ACKs the HTTP request immediately, processes events in background
 - Structured JSON logging (`slog`) and `/health` endpoint

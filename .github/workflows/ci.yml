@@ -194,6 +194,86 @@ jobs:
           .\cee-exporter.exe uninstall
           if ($LASTEXITCODE -ne 0) { Write-Host "::error::uninstall exited $LASTEXITCODE"; exit 1 }
 
+  # "Single static binary, CGO_ENABLED=0, no external runtime dependencies" was
+  # a README claim backed only by reading the build configuration: every
+  # binary-producing path sets CGO_ENABLED=0, therefore the output must be
+  # static. True, but an argument, not a measurement — and the same class of
+  # claim this repo has been burned by before. This job inspects the artifact.
+  #
+  # The negative control is the point. A check that only ever runs against a
+  # binary built the correct way cannot distinguish "static" from "the check is
+  # broken": `file | grep -q 'statically linked'` on an empty string, a missing
+  # binary, or a typo'd grep pattern all fail the same way a real regression
+  # would — or worse, pass. So the same assertions are run against a
+  # deliberately CGO-enabled build, which must come out dynamically linked. If
+  # that build is reported static, the assertion itself is meaningless and the
+  # job fails on that instead.
+  static-binary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build the release-configured Linux binary
+        run: make build-linux
+
+      - name: Assert it is statically linked and CGO-free
+        run: |
+          set -euo pipefail
+
+          echo "--- file ---"
+          file ./cee-exporter
+          file ./cee-exporter | grep -q 'statically linked' \
+            || { echo "::error::cee-exporter is not statically linked"; exit 1; }
+
+          # ldd EXITS 1 on a static binary — that is its documented way of
+          # saying "not a dynamic executable", not an error. Under `set -o
+          # pipefail` (and `-e`), piping it straight into grep fails the step on
+          # exactly the outcome being asserted, which is how this job failed its
+          # own first run. Capture the output, then assert on it.
+          echo "--- ldd ---"
+          ldd_out=$(ldd ./cee-exporter 2>&1 || true)
+          echo "$ldd_out"
+          grep -q 'not a dynamic executable' <<<"$ldd_out" \
+            || { echo "::error::ldd reports dynamic dependencies"; exit 1; }
+
+          # The dynamic section is the authority: NEEDED entries are the actual
+          # runtime dependencies, whatever `file` chooses to say.
+          echo "--- readelf -d ---"
+          if readelf -d ./cee-exporter 2>/dev/null | grep -q 'NEEDED'; then
+            echo "::error::binary declares NEEDED shared libraries"
+            readelf -d ./cee-exporter | grep 'NEEDED'
+            exit 1
+          fi
+
+          # Recorded in the binary itself by the Go toolchain — this is what
+          # makes the CGO_ENABLED=0 claim checkable after the fact rather than
+          # only at build time.
+          echo "--- go version -m ---"
+          go version -m ./cee-exporter | grep -q 'build.*CGO_ENABLED=0' \
+            || { echo "::error::binary was not built with CGO_ENABLED=0"; exit 1; }
+
+      # Proves the step above can fail. Without this, a broken assertion looks
+      # exactly like a passing one.
+      - name: Negative control — a CGO build must be caught as dynamic
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+            go build -o /tmp/cee-exporter-cgo ./cmd/cee-exporter
+          file /tmp/cee-exporter-cgo
+          if file /tmp/cee-exporter-cgo | grep -q 'statically linked'; then
+            echo "::error::the CGO_ENABLED=1 control build came out static - the static assertion above proves nothing on this runner"
+            exit 1
+          fi
+          if go version -m /tmp/cee-exporter-cgo | grep -q 'CGO_ENABLED=0'; then
+            echo "::error::the CGO_ENABLED=1 control build records CGO_ENABLED=0 - the build-setting assertion above proves nothing"
+            exit 1
+          fi
+          echo "control build is dynamically linked, as expected - the assertions discriminate"
+
   # Produces the .evtx that evtx-readback reads, and checks it with an
   # independent parser on the way past.
   #
