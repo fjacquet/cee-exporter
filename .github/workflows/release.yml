@@ -68,7 +68,14 @@ jobs:
             grep -qx 'LICENSE' <<<"$list" \
               || { echo "::error::$archive does not contain LICENSE"; failed=1; }
 
-            dir="extracted/${archive%.*}"
+            # Strip the FULL extension. `${archive%.*}` removes only `.gz`,
+            # leaving a `...tar` directory that the version step below then
+            # fails to find — which is how this job failed its first run on
+            # v5.3.2, against a release whose artifacts were in fact correct.
+            case "$archive" in
+              *.tar.gz) dir="extracted/${archive%.tar.gz}";;
+              *)        dir="extracted/${archive%.zip}";;
+            esac
             mkdir -p "$dir"
             case "$archive" in
               *.tar.gz) tar xzf "$archive" -C "$dir";;
