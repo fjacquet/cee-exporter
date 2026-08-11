@@ -73,9 +73,11 @@ func newRegistry() *prometheus.Registry {
 		prometheus.NewCounterFunc(
 			prometheus.CounterOpts{
 				Name: "cee_cepa_peers_dropped_total",
-				Help: "Total CEPA publishers not recorded because the MaxPeers " +
-					"cap was reached. Non-zero means the remote label is " +
-					"truncated and a real publisher may be missing.",
+				Help: "Total requests from CEPA publishers not recorded because " +
+					"the MaxPeers cap was reached; increments on every such " +
+					"request, not once per distinct publisher. Non-zero means " +
+					"the remote label is truncated and a real publisher may " +
+					"be missing.",
 			},
 			func() float64 { return float64(metrics.M.PeersDropped()) },
 		),

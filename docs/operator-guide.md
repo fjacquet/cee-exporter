@@ -345,7 +345,7 @@ Available metrics:
 | `cee_build_info` | Gauge | Always 1; labelled with `version` and `go_version` — join on it to correlate other metrics with a release |
 | `cee_cepa_last_request_unix_seconds` | Gauge | Unix timestamp of the last CEPA request from a publisher, labelled `remote`. Stamped on every PUT — handshake, event batch, or failed payload. Alert when `time() - this > 60` |
 | `cee_cepa_registrations_total` | Counter | CEPA `RegisterRequest` handshakes received from a publisher, labelled `remote` |
-| `cee_cepa_peers_dropped_total` | Counter | Publishers not recorded because the 64-peer cap was reached. Non-zero means a real publisher may be missing from the labelled series above |
+| `cee_cepa_peers_dropped_total` | Counter | Requests from publishers not recorded because the 64-peer cap was reached — increments on every such request, not once per distinct publisher. Non-zero means a real publisher may be missing from the labelled series above |
 
 ### Publisher liveness
 
@@ -367,6 +367,31 @@ CEE contacts its configured endpoint unprompted every `HeartBeatIntervalSecs`,
 which defaults to 10 (`emc_cee_config.xml` on Linux; the equivalent registry
 value on Windows). 60s is therefore six missed beats. **Raise this threshold if
 you raise `HeartBeatIntervalSecs`.**
+
+**Cold start.** The peer table lives in cee-exporter's process memory and
+starts empty on every restart. These series only cover publishers seen
+**since the exporter started** — a publisher that was already dead before
+startup never gets a series at all, and `CEEPublisherSilent` cannot fire for
+something with no series to compare against. Guard against total silence with:
+
+```yaml
+- alert: CEENoPublishers
+  expr: absent(cee_cepa_last_request_unix_seconds)
+  for: 5m
+  annotations:
+    summary: "cee-exporter has seen no CEPA publisher at all since it started"
+```
+
+Where the expected publisher set is known, a per-publisher `absent()` rule
+catches an individual one that never showed up after a restart:
+
+```yaml
+- alert: CEEExpectedPublisherMissing
+  expr: absent(cee_cepa_last_request_unix_seconds{remote="10.0.2.250"})
+  for: 5m
+  annotations:
+    summary: "Expected CEE publisher 10.0.2.250 has no series — dead since before the exporter started, or never reachable"
+```
 
 **What this does and does not detect.** A `remote` label is a **CEE server**,
 not a NAS Data Mover. The publishing chain is Data Movers → CEE server →

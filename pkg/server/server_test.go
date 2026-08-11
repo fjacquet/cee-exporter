@@ -436,8 +436,10 @@ func TestServeHTTP_LargeBatchACKsWellUnder3s(t *testing.T) {
 	}
 }
 
-// resetPeers isolates the metrics.M peer table for a test and restores an
-// empty table afterwards, matching resetEventsReceived's shape.
+// resetPeers isolates the metrics.M peer table for a test. Unlike
+// resetEventsReceived, which saves and restores the prior value, this always
+// resets to empty both before and after the test: no other test in this
+// package reads peer state, so there is no prior value worth preserving.
 func resetPeers(t *testing.T) {
 	t.Helper()
 	metrics.M.ResetPeers()

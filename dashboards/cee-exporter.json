@@ -81,8 +81,8 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Publishers dropped (label cap reached)",
-      "description": "Non-zero means the 64-publisher cap was hit and the labelled series above are incomplete.",
+      "title": "Requests dropped (label cap reached)",
+      "description": "Counts requests from publishers not recorded once the 64-publisher cap was hit, not distinct publishers. Non-zero means the labelled series above are incomplete.",
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 14 },
       "targets": [
         { "expr": "cee_cepa_peers_dropped_total", "legendFormat": "dropped", "refId": "A" }

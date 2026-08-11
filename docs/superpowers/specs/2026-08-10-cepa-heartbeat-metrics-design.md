@@ -80,9 +80,10 @@ connection, so it is unbounded if used raw. Two bounds apply:
 1. The address is reduced to its host with `net.SplitHostPort`. If the address
    does not parse, the raw string is used — the cap below still bounds it.
 2. Distinct peers are capped at `metrics.MaxPeers` (64). Past the cap a new
-   peer is not recorded: `cee_cepa_peers_dropped_total` is incremented and a
-   WARN is logged. A port scanner or misconfigured client cannot grow the
-   registry without limit.
+   peer is not recorded: `cee_cepa_peers_dropped_total` is incremented instead,
+   on every such request, which is what makes hitting the cap visible rather
+   than silent — `pkg/metrics` does no logging. A port scanner or
+   misconfigured client cannot grow the registry without limit.
 
 Peers are never expired. An expiry window would delete the series for a peer
 that went dark, destroying exactly the signal the alert depends on.
@@ -205,7 +206,8 @@ is recorded in `PROMISES.md` as Unverified with that reason stated. Adding a
 - a peer is created on first request and its timestamp updated, not duplicated,
   on the second
 - the cap admits exactly `MaxPeers` peers and rejects the 65th
-- `cee_cepa_peers_dropped_total` increments once per rejected peer
+- `cee_cepa_peers_dropped_total` increments on every rejected request, not
+  once per distinct rejected peer
 - `RecordPeerRegistration` on a peer rejected at the cap is a no-op and does
   not create the peer
 - concurrent `RecordPeerRequestAt` / `PeerSnapshot` under `-race`

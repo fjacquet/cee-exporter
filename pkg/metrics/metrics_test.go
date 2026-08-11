@@ -123,6 +123,16 @@ func TestStore_PeerCap(t *testing.T) {
 	if got := s.PeerSnapshot()["10.0.0.0"].LastRequestUnix; got != 1_700_000_030 {
 		t.Errorf("existing peer LastRequestUnix = %d after cap reached, want 1700000030", got)
 	}
+
+	// A second request from the same over-cap host must increment the
+	// counter again: PeersDropped counts rejected requests, not distinct
+	// rejected publishers. If this stayed at 1, the counter would be
+	// counting publishers, not requests.
+	s.RecordPeerRequestAt("10.9.9.9", at)
+	if got := s.PeersDropped(); got != 2 {
+		t.Errorf("PeersDropped = %d after a second request from the same over-cap host, want 2 — "+
+			"the counter counts rejected requests, not distinct rejected publishers", got)
+	}
 }
 
 func TestStore_ResetPeers(t *testing.T) {
