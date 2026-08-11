@@ -4,11 +4,17 @@
 
 # cee-exporter
 
-[![CI](https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml)
+[![CI](https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fjacquet/cee-exporter/actions/workflows/ci.yml?query=branch%3Amain)
+[![Docs Lint](https://github.com/fjacquet/cee-exporter/actions/workflows/docs-lint.yml/badge.svg?branch=main)](https://github.com/fjacquet/cee-exporter/actions/workflows/docs-lint.yml?query=branch%3Amain)
+[![Docs](https://github.com/fjacquet/cee-exporter/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/fjacquet/cee-exporter/actions/workflows/docs.yml?query=branch%3Amain)
 [![Release](https://github.com/fjacquet/cee-exporter/actions/workflows/release.yml/badge.svg)](https://github.com/fjacquet/cee-exporter/actions/workflows/release.yml)
-[![Docs](https://github.com/fjacquet/cee-exporter/actions/workflows/docs.yml/badge.svg)](https://github.com/fjacquet/cee-exporter/actions/workflows/docs.yml)
+
+[![Latest release](https://img.shields.io/github/v/release/fjacquet/cee-exporter?sort=semver&logo=github)](https://github.com/fjacquet/cee-exporter/releases/latest)
+[![Container](https://img.shields.io/badge/ghcr.io-cee--exporter-2496ED?logo=docker&logoColor=white)](https://github.com/fjacquet/cee-exporter/pkgs/container/cee-exporter)
+[![Go version](https://img.shields.io/github/go-mod/go-version/fjacquet/cee-exporter?logo=go)](go.mod)
+[![Go Reference](https://pkg.go.dev/badge/github.com/fjacquet/cee-exporter.svg)](https://pkg.go.dev/github.com/fjacquet/cee-exporter)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fjacquet/cee-exporter)](https://goreportcard.com/report/github.com/fjacquet/cee-exporter)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/fjacquet/cee-exporter)](LICENSE)
 
 Go daemon that receives Dell PowerStore CEPA audit events (HTTP PUT / XML) and forwards them to a SIEM (GELF, syslog, or Beats) or writes them as Windows EventLog entries — native `ReportEvent` calls on Windows, binary `.evtx` files everywhere else. No external dependencies — single static binary.
 
