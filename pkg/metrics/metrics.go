@@ -4,6 +4,7 @@
 package metrics
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -32,6 +33,17 @@ type Store struct {
 	// lastFsyncAt records when the EVTX writer last successfully called f.Sync().
 	// Stored as Unix seconds (not nanoseconds) to match Prometheus convention.
 	lastFsyncAt atomic.Int64 // Unix seconds
+
+	// peers tracks CEPA publishers — CEE servers, not NAS Data Movers — by
+	// host. Guarded by peersMu rather than being an atomic, because the map
+	// itself is mutated on first sight of a peer. Lazily initialised: a
+	// zero-value Store must be usable.
+	peersMu sync.RWMutex
+	peers   map[string]*peerStat
+
+	// peersDropped counts peers rejected because MaxPeers was reached, so
+	// that hitting the cap is visible rather than silent.
+	peersDropped atomic.Int64
 }
 
 // SetQueueDepth records the current queue depth.
@@ -94,4 +106,109 @@ func (s *Store) Snapshot() Snapshot {
 		LastEventAt:          s.LastEventAt(),
 		LastFsyncUnix:        s.LastFsyncUnix(),
 	}
+}
+
+// MaxPeers bounds the cardinality of the remote label on the CEPA peer
+// metrics. Publishers are CEE servers — a handful in any real deployment —
+// so this is far above the real ceiling and well below anything that would
+// strain the registry. Without it, a port scanner or misconfigured client
+// would grow the map without limit.
+const MaxPeers = 64
+
+// peerStat is the mutable per-publisher state. The map entry is a pointer so
+// that stamping an existing peer needs only a read lock on the map.
+type peerStat struct {
+	lastRequestUnix atomic.Int64
+	registrations   atomic.Int64
+}
+
+// PeerStat is an immutable point-in-time copy of one publisher's activity.
+type PeerStat struct {
+	LastRequestUnix int64
+	Registrations   int64
+}
+
+// RecordPeerRequestAt stamps the time of the most recent CEPA request from
+// host. Called on every PUT — handshake, event batch, or failure — because
+// the question it answers is whether the publisher is still talking to us.
+//
+// If host is not already known and the store is at MaxPeers, the peer is not
+// recorded and peersDropped is incremented instead.
+func (s *Store) RecordPeerRequestAt(host string, t time.Time) {
+	unix := t.Unix()
+
+	s.peersMu.RLock()
+	p := s.peers[host]
+	s.peersMu.RUnlock()
+	if p != nil {
+		p.lastRequestUnix.Store(unix)
+		return
+	}
+
+	s.peersMu.Lock()
+	defer s.peersMu.Unlock()
+
+	// Re-check under the write lock: another goroutine may have created this
+	// peer between the RUnlock above and this Lock.
+	if p := s.peers[host]; p != nil {
+		p.lastRequestUnix.Store(unix)
+		return
+	}
+	if len(s.peers) >= MaxPeers {
+		s.peersDropped.Add(1)
+		return
+	}
+	if s.peers == nil {
+		s.peers = make(map[string]*peerStat, MaxPeers)
+	}
+	fresh := &peerStat{}
+	fresh.lastRequestUnix.Store(unix)
+	s.peers[host] = fresh
+}
+
+// RecordPeerRegistration counts a CEPA RegisterRequest handshake from host.
+//
+// It never creates a peer: a peer is created only by RecordPeerRequestAt,
+// which enforces MaxPeers. A registration for an unknown host — or for one
+// rejected at the cap — is a no-op.
+func (s *Store) RecordPeerRegistration(host string) {
+	s.peersMu.RLock()
+	defer s.peersMu.RUnlock()
+	if p := s.peers[host]; p != nil {
+		p.registrations.Add(1)
+	}
+}
+
+// PeerSnapshot returns an immutable copy of the peer table. One call per
+// scrape keeps the two per-peer series mutually consistent.
+func (s *Store) PeerSnapshot() map[string]PeerStat {
+	s.peersMu.RLock()
+	defer s.peersMu.RUnlock()
+
+	if len(s.peers) == 0 {
+		return nil
+	}
+	out := make(map[string]PeerStat, len(s.peers))
+	for host, p := range s.peers {
+		out[host] = PeerStat{
+			LastRequestUnix: p.lastRequestUnix.Load(),
+			Registrations:   p.registrations.Load(),
+		}
+	}
+	return out
+}
+
+// PeersDropped returns the number of peers rejected because MaxPeers was
+// reached.
+func (s *Store) PeersDropped() int64 {
+	return s.peersDropped.Load()
+}
+
+// ResetPeers clears the peer table and the drop counter. Provided for test
+// isolation, matching the singleton-reset convention the other tests use.
+func (s *Store) ResetPeers() {
+	s.peersMu.Lock()
+	defer s.peersMu.Unlock()
+	s.peers = nil
+	s.peersDropped.Store(0)
 }
