@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"unicode/utf16"
 	"unicode/utf8"
 )
@@ -20,9 +21,9 @@ import (
 //
 // Decoding happens once, at the head of both entry points, so the two cannot
 // disagree about what a payload says.
-func decodeUTF16(body []byte) []byte {
+func decodeUTF16(body []byte) ([]byte, error) {
 	if len(body) < 2 {
-		return body
+		return body, nil
 	}
 
 	switch {
@@ -44,14 +45,21 @@ func decodeUTF16(body []byte) []byte {
 		return decodeUTF16Pairs(body, false)
 	}
 
-	return body
+	return body, nil
 }
 
-// decodeUTF16Pairs converts UTF-16 code units to UTF-8. A trailing odd byte is
-// dropped: it cannot form a code unit, and a truncated payload is better
-// parsed as far as it goes than rejected outright — the XML decoder will
-// reject it anyway if the document is genuinely incomplete.
-func decodeUTF16Pairs(b []byte, littleEndian bool) []byte {
+// decodeUTF16Pairs converts UTF-16 code units to UTF-8.
+//
+// An odd trailing byte is an error, not something to discard. Dropping it
+// would let a truncated payload decode to a well-formed XML prefix, which the
+// parser would then accept as a complete event — a partial write silently
+// becoming a whole audit record. Better to reject the payload than to invent
+// one that was never sent.
+func decodeUTF16Pairs(b []byte, littleEndian bool) ([]byte, error) {
+	if len(b)%2 != 0 {
+		return nil, fmt.Errorf("incomplete UTF-16 payload: %d bytes is not a whole number of code units", len(b))
+	}
+
 	units := make([]uint16, 0, len(b)/2)
 	for i := 0; i+1 < len(b); i += 2 {
 		if littleEndian {
@@ -66,5 +74,5 @@ func decodeUTF16Pairs(b []byte, littleEndian bool) []byte {
 	for _, r := range runes {
 		out = utf8.AppendRune(out, r)
 	}
-	return out
+	return out, nil
 }

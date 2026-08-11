@@ -80,7 +80,10 @@ func TestParse_UTF16Payloads(t *testing.T) {
 		{"single utf16le with bom", append([]byte{0xFF, 0xFE}, utf16LE(single)...), 1, "CEPP_FILE_WRITE"},
 		{"single utf16be with bom", append([]byte{0xFE, 0xFF}, utf16BE(single)...), 1, "CEPP_FILE_WRITE"},
 		{"single utf8 (still supported)", []byte(single), 1, "CEPP_FILE_WRITE"},
+		{"single utf16be no bom", utf16BE(single), 1, "CEPP_FILE_WRITE"},
 		{"batch utf16le", utf16LE(batch), 2, "CEPP_FILE_READ"},
+		{"batch utf16le with bom", append([]byte{0xFF, 0xFE}, utf16LE(batch)...), 2, "CEPP_FILE_READ"},
+		{"batch utf16be with bom", append([]byte{0xFE, 0xFF}, utf16BE(batch)...), 2, "CEPP_FILE_READ"},
 		{"batch utf8 (still supported)", []byte(batch), 2, "CEPP_FILE_READ"},
 	}
 
@@ -118,7 +121,10 @@ func TestDecodeUTF16_LeavesUTF8Alone(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := decodeUTF16([]byte(tc.body))
+			got, err := decodeUTF16([]byte(tc.body))
+			if err != nil {
+				t.Fatalf("decodeUTF16 returned error on a UTF-8 payload: %v", err)
+			}
 			if string(got) != tc.body {
 				t.Errorf("decodeUTF16 altered a UTF-8 payload:\n got %q\nwant %q", got, tc.body)
 			}
@@ -143,4 +149,34 @@ func utf16BE(s string) []byte {
 		out = append(out, byte(r>>8), byte(r))
 	}
 	return out
+}
+
+// TestParse_TruncatedUTF16Rejected is the guard against a partial write
+// becoming a whole audit record. A valid UTF-16 event followed by one stray
+// byte decodes to well-formed XML if the odd byte is silently dropped — the
+// parser would then accept a payload that was never fully sent.
+func TestParse_TruncatedUTF16Rejected(t *testing.T) {
+	const event = `<CEEEvent><EventType>CEPP_FILE_WRITE</EventType><FilePath>/a</FilePath></CEEEvent>`
+
+	whole := utf16LE(event)
+	truncated := append(append([]byte{}, whole...), 0x3C) // one trailing byte
+
+	// The whole payload must still parse, or this test proves nothing about
+	// the trailing byte specifically.
+	if _, err := Parse(whole, time.Now()); err != nil {
+		t.Fatalf("the untruncated payload must parse, got: %v", err)
+	}
+
+	events, err := Parse(truncated, time.Now())
+	if err == nil {
+		t.Fatalf("Parse accepted a truncated UTF-16 payload, returning %d events; want an error", len(events))
+	}
+	if events != nil {
+		t.Errorf("Parse returned %d events alongside an error, want nil", len(events))
+	}
+
+	// The handshake check must take the same view rather than guessing.
+	if IsRegisterRequest(append(append([]byte{}, registerRequestUTF16LE...), 0x3C)) {
+		t.Error("IsRegisterRequest accepted a truncated handshake payload")
+	}
 }

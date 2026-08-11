@@ -49,7 +49,13 @@ type CEPAEvent struct {
 // Matches a <RegisterRequest> root element — guards against event payloads
 // whose content (e.g. a file path) happens to contain the word.
 func IsRegisterRequest(body []byte) bool {
-	trimmed := bytes.TrimSpace(decodeUTF16(body))
+	decoded, err := decodeUTF16(body)
+	if err != nil {
+		// A payload that cannot be decoded is not a handshake. Parse will
+		// report the reason; here the only question is which branch to take.
+		return false
+	}
+	trimmed := bytes.TrimSpace(decoded)
 	// Skip an optional XML declaration: <?xml ...?>
 	if bytes.HasPrefix(trimmed, []byte("<?xml")) {
 		if idx := bytes.Index(trimmed, []byte("?>")); idx >= 0 {
@@ -117,7 +123,11 @@ func Parse(body []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	// CEE sends UTF-16LE without a BOM; encoding/xml cannot read it without a
 	// CharsetReader, and the declaration-less payloads CEE sends give it
 	// nothing to dispatch on. Transcode up front instead — see issue #32.
-	body = decodeUTF16(body)
+	decoded, err := decodeUTF16(body)
+	if err != nil {
+		return nil, fmt.Errorf("decoding CEPA payload: %w", err)
+	}
+	body = decoded
 
 	// Try batch first.
 	var batch rawBatch

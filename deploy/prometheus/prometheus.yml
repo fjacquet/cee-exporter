@@ -8,5 +8,10 @@ rule_files:
 scrape_configs:
   - job_name: cee-exporter
     static_configs:
-      # cee-exporter's /metrics port (ADR-006). Not the CEPA listener port.
-      - targets: ['localhost:9228']
+      # cee-exporter's /metrics port (ADR-006) — not the CEPA listener port.
+      #
+      # host.docker.internal reaches an exporter running on the Docker host.
+      # For an exporter on another machine, replace it with that host:port.
+      # Keep job_name as "cee-exporter": the alert rules in alerts.yml gate on
+      # up{job="cee-exporter"}, and renaming the job silently disables them.
+      - targets: ['host.docker.internal:9228']

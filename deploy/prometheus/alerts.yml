@@ -3,12 +3,34 @@
 # Thresholds assume CEE's HeartBeatIntervalSecs default of 10 — measured at
 # exactly 10s against CEE 9.2.0.0 on 2026-08-11. Raise them in step if that
 # is raised.
+#
+# Every publisher alert is gated on `up{job="cee-exporter"} == 1`. Without
+# that gate a failed scrape misdiagnoses itself: the last sample stays
+# queryable for the lookback window, so `time() - cee_cepa_last_request...`
+# keeps growing and CEEPublisherSilent fires for EVERY publisher at once —
+# reporting "all your NAS publishers died" when the truth is "the exporter
+# is down". Past the lookback the series vanish entirely and CEENoPublishers
+# fires for the same wrong reason. CEEExporterDown is the alert that should
+# fire in that case, and it fires first.
 groups:
   - name: cee-exporter
     rules:
+      # The exporter itself. This must be diagnosable separately from its
+      # publishers, and it gates every rule below.
+      - alert: CEEExporterDown
+        expr: up{job="cee-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "cee-exporter is not scrapeable — publisher alerts are suppressed"
+          description: "Publisher liveness cannot be assessed while the exporter is down. Events may still be arriving and being written; this alert is about visibility, not the data path."
+
       # A publisher that WAS seen and has now gone quiet.
       - alert: CEEPublisherSilent
-        expr: time() - cee_cepa_last_request_unix_seconds > 60
+        expr: |
+          (time() - cee_cepa_last_request_unix_seconds > 60)
+          and on(job, instance) (up{job="cee-exporter"} == 1)
         for: 2m
         labels:
           severity: critical
@@ -17,14 +39,17 @@ groups:
           description: "Six missed heartbeats. Events from this publisher are being lost, not merely idle."
 
       # The cold-start case: a publisher dead before the exporter started has
-      # no series at all, so CEEPublisherSilent cannot fire for it.
+      # no series at all, so CEEPublisherSilent cannot fire for it. Scoped to
+      # the job so an unrelated absent series cannot trigger it.
       - alert: CEENoPublishers
-        expr: absent(cee_cepa_last_request_unix_seconds)
+        expr: |
+          absent(cee_cepa_last_request_unix_seconds{job="cee-exporter"})
+          and on() (sum(up{job="cee-exporter"}) > 0)
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "cee-exporter has seen no CEPA publisher at all since it started"
+          summary: "cee-exporter is up but has seen no CEPA publisher at all since it started"
 
       # Cardinality cap reached: the labelled series above are incomplete.
       - alert: CEEPeerCapReached
