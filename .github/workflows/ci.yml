@@ -229,10 +229,16 @@ jobs:
           file ./cee-exporter | grep -q 'statically linked' \
             || { echo "::error::cee-exporter is not statically linked"; exit 1; }
 
-          # ldd exits non-zero for a static binary; the message is the assertion.
+          # ldd EXITS 1 on a static binary — that is its documented way of
+          # saying "not a dynamic executable", not an error. Under `set -o
+          # pipefail` (and `-e`), piping it straight into grep fails the step on
+          # exactly the outcome being asserted, which is how this job failed its
+          # own first run. Capture the output, then assert on it.
           echo "--- ldd ---"
-          ldd ./cee-exporter 2>&1 | grep -q 'not a dynamic executable' \
-            || { echo "::error::ldd reports dynamic dependencies"; ldd ./cee-exporter; exit 1; }
+          ldd_out=$(ldd ./cee-exporter 2>&1 || true)
+          echo "$ldd_out"
+          grep -q 'not a dynamic executable' <<<"$ldd_out" \
+            || { echo "::error::ldd reports dynamic dependencies"; exit 1; }
 
           # The dynamic section is the authority: NEEDED entries are the actual
           # runtime dependencies, whatever `file` chooses to say.

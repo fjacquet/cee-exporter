@@ -582,6 +582,25 @@ CEPA (Common Event Publishing Agent) is the PowerStore mechanism that sends file
 | No events in Graylog after registration | Check `gelf_host`/`gelf_port` in config; verify Graylog GELF Input is active |
 | `cepa_parse_error` in cee-exporter logs | Unsupported CEPA payload format — open an issue with the raw payload |
 
+### PowerScale (OneFS) — not supported, testable
+
+OneFS forwards protocol audit events by HTTP PUT to a CEE server URI on the
+same port this daemon listens on (`http://host:12228/cee`), and the handler
+routes on method, not path — so a cluster can be pointed straight at
+cee-exporter with no Dell CEE server in between.
+
+That is a documented transport match, **not** a working integration. OneFS
+names its audited events `create`/`close`/`delete`/`rename`/`set_security`,
+while `pkg/mapper` keys on the `CEPP_*` family PowerStore emits; whether the
+CEE payload normalises between them is undocumented and unmeasured, as is
+whether OneFS performs the `RegisterRequest` handshake at all. No OneFS
+cluster has ever sent this daemon a packet.
+
+[PowerScale verification protocol](powerscale-verification.md) is the
+step-by-step procedure for settling it — OneFS Simulator on ESXi first, then a
+physical cluster — including the packet capture that has to happen before the
+first PUT, because the forwarder does not replay it.
+
 ---
 
 ## Health endpoint

@@ -28,6 +28,7 @@ nav:
   - Product Requirements: PRD.md
   - Requirements Traceability: requirements.md
   - Windows Verification Protocol: windows-verification.md
+  - PowerScale Verification Protocol: powerscale-verification.md
   - Architecture Decisions:
       - ADR-001 Language (Go): adr/ADR-001-language-go.md
       - ADR-002 GELF Primary Output: adr/ADR-002-gelf-primary-linux.md
