@@ -1,0 +1,50 @@
+# Alert rules for cee-exporter publisher liveness.
+#
+# Thresholds assume CEE's HeartBeatIntervalSecs default of 10 — measured at
+# exactly 10s against CEE 9.2.0.0 on 2026-08-11. Raise them in step if that
+# is raised.
+groups:
+  - name: cee-exporter
+    rules:
+      # A publisher that WAS seen and has now gone quiet.
+      - alert: CEEPublisherSilent
+        expr: time() - cee_cepa_last_request_unix_seconds > 60
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CEE publisher {{ $labels.remote }} has not sent a request in over a minute"
+          description: "Six missed heartbeats. Events from this publisher are being lost, not merely idle."
+
+      # The cold-start case: a publisher dead before the exporter started has
+      # no series at all, so CEEPublisherSilent cannot fire for it.
+      - alert: CEENoPublishers
+        expr: absent(cee_cepa_last_request_unix_seconds)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "cee-exporter has seen no CEPA publisher at all since it started"
+
+      # Cardinality cap reached: the labelled series above are incomplete.
+      - alert: CEEPeerCapReached
+        expr: increase(cee_cepa_peers_dropped_total[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "cee-exporter is rejecting publishers — the 64-peer cap is reached"
+          description: "Counts rejected requests, not distinct publishers. The remote label is truncated and a real publisher may be missing."
+
+      - alert: CEEEventsDropped
+        expr: increase(cee_events_dropped_total[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "cee-exporter dropped events — the queue is full"
+
+      - alert: CEEWriterErrors
+        expr: increase(cee_writer_errors_total[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "cee-exporter writer backend is returning errors"

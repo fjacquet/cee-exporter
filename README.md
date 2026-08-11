@@ -89,3 +89,17 @@ Full operator guide — config reference, TLS setup, CEPA registration, troubles
 ## License
 
 See [LICENSE](LICENSE).
+
+## Monitoring stack
+
+`deploy/compose.yaml` brings up Prometheus and Grafana preconfigured against a
+running cee-exporter, with the dashboard and alert rules provisioned:
+
+```bash
+docker compose -f deploy/compose.yaml up -d
+# Grafana on :3000, Prometheus on :9090
+```
+
+The exporter itself is deliberately not part of the stack — containerising it
+would change the source address CEE sees, which is the `remote` label on the
+publisher-liveness metrics.
