@@ -17,3 +17,149 @@ jobs:
       id-token: write
     secrets:
       HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+  # Everything the `static-binary` job in ci.yml asserts, it asserts about a
+  # binary CI built itself. That is not the binary anyone downloads: goreleaser
+  # builds with its own flags, in its own environment, and publishes archives
+  # this repo's Makefile never touches. Several promises in docs/PROMISES.md
+  # were therefore only ever verifiable by a human downloading the tag by hand
+  # after the fact — which is exactly how long-lived false claims start here.
+  #
+  # This job closes that loop on every tag: it downloads the published assets,
+  # checks them against the published checksums, and asserts the properties the
+  # docs promise about the shipped artifact rather than about a local build.
+  verify-artifacts:
+    needs: release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Download the published release assets
+        run: gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D dist-release
+
+      # Guards everything below: without this, a corrupted or partial download
+      # could fail an assertion and be read as a broken release, or pass one and
+      # be read as a good one.
+      - name: Verify checksums
+        working-directory: dist-release
+        run: sha256sum --check --ignore-missing checksums.txt
+
+      - name: Assert the shipped binaries are static, CGO-free, and carry LICENSE
+        working-directory: dist-release
+        run: |
+          set -euo pipefail
+          # The tag is v5.3.1; goreleaser names assets 5.3.1 — .Version strips
+          # the prefix. Deriving the version this way keeps the asset names and
+          # the expected build stamp from drifting apart.
+          version="${TAG#v}"
+          failed=0
+
+          for archive in *.tar.gz *.zip; do
+            case "$archive" in *.tar.gz) list=$(tar tzf "$archive");; *) list=$(unzip -Z1 "$archive");; esac
+            grep -qx 'LICENSE' <<<"$list" \
+              || { echo "::error::$archive does not contain LICENSE"; failed=1; }
+
+            dir="extracted/${archive%.*}"
+            mkdir -p "$dir"
+            case "$archive" in
+              *.tar.gz) tar xzf "$archive" -C "$dir";;
+              *)        unzip -qo "$archive" -d "$dir";;
+            esac
+
+            bin=$(find "$dir" -maxdepth 1 -name 'cee-exporter*' -type f)
+            echo "--- $archive -> $bin"
+            file "$bin"
+
+            # Recorded by the toolchain into every artifact, whatever the GOOS.
+            go version -m "$bin" | grep -q 'build.*CGO_ENABLED=0' \
+              || { echo "::error::$archive: binary not built with CGO_ENABLED=0"; failed=1; }
+
+            # "Statically linked" is a Linux/ELF claim. A Go darwin binary
+            # always links libSystem, CoreFoundation and Security regardless of
+            # CGO, so asserting it there would fail on a correct artifact.
+            case "$archive" in
+              *linux*)
+                file "$bin" | grep -q 'statically linked' \
+                  || { echo "::error::$archive: not statically linked"; failed=1; }
+                if readelf -d "$bin" 2>/dev/null | grep -q 'NEEDED'; then
+                  echo "::error::$archive: declares NEEDED shared libraries"
+                  failed=1
+                fi
+                ;;
+            esac
+          done
+
+          if [ "$failed" -ne 0 ]; then exit 1; fi
+
+      # The -X main.version stamp had no automated check at all: the unit tests
+      # only assert the *unstamped* default is "dev". A release that lost the
+      # ldflags would ship a binary reporting "dev" and every earlier check
+      # would still pass.
+      - name: Assert the shipped linux/amd64 binary reports the released version
+        working-directory: dist-release
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          bin="extracted/cee-exporter_${version}_linux_amd64/cee-exporter"
+
+          cat > /tmp/verify.toml <<'TOML'
+          [output]
+          type          = "gelf"
+          gelf_host     = "127.0.0.1"
+          gelf_port     = 12201
+          gelf_protocol = "udp"
+
+          [listen]
+          addr = "127.0.0.1:12999"
+
+          [metrics]
+          addr = "127.0.0.1:19228"
+          TOML
+
+          "$bin" -config /tmp/verify.toml &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:19228/metrics -o /tmp/metrics.txt; then break; fi
+            sleep 0.5
+          done
+
+          grep 'cee_build_info' /tmp/metrics.txt || true
+          grep -q "cee_build_info{.*version=\"${version}\"" /tmp/metrics.txt \
+            || { echo "::error::shipped binary does not report version ${version} in cee_build_info"; exit 1; }
+
+          # A binary whose ldflags never landed reports "dev" — check for it by
+          # name so that failure is reported as what it is.
+          if grep -q 'cee_build_info{.*version="dev"' /tmp/metrics.txt; then
+            echo "::error::shipped binary reports version=dev - the -X main.version stamp did not reach it"
+            exit 1
+          fi
+
+          curl -sf http://127.0.0.1:12999/health | tee /tmp/health.json
+          grep -q '"status":"ok"' /tmp/health.json \
+            || { echo "::error::shipped binary did not serve a healthy /health"; exit 1; }
+
+      # The README tells operators to docker run this image. Nothing checked
+      # that the tag it names actually resolves to both advertised platforms.
+      - name: Assert the published image is a multi-arch index
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          for tag in "$version" latest; do
+            out=$(docker buildx imagetools inspect "ghcr.io/${GITHUB_REPOSITORY,,}:${tag}")
+            echo "$out"
+            grep -q 'linux/amd64' <<<"$out" \
+              || { echo "::error::image tag ${tag} has no linux/amd64 manifest"; exit 1; }
+            grep -q 'linux/arm64' <<<"$out" \
+              || { echo "::error::image tag ${tag} has no linux/arm64 manifest"; exit 1; }
+          done

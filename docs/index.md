@@ -69,8 +69,8 @@ flowchart TD
 | Listen port (CEPA) | 12228/TCP (configurable) |
 | Listen port (metrics) | 9228/TCP (configurable) |
 | Default output | GELF UDP → localhost:12201 |
-| Binary size | ~11.5 MB (stripped, CGO_ENABLED=0, linux/amd64, measured 2026-08-08 — grown from an earlier ~6 MB as dependencies were added) |
-| Dependencies | Fully static binary (CGO disabled) |
+| Binary size | ~11.5 MB (stripped, CGO_ENABLED=0, linux/amd64 — 12,099,746 bytes measured on the released `v5.3.1` artifact, 2026-08-11; grown from an earlier ~6 MB as dependencies were added) |
+| Dependencies | CGO disabled on every platform; the Linux binaries are fully static (no `NEEDED` entries — asserted on every push and every tag). The macOS binaries link the system `libSystem`/`CoreFoundation`/`Security` libraries, as every Go binary on macOS does |
 | Platforms | Linux and macOS on amd64 and arm64; Windows on amd64 (see table below) |
 | Go version | 1.26.5 |
 

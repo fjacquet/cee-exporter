@@ -421,6 +421,40 @@ Example Prometheus scrape config:
     - targets: ['cee-exporter-host:9228']
 ```
 
+### Grafana dashboard
+
+`dashboards/cee-exporter.json` renders the metrics above. It is provisioned
+automatically by the monitoring stack in `deploy/compose.yaml`:
+
+```bash
+docker compose -f deploy/compose.yaml up -d
+# Grafana on :3000, Prometheus on :9090
+```
+
+[![cee-exporter Grafana dashboard: publisher silence, registrations per
+publisher, event throughput, queue depth, seconds since last fsync, and
+requests dropped at the label cap](assets/grafana-dashboard.png)](assets/grafana-dashboard.png)
+
+*Click for full resolution — the panel labels are unreadable at page width.*
+
+The screenshot above is a real capture (Grafana 11.5.1, 2026-08-11) against a
+live exporter with one CEE publisher. Read it as proof the panels provision and
+render — not as a performance baseline:
+
+- The traffic is a single short burst at 18:00 on an otherwise idle window.
+  Queue depth flat at zero and `dropped` at zero mean the queue was never put
+  under pressure, not that it holds up under a VCAPS batch load.
+- **Publisher silence** turns yellow at 30 s. That threshold must sit above
+  your CEE `HeartBeatIntervalSecs` plus jitter — see
+  [Publisher liveness](#publisher-liveness) — or an idle-but-healthy system
+  will sit permanently yellow.
+- `received` and `written` overlap on the throughput panel when nothing is
+  being dropped, so one line can hide the other. Read the legend values, not
+  the shape.
+
+No CI job checks this dashboard. Its verification status is tracked in
+[PROMISES.md](PROMISES.md).
+
 ---
 
 ## TLS / HTTPS setup
