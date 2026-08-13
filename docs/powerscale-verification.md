@@ -15,7 +15,7 @@ Read this alongside:
 
 - [windows-verification.md](windows-verification.md) — the same shape for the
   Windows Event Log path.
-- [cee-windows-verification.md](cee-windows-verification.md) — the alternative
+- [cee-verification.md](cee-verification.md) — the alternative
   topology, with a Dell CEE server between the cluster and the exporter, which
   is the cheapest remaining answer to question (2). Not yet run.
 

@@ -1,9 +1,12 @@
-# CEE-on-Windows verification protocol
+# CEE verification protocol
 
 **Status: written, never executed.** Nothing here has been run. It is the
 procedure for finding out whether putting a Dell CEE server between a
 PowerScale cluster and cee-exporter produces events this exporter already
 understands — not a claim that it does.
+
+CEE ships for both Windows and Linux and either will answer the question; the
+procedure covers both, and says which to prefer.
 
 Read this alongside
 [powerscale-verification.md](powerscale-verification.md), which covers the
@@ -37,8 +40,8 @@ means zero new exporter code.
 
 ## The one question
 
-> Does a Windows CEE server, fed by OneFS, emit `CEPP_*` event payloads —
-> the same dialect PowerStore's CEE emits and `pkg/mapper` already handles?
+> Does a Dell CEE server, fed by OneFS, emit `CEPP_*` event payloads — the
+> same dialect PowerStore's CEE emits and `pkg/mapper` already handles?
 
 Everything below exists to answer that. Three outcomes, all useful:
 
@@ -60,8 +63,8 @@ OneFS  ──HTTP PUT :12228──▶  cee-exporter
 What this protocol sets up:
 
 ```text
-OneFS  ──HTTP PUT :12228──▶  Windows CEE  ──HTTP PUT──▶  cee-exporter
-        <CheckFileRequest>    (translates?)  <RegisterRequest/> + <CEEEvent>?
+OneFS  ──HTTP PUT :12228──▶  Dell CEE  ──HTTP PUT──▶  cee-exporter
+        <CheckFileRequest>   (translates?)  <RegisterRequest/> + <CEEEvent>?
 ```
 
 The exporter's role does not change: it is the CEPA consumer, an HTTP listener
@@ -80,57 +83,174 @@ that answers PUTs. Only who PUTs to it changes.
     do with what you are testing, and a set of audit records that no longer
     exist. **Replace the URI, never append to it** — step D2.
 
+## Windows or Linux
+
+CEE ships for both, and either answers the question. They differ in ways that
+matter for a lab:
+
+| | Windows | Linux |
+|---|---|---|
+| Delivery protocols | RPC **and** HTTP | HTTP only |
+| Configuration | Registry, `HKLM\SOFTWARE\EMC\CEE\CEPP` | One XML file, `/opt/CEEPack/emc_cee_config.xml` |
+| Service control | `Restart-Service` | `/opt/CEEPack/emc_cee_svc restart` |
+| Log | Windows Application event log | `/opt/CEEPack/emc_cee_svc.log` |
+| Host needed | A Windows box | Any RHEL 9.x host — possibly the one already running the exporter |
+
+**Prefer Linux if you have the choice.** It is HTTP-only, which removes a whole
+class of failure: on Windows, delivery can silently be attempted over RPC and
+the HTTP server has to be explicitly enabled, so "CEE received the event but
+the exporter saw nothing" has one extra cause. The Linux configuration is also
+a single file you can diff and put in the results record, rather than registry
+values you have to screenshot.
+
+`EndPoint` has identical semantics on both: a semicolon-separated list of
+`PartnerId@http://address:port`, case sensitive.
+
 ## Prerequisites
 
 | | |
 |---|---|
-| Windows host | Server 2016+ or Windows 10+, reachable from the cluster and able to reach the exporter |
+| CEE host | RHEL 9.x, **or** Windows Server 2016+ / Windows 10+ — reachable from the cluster and able to reach the exporter |
 | CEE version | 9.x — [Dell downloads](https://www.dell.com/support/product-details/en-us/product/common-event-enabler/drivers) |
-| Exporter | v5.4.0 or later, on its own host |
+| Exporter | v5.4.0 or later |
 | Cluster | The same one used for the direct run, so the comparison is like-for-like |
 | Ports | Cluster → CEE **12228/tcp**; CEE → exporter, whatever port you put in `EndPoint` |
 
-Do **not** put CEE and the exporter on the same host without changing a port:
-CEE's own HTTP listener defaults to 12228, and so does the exporter.
+!!! warning "12228 is claimed twice"
+
+    CEE's own HTTP listener defaults to 12228, and so does cee-exporter. Putting
+    both on one host with default settings means whichever starts second fails
+    to bind — or, worse, the cluster's PUTs reach the exporter directly and CEE
+    is never in the path at all, which looks like a successful test right up
+    until you read the payloads and find `CheckFileRequest`.
+
+    Colocating is otherwise fine and convenient on Linux. Move the exporter:
+
+    ```toml
+    [listen]
+    addr = "0.0.0.0:12229"
+    ```
+
+    and point `EndPoint` at `:12229`. Then confirm who owns what before
+    starting the run:
+
+    ```bash
+    sudo ss -lntp | grep -E ':(12228|12229)\b'
+    ```
 
 ---
 
-## Part A — Install CEE on Windows
+## Part A — Install CEE
 
-### A1. Install
+Do **A-Linux** or **A-Windows**, not both. Everything from Part C onwards is
+identical.
+
+### A-Linux. Install on RHEL
+
+```bash
+# Install the CEE package for Linux, then confirm where it landed.
+ls -l /opt/CEEPack/
+```
+
+Record the exact version — it belongs in the results table, because the
+translation behaviour this protocol measures may differ between releases.
+
+Turn on verbose logging **before** the run. On Linux this is the same file you
+are about to configure, so it costs one edit rather than a second restart:
+
+```bash
+sudo cp /opt/CEEPack/emc_cee_config.xml /opt/CEEPack/emc_cee_config.xml.orig
+# Set Debug and Verbose to 63 in emc_cee_config.xml.
+sudo /opt/CEEPack/emc_cee_svc restart
+tail -f /opt/CEEPack/emc_cee_svc.log
+```
+
+Keep the `.orig` copy. It is both the rollback and the evidence of what the
+host looked like before.
+
+### A-Windows. Install on Windows
 
 Run the CEE installer. It installs the CAVA (antivirus) and CEPA (event
 publishing) facilities; only CEPA matters here.
-
-Record the exact version — it belongs in the results table, because the
-translation behaviour this protocol measures may differ between releases:
 
 ```powershell
 Get-ItemProperty 'HKLM:\SOFTWARE\EMC\CEE' | Format-List
 ```
 
-### A2. Find the service names
-
-Do not assume them — they have varied across releases:
+Find the service names — do not assume them, they have varied across releases:
 
 ```powershell
 Get-Service | Where-Object { $_.Name -match 'CEE|CEPA|CAVA|EMC' } |
   Format-Table Name, DisplayName, Status
 ```
 
-Whatever the CEPA service is called on this build is the one to restart in A4
+Whatever the CEPA service is called on this build is the one to restart in B4
 and watch in F2.
 
 ---
 
 ## Part B — Configure CEE to publish to the exporter
 
-All of this is registry, under `HKLM\SOFTWARE\EMC\CEE\CEPP`. All protocol
-strings are **case sensitive**.
+Same three settings either way — enable the Audit facility, point `EndPoint` at
+the exporter, leave the other subfacilities alone. Only the storage differs: an
+XML file on Linux, registry values on Windows. All protocol strings are **case
+sensitive** on both.
 
-### B1. Enable the HTTP server
+### B-Linux. Edit `emc_cee_config.xml`
 
-CEE on Windows can deliver over RPC or HTTP. The exporter speaks HTTP only.
+There is no HTTP-server toggle to find: Linux CEE delivers over HTTP only,
+which is the reason to prefer it for this test.
+
+Edit `/opt/CEEPack/emc_cee_config.xml` so the CEPP Audit section is enabled and
+its `EndPoint` names the exporter:
+
+```xml
+<CEPP>
+  <Audit>
+    <Configuration>
+      <Enabled>1</Enabled>
+      <EndPoint>cee-exporter@http://&lt;exporter-ip&gt;:12228</EndPoint>
+    </Configuration>
+  </Audit>
+</CEPP>
+```
+
+Match the element names to what the installed file already contains rather than
+to the sketch above — the surrounding structure varies by version, and this is
+one file you can read in full before touching it.
+
+```bash
+sudo /opt/CEEPack/emc_cee_svc restart
+grep -A3 -i endpoint /opt/CEEPack/emc_cee_config.xml
+```
+
+!!! warning "Two ways to mangle the value in a file"
+
+    **The semicolon.** In an XML *file* it is an ordinary character and needs
+    no escaping. In the *shell command that writes it*, `;` ends the command.
+    Editing the file with an editor is safe; `echo`/`sed` without quoting is
+    not.
+
+    ```bash
+    # Wrong — the shell ends the command at the semicolon.
+    sudo sed -i s/OLD/a@http://x:1;b@http://y:2/ /opt/CEEPack/emc_cee_config.xml
+    # Right — quoted.
+    sudo sed -i 's|OLD|a@http://x:1;b@http://y:2|' /opt/CEEPack/emc_cee_config.xml
+    ```
+
+    **The ampersand.** If a `PartnerId` or URL ever contains `&`, it must be
+    written `&amp;` in the XML or CEE will not parse the file at all — a
+    failure that shows up as the service refusing to start, not as a bad
+    endpoint.
+
+    Read the value back after every edit, as above.
+
+### B-Windows. Set the registry values
+
+All of this is under `HKLM\SOFTWARE\EMC\CEE\CEPP`.
+
+CEE on Windows can deliver over RPC or HTTP, so the HTTP server has to be
+switched on explicitly. This step has no Linux equivalent:
 
 ```powershell
 $http = 'HKLM:\SOFTWARE\EMC\CEE\CEPP\Configuration\Security\Http'
@@ -139,7 +259,7 @@ Set-ItemProperty -Path $http -Name 'ServerEnabled' -Value 1 -Type DWord
 Get-ItemProperty -Path $http
 ```
 
-### B2. Point the Audit facility at the exporter
+Then point the Audit facility at the exporter.
 
 `EndPoint` is a semicolon-separated list in `PartnerId@http://address:port`
 form for HTTP delivery. The `PartnerId` is a name you choose; it identifies
@@ -194,24 +314,37 @@ The path component is absent above on purpose. The exporter routes on HTTP
 method only, never on path (`pkg/server/server.go`), so `/cee`, `/vee` or
 nothing all behave identically. If CEE insists on a path, any value works.
 
-### B3. Leave VCAPS and CQM alone
+### B3. Leave VCAPS and CQM alone — both platforms
 
-CEPA has separate subfacilities — Audit, VCAPS (asynchronous post-events) and
-CQM. Configuring more than one endpoint family at a time makes it ambiguous
-which one produced a given payload.
+CEPA has separate subfacilities: Audit, VCAPS (asynchronous post-events) and
+CQM. Enabling more than one makes it ambiguous which produced a given payload,
+and VCAPS in particular is the one that batches thousands of events per PUT —
+a different question from the one this protocol asks.
+
+```bash
+# Linux — read the whole file; it is short enough.
+grep -nEi '<(Audit|VCAPS|CQM)>|<Enabled>' /opt/CEEPack/emc_cee_config.xml
+```
 
 ```powershell
-# Expect these to be absent or disabled for this test.
+# Windows — expect these absent or disabled.
 Get-ChildItem 'HKLM:\SOFTWARE\EMC\CEE\CEPP' | Select-Object Name
 ```
 
-### B4. Restart CEPA
+### B4. Restart CEPA — both platforms
 
-Registry changes are read at service start.
+Configuration is read at service start, on either platform.
+
+```bash
+# Linux
+sudo /opt/CEEPack/emc_cee_svc restart
+tail -n 50 /opt/CEEPack/emc_cee_svc.log
+```
 
 ```powershell
-Restart-Service -Name '<the CEPA service from A2>' -Force
-Get-Service -Name '<the CEPA service from A2>'
+# Windows — the service name discovered in A-Windows.
+Restart-Service -Name '<the CEPA service>' -Force
+Get-Service -Name '<the CEPA service>'
 ```
 
 ---
@@ -277,7 +410,7 @@ behind a URI you forgot was there, and D1 already recorded what to restore:
 isi audit settings global modify --clear-cee-server-uris
 
 isi audit settings global modify \
-  --add-cee-server-uris=http://<windows-cee-host>:12228/cee
+  --add-cee-server-uris=http://<cee-host>:12228/cee
 
 isi audit settings global view
 ```
@@ -342,15 +475,20 @@ Part B, not at the cluster.
 
 ### F2. Did CEE receive and forward?
 
-On the Windows host:
+```bash
+# Linux — with Debug/Verbose at 63 from A-Linux, this is the richest
+# view of the whole chain.
+tail -f /opt/CEEPack/emc_cee_svc.log
+```
 
 ```powershell
+# Windows
 Get-EventLog -LogName Application -Source '*CEE*','*CEPA*' -Newest 50 |
   Format-Table TimeGenerated, EntryType, Message -Wrap
 ```
 
 If CEE logs receipt but the exporter sees nothing, the problem is `EndPoint`
-(B2) or the network between CEE and the exporter — not OneFS.
+(Part B) or the network between CEE and the exporter — not OneFS.
 
 ### F3. Did the exporter receive, and in what dialect?
 
@@ -398,13 +536,13 @@ Whatever the outcome, put the cluster back:
 
 ```bash
 isi audit settings global modify \
-  --remove-cee-server-uris=http://<windows-cee-host>:12228/cee
+  --remove-cee-server-uris=http://<cee-host>:12228/cee
 
 # Restore whatever D1 recorded.
 isi audit settings global view
 ```
 
-Leaving the Windows CEE host in the URI list after the test means audit events
+Leaving the CEE host in the URI list after the test means audit events
 keep flowing through a lab machine.
 
 ---
@@ -416,7 +554,7 @@ accurate statement that nobody has looked yet.
 
 | Question | Result (date / CEE version / OneFS version) |
 |---|---|
-| CEE version and CEPA service name | |
+| CEE platform (Linux/Windows), version, service name | |
 | CEE sends `RegisterRequest` to the exporter (yes/no) | |
 | Payload encoding (UTF-8 / UTF-16LE / BOM) | |
 | Event type strings, verbatim | |
@@ -450,6 +588,7 @@ Stated explicitly so they are not mistaken for oversights:
 ## Sources
 
 - [Using the Common Event Enabler on Windows Platforms 9.x (Dell)](https://device.report/m/a7fd6faebaf65b556be708890f0db1960efc2e840723024c8f387bb5b1568308.pdf)
+- [PowerScale: Linux CEE debugging and log gather — `/opt/CEEPack/emc_cee_config.xml`, `emc_cee_svc` (Dell KB 000009293)](https://www.dell.com/support/kbdoc/en-us/000009293/linux-cee-debugging-and-log-gather)
 - [Common Event Enabler — downloads and support (Dell)](https://www.dell.com/support/product-details/en-us/product/common-event-enabler/drivers)
 - [Configure CEE for Windows — OneFS CLI Administration Guide](https://www.dell.com/support/manuals/en-us/isilon-onefs/ifs-pub-91000-administration-guide-cli/configure-cee-for-windows?guid=guid-e577d98b-a1b9-4050-aff8-ac4e938787ef&lang=en-us)
 - [Configure CEE servers to deliver protocol audit events — OneFS CLI Administration Guide](https://www.dell.com/support/manuals/en-us/isilon-onefs/ifs_pub_administration_guide_cli/configure-cee-servers-to-deliver-protocol-audit-events?guid=guid-24658e0e-77c4-4e34-8382-065e2c25b96e&lang=en-us)
