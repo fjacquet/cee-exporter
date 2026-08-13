@@ -28,9 +28,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `RegisterRequest` handshake.
 
   The response's `status` attribute is the `vcstatus` the cluster reports.
-  Measured: `0x1` surfaced as `VC_ERROR_SETUP`, `0x16` as
-  `VC_ERROR_CEPP_NOT_FOUND`. `0x0` for success is an inference from those two,
-  not a measurement.
+  Measured from CEE's own replies: `0x1` surfaced as `VC_ERROR_SETUP`, `0x16`
+  as `VC_ERROR_CEPP_NOT_FOUND`. `0x0` for success began as an inference from
+  those two and is confirmed by the live run above — the cluster accepted it.
+  What is still **not** measured is whether the same body is the right answer
+  to an *event* request (`action="11"`): it is a `HeartBeatResponse`, returned
+  verbatim because the cluster must be answered, and no capture of CEE
+  replying to an event request exists.
+
+  `cee_cepa_registrations_total` now counts OneFS heartbeats alongside
+  PowerStore `RegisterRequest`s. Both dialects send their handshake once per
+  heartbeat, so the counter's meaning is unchanged — it was already a
+  heartbeat rate, not a count of distinct registrations.
 
 ### Known limitation
 
@@ -38,9 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CheckFileRequest` element as the heartbeat, distinguished only by
   `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>` with
   a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the `CEPP_*`
-  strings `pkg/mapper` keys on. They are logged at WARN with the full payload
-  rather than silently dropped, because acknowledging an event advances the
-  cluster's forwarding cursor and destroys the record.
+  strings `pkg/mapper` keys on. They are counted in `cee_events_dropped_total`
+  and logged at WARN with the payload (capped at 4 KiB per line) rather than
+  silently dropped, because acknowledging an event advances the cluster's
+  forwarding cursor and destroys the record. The counter is the alertable
+  signal; the log line carries the format.
 
   Six event types were measured (8, 32, 128, 256, 512, 2048 — a bitmask). Only
   the open (8) and the closes (128, 256) are identified; 32, 512 and 2048

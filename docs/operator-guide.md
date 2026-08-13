@@ -339,14 +339,14 @@ Available metrics:
 |--------|------|-------------|
 | `cee_events_received_total` | Counter | Events received from PowerStore |
 | `cee_events_written_total` | Counter | Events successfully forwarded |
-| `cee_events_dropped_total` | Counter | Events dropped (queue full) |
+| `cee_events_dropped_total` | Counter | Events dropped: the queue was full, or a PowerScale event arrived that this build cannot decode yet (see the OneFS limitation below). A non-zero value on a PowerScale publisher means audit records are being acknowledged and discarded |
 | `cee_events_truncated_total` | Counter | Events with at least one field capped before the EVTX writer |
 | `cee_writer_errors_total` | Counter | Writer backend errors |
 | `cee_queue_depth` | Gauge | Current event queue depth |
 | `cee_last_fsync_unix_seconds` | Gauge | Unix timestamp of the last successful fsync to the EVTX file. 0 = none yet; alert when `time() - this > flush_interval_s * 2` |
 | `cee_build_info` | Gauge | Always 1; labelled with `version` and `go_version` — join on it to correlate other metrics with a release |
 | `cee_cepa_last_request_unix_seconds` | Gauge | Unix timestamp of the last CEPA request from a publisher, labelled `remote`. Stamped on every PUT — handshake, event batch, or failed payload. Alert when `time() - this > 60` |
-| `cee_cepa_registrations_total` | Counter | CEPA `RegisterRequest` handshakes received from a publisher, labelled `remote` |
+| `cee_cepa_registrations_total` | Counter | CEPA handshakes received from a publisher, labelled `remote`. Either dialect counts: PowerStore's `RegisterRequest` and PowerScale's `CheckFileRequest` with `action="9"`. Both are sent per heartbeat, so this climbs steadily on a healthy publisher — it is a heartbeat rate, not a count of distinct registrations. A OneFS event (`action="11"`) is not counted |
 | `cee_cepa_peers_dropped_total` | Counter | Requests from publishers not recorded because the 64-peer cap was reached — increments on every such request, not once per distinct publisher. Non-zero means a real publisher may be missing from the labelled series above |
 
 ### Publisher liveness

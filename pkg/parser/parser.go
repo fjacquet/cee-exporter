@@ -101,7 +101,7 @@ const OneFSHeartbeatAction = "9"
 // every CheckFileRequest as a heartbeat therefore loses events *silently*,
 // which is worse than rejecting them.
 func CheckFileAction(body []byte) string {
-	decoded, err := decodeUTF16(body)
+	decoded, err := DecodeBody(body)
 	if err != nil {
 		return ""
 	}
@@ -118,12 +118,17 @@ func CheckFileAction(body []byte) string {
 }
 
 // rootElementIs reports whether the payload's root element has the given
-// name, after transcoding and skipping any XML declaration. Prefix-matching
-// the root rather than searching the whole document is what stops an event
-// whose file path happens to contain the word from being taken for a
-// handshake.
+// name, after transcoding and skipping any XML declaration. Matching the root
+// rather than searching the whole document is what stops an event whose file
+// path happens to contain the word from being taken for a handshake.
+//
+// The name must end at the element, not merely start it: a bare prefix test
+// accepts <RegisterRequestBatch> as a RegisterRequest and answers it with an
+// empty body, which is the fatal case on the PowerStore side — and accepts
+// <CheckFileRequestV2> as a CheckFileRequest, answering a dialect it has
+// never seen with a reply captured from a different one.
 func rootElementIs(body []byte, name string) bool {
-	decoded, err := decodeUTF16(body)
+	decoded, err := DecodeBody(body)
 	if err != nil {
 		// A payload that cannot be decoded is not a handshake. Parse will
 		// report the reason; here the only question is which branch to take.
@@ -136,7 +141,22 @@ func rootElementIs(body []byte, name string) bool {
 			trimmed = bytes.TrimSpace(trimmed[idx+2:])
 		}
 	}
-	return bytes.HasPrefix(trimmed, []byte("<"+name))
+	if !bytes.HasPrefix(trimmed, []byte("<"+name)) {
+		return false
+	}
+	rest := trimmed[len("<"+name):]
+	if len(rest) == 0 {
+		// "<RegisterRequest" and nothing else: unterminated, so not a
+		// well-formed root element.
+		return false
+	}
+	switch rest[0] {
+	case '>', '/', ' ', '\t', '\r', '\n':
+		return true
+	default:
+		// Any other byte continues the element name — a different element.
+		return false
+	}
 }
 
 // ----------------------------------------------------------------------------
@@ -197,7 +217,7 @@ func Parse(body []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	// CEE sends UTF-16LE without a BOM; encoding/xml cannot read it without a
 	// CharsetReader, and the declaration-less payloads CEE sends give it
 	// nothing to dispatch on. Transcode up front instead — see issue #32.
-	decoded, err := decodeUTF16(body)
+	decoded, err := DecodeBody(body)
 	if err != nil {
 		return nil, fmt.Errorf("decoding CEPA payload: %w", err)
 	}

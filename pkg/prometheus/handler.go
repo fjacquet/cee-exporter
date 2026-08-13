@@ -105,7 +105,7 @@ var (
 	)
 	cepaRegistrationsDesc = prometheus.NewDesc(
 		"cee_cepa_registrations_total",
-		"Total CEPA RegisterRequest handshakes received from this publisher.",
+		"Total CEPA handshakes received from this publisher, in either dialect (PowerStore RegisterRequest or PowerScale CheckFileRequest action 9). Sent per heartbeat, so this is a heartbeat rate.",
 		[]string{"remote"}, nil,
 	)
 )

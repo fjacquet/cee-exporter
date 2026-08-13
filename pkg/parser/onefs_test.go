@@ -121,6 +121,19 @@ func TestIsCheckFileRequest(t *testing.T) {
 			want:  false,
 		},
 		{
+			// A longer element that merely starts with the name is a
+			// different element. Answering it with the captured
+			// CheckFileResponse would be replying to a dialect never seen.
+			name:  "longer_element_sharing_the_prefix",
+			input: `<CheckFileRequestV2><Args action="9"/></CheckFileRequestV2>`,
+			want:  false,
+		},
+		{
+			name:  "unterminated_element",
+			input: `<CheckFileRequest`,
+			want:  false,
+		},
+		{
 			name:  "empty",
 			input: ``,
 			want:  false,

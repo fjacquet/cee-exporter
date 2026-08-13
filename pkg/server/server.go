@@ -36,16 +36,25 @@ import (
 // server (2026-08-12). OneFS parses this successfully — the only reason it
 // rejected CEE was the status value.
 //
-// The status attribute is the vcstatus the cluster reports, measured twice on
-// two different values:
+// The status attribute is the vcstatus the cluster reports. Two values were
+// measured from CEE's own replies, both errors:
 //
 //	status="0x1"   →  isi_audit_cee: vcstatus 0x1: VC_ERROR_SETUP
 //	status="0x16"  →  isi_audit_cee: vcstatus 0x16: VC_ERROR_CEPP_NOT_FOUND
 //
-// 0x0 for success is therefore an inference, not a measurement: no successful
-// OneFS handshake has ever been observed, because CEE never reached one with
-// that cluster. Both values seen map to errors and zero is the conventional
-// success. If OneFS still refuses, this constant is the first thing to change.
+// 0x0 for success started as an inference from those two — CEE never reached a
+// successful handshake with that cluster, so no success had been observed at
+// all. It is no longer an inference: this exporter answering 0x0 was accepted
+// by a live 4-node OneFS 9.13.0.0 cluster, all four nodes heartbeating cleanly,
+// and the cluster's Protocol Audit Cee Time advanced to match Protocol Audit
+// Log Time. See the CHANGELOG entry for the measurement.
+//
+// NOT verified: that this same body is the right answer to an *event* request
+// (action 11). It is a HeartBeatResponse, captured from a heartbeat exchange,
+// and it is returned verbatim for events because the cluster has to be
+// answered with something. No capture of CEE's reply to an event request
+// exists. If OneFS rejects it, the symptom is the STATUS_DATA_ERROR this
+// change exists to prevent, and this constant is the first thing to change.
 //
 // The capabilities are advertised rather than negotiated: this consumer
 // accepts whatever the cluster sends, so it claims both file protocols and a
@@ -61,6 +70,21 @@ var checkFileResponse = []byte(`<CheckFileResponse status="0x0" ceeVersion="9.2.
 </HeartBeatResponse>
 </CheckFileResponse>
 `)
+
+// maxLoggedBodyBytes caps how much of a payload a log line may carry. The
+// OneFS events measured are ~1 KiB, so this keeps them whole while bounding
+// what a malformed or hostile publisher can put in the log: readBody accepts
+// up to 64 MiB, and string(body) on that produces a 64 MiB log line and a
+// 64 MiB copy to build it.
+const maxLoggedBodyBytes = 4096
+
+// loggableBody renders a payload for a log line, truncated to a bound.
+func loggableBody(body []byte) string {
+	if len(body) <= maxLoggedBodyBytes {
+		return string(body)
+	}
+	return string(body[:maxLoggedBodyBytes]) + "…[truncated]"
+}
 
 // Handler is the CEPA HTTP handler.
 type Handler struct {
@@ -100,8 +124,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Transcode once. Every question below — both handshake probes and Parse —
+	// needs UTF-8, and CEE sends UTF-16LE, for which each decode rebuilds the
+	// whole document. Decoding per question meant a VCAPS batch was transcoded
+	// and discarded three times inside the 3-second ACK budget. A payload that
+	// cannot be decoded is passed through untouched so Parse reports it with
+	// the same error it always did.
+	decoded, decodeErr := parser.DecodeBody(body)
+	if decodeErr != nil {
+		decoded = body
+	}
+
 	// -- Handshake -----------------------------------------------------------
-	if parser.IsRegisterRequest(body) {
+	if parser.IsRegisterRequest(decoded) {
 		metrics.M.RecordPeerRegistration(peer)
 		slog.Info("cepa_register_request",
 			"remote", r.RemoteAddr,
@@ -118,13 +153,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// STATUS_DATA_ERROR when it cannot, then stops publishing entirely. Both
 	// heartbeats and events arrive in this element and both need the same
 	// reply; only the action attribute separates them.
-	if parser.IsCheckFileRequest(body) {
-		action := parser.CheckFileAction(body)
-		heartbeat := action == parser.OneFSHeartbeatAction
-
-		if heartbeat {
-			metrics.M.RecordPeerRegistration(peer)
-		}
+	if parser.IsCheckFileRequest(decoded) {
+		action := parser.CheckFileAction(decoded)
 
 		w.Header().Set("Content-Type", "text/xml")
 		w.WriteHeader(http.StatusOK)
@@ -135,33 +165,38 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if heartbeat {
+		if action == parser.OneFSHeartbeatAction {
+			metrics.M.RecordPeerRegistration(peer)
 			slog.Info("cepa_check_file_request",
 				"remote", r.RemoteAddr,
 				"body_bytes", len(body),
 				"response_bytes", n,
 			)
-			return
+		} else {
+			// An event we cannot decode yet. Acknowledging it advances the
+			// cluster's forwarding cursor, so the record is gone for good —
+			// count it as dropped and log it at WARN with the payload, so the
+			// loss is visible and the format is recoverable from the log
+			// rather than disappearing behind an INFO-level "heartbeat" line.
+			//
+			// The counter is what makes the loss alertable: a log line nobody
+			// greps for is not a signal, and cee_events_dropped_total is the
+			// series an operator already watches. Remove this branch once
+			// OneFS event parsing lands; see docs/powerscale-verification.md.
+			metrics.M.EventsDroppedTotal.Add(1)
+			slog.Warn("cepa_onefs_event_unhandled",
+				"remote", r.RemoteAddr,
+				"action", action,
+				"body_bytes", len(body),
+				"body", loggableBody(body),
+			)
 		}
-
-		// An event we cannot decode yet. Acknowledging it advances the
-		// cluster's forwarding cursor, so the record is gone for good — log it
-		// at WARN with the payload so the loss is visible and the format is
-		// recoverable from the log, rather than disappearing behind an
-		// INFO-level "heartbeat" line. Remove this branch once OneFS event
-		// parsing lands; see docs/powerscale-verification.md.
-		slog.Warn("cepa_onefs_event_unhandled",
-			"remote", r.RemoteAddr,
-			"action", action,
-			"body_bytes", len(body),
-			"body", string(body),
-		)
 		return
 	}
 
 	// -- Event payload -------------------------------------------------------
 	receiveTime := time.Now().UTC()
-	events, parseErr := parser.Parse(body, receiveTime)
+	events, parseErr := parser.Parse(decoded, receiveTime)
 	if parseErr != nil {
 		slog.Error("cepa_parse_error",
 			"remote", r.RemoteAddr,
