@@ -1,14 +1,23 @@
 # PowerScale (OneFS) verification protocol
 
-**Status: written, never executed.** Nothing in this document has been run
-against a real or virtual PowerScale cluster. It is the procedure for finding
-out whether cee-exporter works with OneFS — not a claim that it does. Until
-someone runs it and records the result in the [Results](#results-record) table,
-`docs/PROMISES.md` says PowerScale support is **Unverified**, and that is the
-honest reading.
+**Status: partly executed.** Parts A4–A7 were run on 2026-08-12 against a live
+4-node OneFS 9.13.0.0 cluster — not the Simulator. What that answered, and what
+it did not, is in the [Results](#results-record) table; the short version is
+that question (1) passed and question (2) failed, which is the outcome this
+document predicted as most likely.
 
-Read this alongside [docs/windows-verification.md](windows-verification.md),
-which follows the same shape for the Windows Event Log path.
+`docs/PROMISES.md` still says PowerScale support is **Unverified**, and that is
+still the honest reading: the cluster reaches the exporter and heartbeats, but
+not one PowerScale audit event has been decoded, mapped or written to a
+backend.
+
+Read this alongside:
+
+- [windows-verification.md](windows-verification.md) — the same shape for the
+  Windows Event Log path.
+- [cee-windows-verification.md](cee-windows-verification.md) — the alternative
+  topology, with a Dell CEE server between the cluster and the exporter, which
+  is the cheapest remaining answer to question (2). Not yet run.
 
 ## What this protocol answers
 
@@ -305,14 +314,14 @@ accurate statement that nobody has looked yet.
 
 | Question | Virtual (date / OneFS version) | Physical (date / OneFS version) |
 |---|---|---|
-| OneFS delivers PUTs to a non-CEE listener | | |
-| Handshake sent before events (yes/no, what shape) | | |
-| Payload encoding (UTF-8 / UTF-16LE / BOM) | | |
-| Event type strings, verbatim | | |
-| Events mapped to a Windows event ID (count / total) | | |
-| `cee_events_dropped_total` after the run | | |
-| Distinct `remote` label values | | |
-| Backend received the events (GELF/EVTX, evidence) | | |
+| OneFS delivers PUTs to a non-CEE listener | not run | **Yes** — 2026-08-12, OneFS 9.13.0.0, 4 nodes |
+| Handshake sent before events (yes/no, what shape) | not run | **Yes, but not `RegisterRequest`** — `<CheckFileRequest>` with `Args/@action="9"`, 229 bytes, and it requires a `<CheckFileResponse>` back; an empty body is fatal |
+| Payload encoding (UTF-8 / UTF-16LE / BOM) | not run | **Plain UTF-8, no BOM, no XML declaration** — unlike the 38-byte UTF-16LE CEE sends |
+| Event type strings, verbatim | not run | **There are none.** `<NFSEventArgs eventType="8">` — a numeric bitmask, not a string. Six values seen: 8, 32, 128, 256, 512, 2048. Only 8 (open) and 128/256 (closes) identified |
+| Events mapped to a Windows event ID (count / total) | not run | **0 / all** — `pkg/mapper` keys on `CEPP_*` names that OneFS never sends |
+| `cee_events_dropped_total` after the run | not run | One per event received: they are acknowledged and discarded, because the ACK advances the cluster's forwarding cursor either way |
+| Distinct `remote` label values | not run | 1 — all four nodes publish from a single source IP |
+| Backend received the events (GELF/EVTX, evidence) | not run | **No.** Nothing reaches a backend; nothing is decoded |
 
 Once filled, add the corresponding rows to `docs/PROMISES.md` with the same
 evidence, and cite this document — the same way
