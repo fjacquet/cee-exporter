@@ -151,8 +151,16 @@ func rootElementIs(body []byte, name string) bool {
 		return false
 	}
 	switch rest[0] {
-	case '>', '/', ' ', '\t', '\r', '\n':
+	case '>':
 		return true
+	case '/', ' ', '\t', '\r', '\n':
+		// The name ends here, but the start tag still has to be closed. A
+		// body that stops inside it — mid-attribute, or on the space after
+		// the name — is truncated, and a truncated payload is not a
+		// handshake: answering it would be inventing a request that was
+		// never fully sent, the same reasoning that makes decodeUTF16Pairs
+		// reject an odd trailing byte. Parse reports it instead.
+		return bytes.IndexByte(rest, '>') >= 0
 	default:
 		// Any other byte continues the element name — a different element.
 		return false

@@ -48,10 +48,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>` with
   a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the `CEPP_*`
   strings `pkg/mapper` keys on. They are counted in `cee_events_dropped_total`
-  and logged at WARN with the payload (capped at 4 KiB per line) rather than
-  silently dropped, because acknowledging an event advances the cluster's
-  forwarding cursor and destroys the record. The counter is the alertable
-  signal; the log line carries the format.
+  rather than silently dropped, because acknowledging an event advances the
+  cluster's forwarding cursor and destroys the record.
+
+  The counter is the alertable signal and counts every event. The payload is
+  logged at WARN for the first ten only, capped at 4 KiB, with a payload-free
+  line every thousandth after that: OneFS sends one `CheckFileRequest` per
+  file operation, so logging them all would flood the log and copy a UNC path,
+  a user SID and a client IP per event into a second store. Ten samples answer
+  what the format is; the counter answers how much is being lost.
 
   Six event types were measured (8, 32, 128, 256, 512, 2048 — a bitmask). Only
   the open (8) and the closes (128, 256) are identified; 32, 512 and 2048

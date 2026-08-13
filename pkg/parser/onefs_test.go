@@ -134,6 +134,18 @@ func TestIsCheckFileRequest(t *testing.T) {
 			want:  false,
 		},
 		{
+			// Truncated after the name: the start tag is never closed, so
+			// nothing says the rest of it would have been a CheckFileRequest.
+			name:  "truncated_after_name",
+			input: `<CheckFileRequest `,
+			want:  false,
+		},
+		{
+			name:  "truncated_mid_attribute",
+			input: `<CheckFileRequest sourceIP="10.26.1.1`,
+			want:  false,
+		},
+		{
 			name:  "empty",
 			input: ``,
 			want:  false,

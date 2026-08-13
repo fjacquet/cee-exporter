@@ -139,6 +139,14 @@ func TestIsRegisterRequest(t *testing.T) {
 			input: `<RegisterRequest`,
 			want:  false,
 		},
+		{
+			// Truncated after the name. Answering this with the empty body a
+			// RegisterRequest requires would be answering a request that was
+			// never fully sent.
+			name:  "truncated_after_name",
+			input: `<RegisterRequest `,
+			want:  false,
+		},
 	}
 
 	for _, tt := range tests {

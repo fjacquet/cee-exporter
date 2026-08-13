@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/fjacquet/cee-exporter/pkg/mapper"
@@ -90,7 +91,30 @@ func loggableBody(body []byte) string {
 type Handler struct {
 	q        *queue.Queue
 	hostname string // embedded in every generated WindowsEvent
+
+	// onefsUnhandled counts OneFS events this build cannot decode, for the
+	// benefit of the log sampler below. The alertable count is
+	// metrics.M.EventsDroppedTotal; this one exists only to decide which
+	// occurrences carry their payload.
+	onefsUnhandled atomic.Int64
 }
+
+// onefsPayloadSamples is how many unhandled OneFS events log their full
+// payload before the sampler stops.
+//
+// The payload is logged so the wire format stays recoverable — that is what
+// makes the undecoded event types identifiable at all. It is not logged for
+// every event: OneFS sends one CheckFileRequest per file operation, so a
+// cluster under normal load produces thousands per second, and each payload
+// carries a UNC path, a user SID and a client IP. Logging all of them is both
+// a flood and a needless copy of audit content into a second, less protected
+// store. A handful of samples answers the format question; the counter
+// answers "how much am I losing".
+const onefsPayloadSamples = 10
+
+// onefsSuppressedInterval is how often a suppressed event still logs, without
+// its payload, so the loss never goes completely quiet in the log.
+const onefsSuppressedInterval = 1000
 
 // NewHandler creates a Handler.
 // hostname is the value used for the WindowsEvent.Computer field
@@ -184,12 +208,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// series an operator already watches. Remove this branch once
 			// OneFS event parsing lands; see docs/powerscale-verification.md.
 			metrics.M.EventsDroppedTotal.Add(1)
-			slog.Warn("cepa_onefs_event_unhandled",
-				"remote", r.RemoteAddr,
-				"action", action,
-				"body_bytes", len(body),
-				"body", loggableBody(body),
-			)
+			seen := h.onefsUnhandled.Add(1)
+			switch {
+			case seen <= onefsPayloadSamples:
+				slog.Warn("cepa_onefs_event_unhandled",
+					"remote", r.RemoteAddr,
+					"action", action,
+					"body_bytes", len(body),
+					"unhandled_total", seen,
+					"body", loggableBody(body),
+				)
+			case seen%onefsSuppressedInterval == 0:
+				slog.Warn("cepa_onefs_event_unhandled",
+					"remote", r.RemoteAddr,
+					"action", action,
+					"body_bytes", len(body),
+					"unhandled_total", seen,
+					"body", "suppressed",
+				)
+			}
 		}
 		return
 	}

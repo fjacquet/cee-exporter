@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/xml"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -143,6 +144,43 @@ func TestServeHTTP_CheckFileEvent_AckedAndCounted(t *testing.T) {
 	// per-publisher handshake series with file activity.
 	if got := metrics.M.PeerSnapshot()["10.26.1.150"].Registrations; got != 0 {
 		t.Errorf("Registrations = %d for an event request, want 0", got)
+	}
+}
+
+// TestServeHTTP_CheckFileEvent_PayloadLoggingIsSampled asserts that the raw
+// payload stops being logged after a handful of samples, while the drop count
+// keeps rising.
+//
+// OneFS sends one CheckFileRequest per file operation, so this branch runs at
+// cluster file-activity rate. Logging every payload would flood the log and
+// copy a UNC path, a user SID and a client IP per event into a second store.
+// The samples answer "what does this format look like"; the counter answers
+// "how much am I losing" — and only the counter has to scale.
+func TestServeHTTP_CheckFileEvent_PayloadLoggingIsSampled(t *testing.T) {
+	resetPeers(t)
+	h := newTestHandler(t, &stubWriter{}, 10, 1)
+
+	var buf bytes.Buffer
+	restore := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	t.Cleanup(func() { slog.SetDefault(restore) })
+
+	const sends = onefsPayloadSamples + 5
+	beforeDropped := metrics.M.EventsDroppedTotal.Load()
+	for range sends {
+		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(checkFileEventOneFS))
+		req.RemoteAddr = "10.26.1.150:42256"
+		h.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	// Every one is counted — sampling must never cost the operator the count.
+	if got := metrics.M.EventsDroppedTotal.Load(); got != beforeDropped+sends {
+		t.Errorf("EventsDroppedTotal = %d, want %d — sampling must not suppress the count", got, beforeDropped+sends)
+	}
+
+	// The payload carries eventType, which is the identifying detail.
+	if got := strings.Count(buf.String(), `eventType=`); got != onefsPayloadSamples {
+		t.Errorf("payload logged %d times for %d events, want %d samples", got, sends, onefsPayloadSamples)
 	}
 }
 
