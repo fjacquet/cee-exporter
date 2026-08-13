@@ -166,7 +166,14 @@ func (s *Store) RecordPeerRequestAt(host string, t time.Time) {
 	s.peers[host] = fresh
 }
 
-// RecordPeerRegistration counts a CEPA RegisterRequest handshake from host.
+// RecordPeerRegistration counts a CEPA handshake from host, in either dialect:
+// PowerStore's <RegisterRequest> or PowerScale's <CheckFileRequest> with
+// action 9.
+//
+// Both are sent per heartbeat, not once per connection, so this is a heartbeat
+// rate and not a count of distinct registrations — measured against three live
+// CEE 9.2.0.0 publishers on 2026-08-11, where it incremented once per
+// heartbeat. A OneFS event (action 11) is not a handshake and is not counted.
 //
 // It never creates a peer: a peer is created only by RecordPeerRequestAt,
 // which enforces MaxPeers. A registration for an unknown host — or for one

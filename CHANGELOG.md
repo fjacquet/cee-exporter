@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **PowerScale (OneFS) CEPA handshake.** OneFS opens with `<CheckFileRequest>`,
+  not the `<RegisterRequest/>` that Dell CEE sends, and it requires a
+  `<CheckFileResponse>` back — where PowerStore requires an empty body and
+  treats any XML as fatal. The two dialects are now detected separately and
+  answered differently.
+
+  Before this, every OneFS cluster fell through to the event parser, was
+  rejected as an unrecognised payload, and got an empty 200. The cluster logged
+  `Error while parsing CEE CheckFileResponse` then `STATUS_DATA_ERROR`, marked
+  the consumer dead, and **never sent a single event**.
+
+  Verified against a live 4-node OneFS 9.13.0.0 cluster: all four nodes
+  heartbeat cleanly, and the cluster's `Protocol Audit Cee Time` — stuck for
+  ten hours — advanced to match `Protocol Audit Log Time` the moment the
+  handshake was accepted. This closes one of the open questions in
+  `docs/powerscale-verification.md`: OneFS does *not* perform the
+  `RegisterRequest` handshake.
+
+  The response's `status` attribute is the `vcstatus` the cluster reports.
+  Measured from CEE's own replies: `0x1` surfaced as `VC_ERROR_SETUP`, `0x16`
+  as `VC_ERROR_CEPP_NOT_FOUND`. `0x0` for success began as an inference from
+  those two and is confirmed by the live run above — the cluster accepted it.
+  What is still **not** measured is whether the same body is the right answer
+  to an *event* request (`action="11"`): it is a `HeartBeatResponse`, returned
+  verbatim because the cluster must be answered, and no capture of CEE
+  replying to an event request exists.
+
+  `cee_cepa_registrations_total` now counts OneFS heartbeats alongside
+  PowerStore `RegisterRequest`s. Both dialects send their handshake once per
+  heartbeat, so the counter's meaning is unchanged — it was already a
+  heartbeat rate, not a count of distinct registrations.
+
+### Known limitation
+
+- **OneFS events are received but not yet decoded.** Events arrive in the same
+  `CheckFileRequest` element as the heartbeat, distinguished only by
+  `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>` with
+  a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the `CEPP_*`
+  strings `pkg/mapper` keys on. They are counted in `cee_events_dropped_total`
+  rather than silently dropped, because acknowledging an event advances the
+  cluster's forwarding cursor and destroys the record.
+
+  The counter is the alertable signal and counts every event. The payload is
+  logged at WARN for the first ten only, capped at 4 KiB, with a payload-free
+  line every thousandth after that: OneFS sends one `CheckFileRequest` per
+  file operation, so logging them all would flood the log and copy a UNC path,
+  a user SID and a client IP per event into a second store. Ten samples answer
+  what the format is; the counter answers how much is being lost.
+
+  Six event types were measured (8, 32, 128, 256, 512, 2048 — a bitmask). Only
+  the open (8) and the closes (128, 256) are identified; 32, 512 and 2048
+  divide between rename, set_security and delete and need one capture per
+  isolated operation to separate. Deliberately not guessed: wrong event IDs in
+  an audit trail are worse than no audit trail.
+
 ## [5.3.3] - 2026-08-11
 
 ### Fixed

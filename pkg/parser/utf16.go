@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 )
 
-// decodeUTF16 converts a UTF-16 CEPA payload to UTF-8, returning the input
+// DecodeBody converts a UTF-16 CEPA payload to UTF-8, returning the input
 // unchanged if it is not UTF-16.
 //
 // Dell CEE sends UTF-16LE without a BOM. Measured on the wire against CEE
@@ -21,7 +21,19 @@ import (
 //
 // Decoding happens once, at the head of both entry points, so the two cannot
 // disagree about what a payload says.
-func decodeUTF16(body []byte) ([]byte, error) {
+//
+// It is exported so a caller asking several questions about the same body can
+// decode once and pass the result on. That only matters on the VCAPS path:
+// OneFS sends plain UTF-8, for which this is a no-op returning the input
+// untouched, while CEE sends UTF-16LE, for which every call allocates a
+// []uint16 of len(body)/2 and a []byte of up to 4 bytes per rune. A batch of
+// thousands of events routed through IsRegisterRequest, IsCheckFileRequest
+// and Parse would otherwise be transcoded and discarded three times per PUT.
+//
+// The result is safe to hand back to any of them: decoded UTF-8 still starts
+// with '<' followed by a non-zero byte, so a second call falls through
+// untouched and no caller has to know whether it holds raw or decoded bytes.
+func DecodeBody(body []byte) ([]byte, error) {
 	if len(body) < 2 {
 		return body, nil
 	}

@@ -121,12 +121,12 @@ func TestDecodeUTF16_LeavesUTF8Alone(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := decodeUTF16([]byte(tc.body))
+			got, err := DecodeBody([]byte(tc.body))
 			if err != nil {
-				t.Fatalf("decodeUTF16 returned error on a UTF-8 payload: %v", err)
+				t.Fatalf("DecodeBody returned error on a UTF-8 payload: %v", err)
 			}
 			if string(got) != tc.body {
-				t.Errorf("decodeUTF16 altered a UTF-8 payload:\n got %q\nwant %q", got, tc.body)
+				t.Errorf("DecodeBody altered a UTF-8 payload:\n got %q\nwant %q", got, tc.body)
 			}
 		})
 	}

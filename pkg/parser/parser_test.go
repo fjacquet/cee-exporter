@@ -126,6 +126,27 @@ func TestIsRegisterRequest(t *testing.T) {
 			input: `<SomeOtherElement/>`,
 			want:  false,
 		},
+		{
+			// The costly false positive: a different element that merely
+			// starts with the name would be answered with a strictly empty
+			// body, which is a fatal parse error on the PowerStore side.
+			name:  "longer_element_sharing_the_prefix",
+			input: `<RegisterRequestBatch><RegisterRequest/></RegisterRequestBatch>`,
+			want:  false,
+		},
+		{
+			name:  "unterminated_element",
+			input: `<RegisterRequest`,
+			want:  false,
+		},
+		{
+			// Truncated after the name. Answering this with the empty body a
+			// RegisterRequest requires would be answering a request that was
+			// never fully sent.
+			name:  "truncated_after_name",
+			input: `<RegisterRequest `,
+			want:  false,
+		},
 	}
 
 	for _, tt := range tests {

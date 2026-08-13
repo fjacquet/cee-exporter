@@ -5,8 +5,11 @@
 //  1. Single-event: <CEEEvent>…</CEEEvent>
 //  2. VCAPS bulk batch: <EventBatch><CEEEvent>…</CEEEvent>…</EventBatch>
 //
-// The CEPA RegisterRequest handshake (<RegisterRequest />) is detected and
-// handled separately — callers should check for it before calling Parse.
+// Two handshakes are detected and handled separately — callers must check for
+// both before calling Parse, because neither is an event payload:
+//
+//	<RegisterRequest />   PowerStore, via Dell CEE
+//	<CheckFileRequest>…   PowerScale (OneFS), which speaks CEPA directly
 package parser
 
 import (
@@ -48,8 +51,84 @@ type CEPAEvent struct {
 // IsRegisterRequest returns true if the body is the CEPA handshake payload.
 // Matches a <RegisterRequest> root element — guards against event payloads
 // whose content (e.g. a file path) happens to contain the word.
+//
+// This is the PowerStore/CEE dialect. OneFS opens with a different element
+// entirely — see IsCheckFileRequest.
 func IsRegisterRequest(body []byte) bool {
-	decoded, err := decodeUTF16(body)
+	return rootElementIs(body, "RegisterRequest")
+}
+
+// IsCheckFileRequest returns true if the body is the OneFS (PowerScale)
+// heartbeat, which is a <CheckFileRequest> rather than PowerStore's
+// <RegisterRequest>.
+//
+// Measured on the wire from a 4-node OneFS 9.13.0.0 cluster (2026-08-12),
+// 229 bytes of plain UTF-8 — not the 38-byte UTF-16LE that CEE sends:
+//
+//	<CheckFileRequest><Args action="9" sourceIP="10.26.1.150" sourceID="2"
+//	  name="cABvAHcAZQByAHMAYwBhAGwAZQAxAA=="><Cluster id="00505692…"
+//	  name="cABvAHcAZQByAHMAYwBhAGwAZQAxAA=="/></Args></CheckFileRequest>
+//
+// `action="9"` is the heartbeat; `name` is the cluster name as base64 of
+// UTF-16LE.
+//
+// The element alone does not tell you what the payload is: OneFS carries its
+// *events* in the same CheckFileRequest element, distinguished only by the
+// action attribute. Use CheckFileAction to tell them apart — both need a
+// CheckFileResponse back, but only action 9 is a heartbeat.
+func IsCheckFileRequest(body []byte) bool {
+	return rootElementIs(body, "CheckFileRequest")
+}
+
+// OneFSHeartbeatAction is the Args/@action value OneFS uses for its heartbeat.
+// Events use other values — action 11 was measured for NFS file events.
+const OneFSHeartbeatAction = "9"
+
+// CheckFileAction returns the Args/@action attribute of a CheckFileRequest,
+// or "" if the payload cannot be decoded or carries no action.
+//
+// This distinction is load-bearing. A CheckFileRequest with action 11 holds a
+// real audit event:
+//
+//	<CheckFileRequest><Args action="11" … name="<base64 UTF-16LE UNC path>"
+//	  protocol="1"><Cluster …/><Zone …/></Args>
+//	  <NFSEventArgs eventType="8" desiredAccess="0x100106" createDispo="0x3"
+//	    userSid="S-1-22-1-1000" clientIP="10.26.1.222" userId="1000"
+//	    timeStamp="1786563708" inode="4295432746" fsId="1"/></CheckFileRequest>
+//
+// Answering that with a heartbeat response and nothing else makes OneFS
+// advance its forwarding cursor — the event is acknowledged and gone. Treating
+// every CheckFileRequest as a heartbeat therefore loses events *silently*,
+// which is worse than rejecting them.
+func CheckFileAction(body []byte) string {
+	decoded, err := DecodeBody(body)
+	if err != nil {
+		return ""
+	}
+	var r struct {
+		XMLName xml.Name `xml:"CheckFileRequest"`
+		Args    struct {
+			Action string `xml:"action,attr"`
+		} `xml:"Args"`
+	}
+	if err := xml.Unmarshal(decoded, &r); err != nil {
+		return ""
+	}
+	return r.Args.Action
+}
+
+// rootElementIs reports whether the payload's root element has the given
+// name, after transcoding and skipping any XML declaration. Matching the root
+// rather than searching the whole document is what stops an event whose file
+// path happens to contain the word from being taken for a handshake.
+//
+// The name must end at the element, not merely start it: a bare prefix test
+// accepts <RegisterRequestBatch> as a RegisterRequest and answers it with an
+// empty body, which is the fatal case on the PowerStore side — and accepts
+// <CheckFileRequestV2> as a CheckFileRequest, answering a dialect it has
+// never seen with a reply captured from a different one.
+func rootElementIs(body []byte, name string) bool {
+	decoded, err := DecodeBody(body)
 	if err != nil {
 		// A payload that cannot be decoded is not a handshake. Parse will
 		// report the reason; here the only question is which branch to take.
@@ -62,7 +141,30 @@ func IsRegisterRequest(body []byte) bool {
 			trimmed = bytes.TrimSpace(trimmed[idx+2:])
 		}
 	}
-	return bytes.HasPrefix(trimmed, []byte("<RegisterRequest"))
+	if !bytes.HasPrefix(trimmed, []byte("<"+name)) {
+		return false
+	}
+	rest := trimmed[len("<"+name):]
+	if len(rest) == 0 {
+		// "<RegisterRequest" and nothing else: unterminated, so not a
+		// well-formed root element.
+		return false
+	}
+	switch rest[0] {
+	case '>':
+		return true
+	case '/', ' ', '\t', '\r', '\n':
+		// The name ends here, but the start tag still has to be closed. A
+		// body that stops inside it — mid-attribute, or on the space after
+		// the name — is truncated, and a truncated payload is not a
+		// handshake: answering it would be inventing a request that was
+		// never fully sent, the same reasoning that makes decodeUTF16Pairs
+		// reject an odd trailing byte. Parse reports it instead.
+		return bytes.IndexByte(rest, '>') >= 0
+	default:
+		// Any other byte continues the element name — a different element.
+		return false
+	}
 }
 
 // ----------------------------------------------------------------------------
@@ -123,7 +225,7 @@ func Parse(body []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	// CEE sends UTF-16LE without a BOM; encoding/xml cannot read it without a
 	// CharsetReader, and the declaration-less payloads CEE sends give it
 	// nothing to dispatch on. Transcode up front instead — see issue #32.
-	decoded, err := decodeUTF16(body)
+	decoded, err := DecodeBody(body)
 	if err != nil {
 		return nil, fmt.Errorf("decoding CEPA payload: %w", err)
 	}
