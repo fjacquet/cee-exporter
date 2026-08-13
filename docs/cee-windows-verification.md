@@ -157,6 +157,38 @@ If `EndPoint` already has a value — another consumer such as a SIEM agent —
 **append** with a semicolon rather than overwriting it. That is the opposite of
 the rule for the OneFS URI list in D2, and for the opposite reason: CEE
 delivers to *every* endpoint, while OneFS distributes across its URIs.
+Overwriting it here silently unhooks whatever was already consuming events.
+
+Read, append, write back — never retype the existing value from a screenshot:
+
+```powershell
+$existing = (Get-ItemProperty -Path $audit -Name 'EndPoint' -ErrorAction SilentlyContinue).EndPoint
+$mine     = 'cee-exporter@http://<exporter-ip>:12228'
+
+$value = if ([string]::IsNullOrWhiteSpace($existing)) { $mine } else { "$existing;$mine" }
+Set-ItemProperty -Path $audit -Name 'EndPoint' -Value $value -Type String
+
+(Get-ItemProperty -Path $audit).EndPoint -split ';'   # one endpoint per line
+```
+
+!!! warning "Quote the semicolon"
+
+    The `;` is a statement separator in PowerShell and a nothing-in-particular
+    in `cmd.exe`. Inside `'single'` or `"double"` quotes it is a literal
+    character and the value lands intact, which is why every example here is
+    quoted. Unquoted, PowerShell ends the command at the semicolon and writes a
+    **truncated** `EndPoint` containing only the first consumer — the other one
+    stops receiving events, with nothing in any log to say why.
+
+    The same applies to `reg.exe`: quote the whole `/d` argument.
+
+    ```cmd
+    reg add "HKLM\SOFTWARE\EMC\CEE\CEPP\Audit\Configuration" /v EndPoint ^
+      /t REG_SZ /d "other-app@http://10.0.0.9:12229;cee-exporter@http://10.0.0.8:12228" /f
+    ```
+
+    Verify by reading the value back and splitting it, as above. A semicolon
+    count that does not match the number of consumers you expect is the bug.
 
 The path component is absent above on purpose. The exporter routes on HTTP
 method only, never on path (`pkg/server/server.go`), so `/cee`, `/vee` or
