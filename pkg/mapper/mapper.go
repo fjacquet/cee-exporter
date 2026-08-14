@@ -10,7 +10,14 @@
 //	CEPP_SETACL_FILE                         → EventID 4670 (permissions changed)
 //	CEPP_RENAME_FILE                         → EventID 4663 (WriteData access)
 //	CEPP_CLOSE_MODIFIED                      → EventID 4663 (composite — WriteData)
+//	CEPP_CLOSE_UNMODIFIED                    → EventID 4658 (handle closed)
 //	(unknown)                                → EventID 4663 (default)
+//
+// CEPP_CLOSE_UNMODIFIED has no PowerStore counterpart — it comes from OneFS,
+// whose eventType 256 is a close that wrote nothing (see pkg/parser/onefs.go).
+// 4658 "The handle to an object was closed" is the Windows audit event for
+// exactly that. It is deliberately not folded into CEPP_CLOSE_MODIFIED's 4663:
+// that ID asserts an access, and a bare close performed none.
 package mapper
 
 import (
@@ -29,6 +36,7 @@ var cepaToEventID = map[string]int{
 	"CEPP_FILE_READ_DIR":    4663,
 	"CEPP_FILE_WRITE":       4663,
 	"CEPP_CLOSE_MODIFIED":   4663,
+	"CEPP_CLOSE_UNMODIFIED": 4658,
 	"CEPP_RENAME_FILE":      4663,
 	"CEPP_RENAME_DIRECTORY": 4663,
 	"CEPP_DELETE_FILE":      4660,
@@ -45,6 +53,7 @@ var accessMaskFor = map[string]string{
 	"CEPP_CREATE_DIRECTORY": "0x4", // AppendData (or AddSubdirectory)
 	"CEPP_FILE_WRITE":       "0x2", // WriteData (or AddFile)
 	"CEPP_CLOSE_MODIFIED":   "0x2",
+	"CEPP_CLOSE_UNMODIFIED": "0x0", // a bare close exercises no access right
 	"CEPP_RENAME_FILE":      "0x2",
 	"CEPP_RENAME_DIRECTORY": "0x2",
 	"CEPP_DELETE_FILE":      "0x10000", // DELETE
@@ -61,6 +70,7 @@ var accessDescFor = map[string]string{
 	"CEPP_CREATE_DIRECTORY": "AppendData (or AddSubdirectory)",
 	"CEPP_FILE_WRITE":       "WriteData (or AddFile)",
 	"CEPP_CLOSE_MODIFIED":   "WriteData (or AddFile)",
+	"CEPP_CLOSE_UNMODIFIED": "CloseHandle",
 	"CEPP_RENAME_FILE":      "WriteData (or AddFile)",
 	"CEPP_RENAME_DIRECTORY": "WriteData (or AddFile)",
 	"CEPP_DELETE_FILE":      "DELETE",

@@ -222,11 +222,19 @@ func TestServeHTTP_RegisterRequest_EmptyBody(t *testing.T) {
 	}
 }
 
-// TestServeHTTP_RejectsNonPut confirms every non-PUT method gets 405.
-func TestServeHTTP_RejectsNonPut(t *testing.T) {
+// TestServeHTTP_RejectsUnpublisherMethods confirms 405 for methods no CEPA
+// publisher uses.
+//
+// POST is deliberately absent from this list. It used to be here, and that
+// was wrong: PowerStore's Data Mover publishes with `POST /vee` (measured on
+// the wire, User-Agent "EMC Data Mover"), so rejecting POST meant a NAS server
+// pointed at this consumer got 405 on every heartbeat and could never
+// establish a CEPP session. Dell CEE and OneFS both use PUT. Both are
+// accepted; see TestServeHTTP_AcceptsPowerStorePost.
+func TestServeHTTP_RejectsUnpublisherMethods(t *testing.T) {
 	h := newTestHandler(t, &stubWriter{}, 1, 1)
 
-	methods := []string{http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodHead}
+	methods := []string{http.MethodGet, http.MethodDelete, http.MethodHead}
 	for _, m := range methods {
 		t.Run(m, func(t *testing.T) {
 			req := httptest.NewRequest(m, "/", nil)

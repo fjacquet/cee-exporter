@@ -9,6 +9,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **OneFS file events are parsed and written.** `CheckFileRequest` with
+  `action="11"` carries a real audit event, not a heartbeat — same element,
+  different action. These were previously acknowledged and logged at WARN but
+  never written, because acknowledging one advances the cluster's forwarding
+  cursor and dropping it silently would have been worse than refusing it.
+
+  `pkg/parser/onefs.go` decodes the payload into the same `CEPAEvent` the
+  PowerStore path produces — base64 UTF-16LE UNC path, `NFSEventArgs`,
+  microsecond timestamps, I/O counters — so both dialects feed one mapper and
+  one set of writers rather than a parallel pipeline.
+
+  The numeric `eventType` bitmask is fully resolved, by an isolation run of one
+  operation per 10-second window against a live OneFS 9.13.0.0 cluster:
+
+  | eventType | Operation |
+  |---|---|
+  | 8 | open/create |
+  | 32 | delete |
+  | 128 | close after writing |
+  | 256 | ordinary close |
+  | 512 | rename (emitted against the **source** path) |
+  | 2048 | set_security |
+
+  An earlier capture of the same operations batched together could not
+  attribute 32, 512 and 2048, and they were deliberately left unmapped rather
+  than guessed. The attribution now closes on itself: `rm` produced 32, so 512
+  cannot be delete; `mv` produced only 512, so 512 is the rename.
+
+  Values outside that table become `CEPP_ONEFS_UNMAPPED_<n>`, are logged at
+  WARN, and are still written — the cursor has already moved by then, so
+  dropping them would lose them outright — but they carry the mapper's
+  documented default EventID rather than a researched one, and that distinction
+  is visible to whoever reads the trail.
+
+- **`CEPP_CLOSE_UNMODIFIED` → EventID 4658.** OneFS eventType 256 is a close
+  that wrote nothing; 4658 ("The handle to an object was closed") is the
+  Windows audit event for exactly that. Deliberately not folded into
+  `CEPP_CLOSE_MODIFIED`'s 4663, which asserts an access a bare close never
+  performed.
+
+- **The PowerStore CEPA dialect is accepted.** Three changes, each measured off
+  a wire capture of a live PowerStore NAS server:
+
+  - **POST is accepted alongside PUT.** PowerStore's Data Mover publishes with
+    `POST /vee` (`User-Agent: EMC Data Mover`); Dell CEE and OneFS both use
+    PUT. While only PUT was accepted, a NAS server pointed at this consumer got
+    `405 Method Not Allowed` on every heartbeat and could never establish a
+    CEPP session.
+  - **The `CheckFileResponse` is returned in the encoding it was addressed
+    in.** PowerStore speaks UTF-16LE and Dell CEE answers it in UTF-16LE; OneFS
+    speaks UTF-8 and is answered in UTF-8. A reply the publisher cannot parse
+    is fatal to it.
+  - The existing `action="9"` handshake path then answers PowerStore's
+    heartbeat with `status="0x0"`.
+
+  **This does not, by itself, let a PowerStore array publish here directly, and
+  on at least one PowerStoreOS version it cannot.** The Events Publisher's
+  transport selection makes **Microsoft RPC mandatory** — it cannot be
+  unticked, on an existing publisher or a newly created one — and this daemon
+  serves HTTP only. Measured against a live array: with the pool listing a
+  Linux consumer first and a Windows CEE host second, the array skipped the
+  first entry without ever opening a TCP connection to it and used the second.
+  A Linux host cannot be a direct CEPA target for such an array at all.
+
+  What the change is good for: any publisher that speaks the PowerStore dialect
+  over HTTP reaches this consumer correctly now instead of getting 405. That
+  includes Dell CEE itself, and it removes a whole class of silent failure. It
+  is not a route around CEE for PowerStore.
+
+  Context for why it was attempted: Dell CEE 9.2.0.0 and 9.3.0.0 both answer
+  `status="0x16"` (`VC_ERROR_CEPP_NOT_FOUND`) to a correctly-configured
+  PowerStore NAS server, which responds by generating events, counting them as
+  missed, and transmitting nothing. Note also that Dell does not support CEPA
+  without CEE in the path.
+
 - **PowerScale (OneFS) CEPA handshake.** OneFS opens with `<CheckFileRequest>`,
   not the `<RegisterRequest/>` that Dell CEE sends, and it requires a
   `<CheckFileResponse>` back — where PowerStore requires an empty body and

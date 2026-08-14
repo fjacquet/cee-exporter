@@ -21,6 +21,41 @@ import (
 //
 // Decoding happens once, at the head of both entry points, so the two cannot
 // disagree about what a payload says.
+// IsUTF16 reports whether a payload arrived as UTF-16, using the same
+// detection decodeUTF16 uses so the two cannot disagree.
+//
+// Callers need this to answer in the encoding they were addressed in. The two
+// publishers differ: PowerStore sends UTF-16LE and CEE answers it in UTF-16LE,
+// while OneFS sends plain UTF-8 and is answered in UTF-8 — measured on the
+// wire from both. Replying in the wrong one produces a body the publisher
+// cannot parse, which for OneFS is fatal (STATUS_DATA_ERROR) and for
+// PowerStore means the CEPP session never establishes.
+func IsUTF16(body []byte) bool {
+	if len(body) < 2 {
+		return false
+	}
+	switch {
+	case body[0] == 0xFF && body[1] == 0xFE, // BOM, little-endian
+		body[0] == 0xFE && body[1] == 0xFF, // BOM, big-endian
+		body[0] != 0x00 && body[1] == 0x00, // BOM-less LE: '<' then NUL
+		body[0] == 0x00 && body[1] != 0x00: // BOM-less BE: NUL then '<'
+		return true
+	}
+	return false
+}
+
+// EncodeUTF16LE converts UTF-8 to UTF-16LE without a BOM, which is how Dell
+// CEE puts XML on the wire — measured against CEE 9.2.0.0 and 9.3.0.0, whose
+// own replies carry no BOM either.
+func EncodeUTF16LE(b []byte) []byte {
+	units := utf16.Encode([]rune(string(b)))
+	out := make([]byte, 0, len(units)*2)
+	for _, u := range units {
+		out = append(out, byte(u), byte(u>>8))
+	}
+	return out
+}
+
 func decodeUTF16(body []byte) ([]byte, error) {
 	if len(body) < 2 {
 		return body, nil

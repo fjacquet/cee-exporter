@@ -80,7 +80,12 @@ func NewHandler(q *queue.Queue, hostname string) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	if r.Method != http.MethodPut {
+	// PUT and POST both, because the publishers disagree and neither is
+	// negotiable. Dell CEE and OneFS send PUT; PowerStore's Data Mover sends
+	// `POST /vee` — measured on the wire, User-Agent "EMC Data Mover". While
+	// this accepted PUT alone, a NAS server pointed straight at this consumer
+	// got 405 on every heartbeat and could never establish a CEPP session.
+	if r.Method != http.MethodPut && r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -126,9 +131,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			metrics.M.RecordPeerRegistration(peer)
 		}
 
+		// Answer in the encoding we were addressed in. PowerStore sends
+		// UTF-16LE and CEE answers it in UTF-16LE; OneFS sends UTF-8 and is
+		// answered in UTF-8. Both measured on the wire. A publisher that
+		// cannot parse the reply treats it as fatal, so this is not cosmetic.
+		reply := checkFileResponse
+		if parser.IsUTF16(body) {
+			reply = parser.EncodeUTF16LE(checkFileResponse)
+		}
+
 		w.Header().Set("Content-Type", "text/xml")
 		w.WriteHeader(http.StatusOK)
-		n, err := w.Write(checkFileResponse)
+		n, err := w.Write(reply)
 		if err != nil {
 			slog.Error("cepa_check_file_response_write_error",
 				"remote", r.RemoteAddr, "error", err)
@@ -144,18 +158,30 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// An event we cannot decode yet. Acknowledging it advances the
-		// cluster's forwarding cursor, so the record is gone for good — log it
-		// at WARN with the payload so the loss is visible and the format is
-		// recoverable from the log, rather than disappearing behind an
-		// INFO-level "heartbeat" line. Remove this branch once OneFS event
-		// parsing lands; see docs/powerscale-verification.md.
-		slog.Warn("cepa_onefs_event_unhandled",
+		// A file event. The CheckFileResponse above has already advanced the
+		// cluster's forwarding cursor, so this record exists nowhere else the
+		// moment we return: anything not written here is lost, which is why
+		// the failure path below logs the whole payload rather than a summary.
+		events, err := parser.ParseOneFSEvent(body, time.Now().UTC())
+		if err != nil {
+			slog.Warn("cepa_onefs_event_unhandled",
+				"remote", r.RemoteAddr,
+				"action", action,
+				"body_bytes", len(body),
+				"error", err,
+				"body", string(body),
+			)
+			return
+		}
+
+		slog.Info("cepa_onefs_event_received",
 			"remote", r.RemoteAddr,
 			"action", action,
-			"body_bytes", len(body),
-			"body", string(body),
+			"events_in_batch", len(events),
+			"queue_depth", metrics.M.QueueDepth(),
+			"latency_ms", time.Since(start).Milliseconds(),
 		)
+		h.enqueue(events, r)
 		return
 	}
 
@@ -173,8 +199,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics.M.EventsReceivedTotal.Add(int64(len(events)))
-
 	slog.Info("cepa_events_received",
 		"remote", r.RemoteAddr,
 		"events_in_batch", len(events),
@@ -190,12 +214,33 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.Flush()
 	}
 
-	// Enqueue for async processing.
+	h.enqueue(events, r)
+}
+
+// enqueue counts, maps and queues a parsed batch, whichever dialect produced
+// it. It writes nothing to the response: both callers have already replied,
+// because the CEPA heartbeat timeout is ~3 s and the ACK must not wait on
+// queue work.
+func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
+	metrics.M.EventsReceivedTotal.Add(int64(len(events)))
+
 	hostname := h.hostname
 	if hostname == "" {
 		hostname = r.Host
 	}
 	for _, e := range events {
+		// An eventType OneFS sends that this build has no established meaning
+		// for. The record is still written — the cluster's cursor has already
+		// moved, so dropping it would lose it outright — but it carries the
+		// mapper's documented default EventID rather than a researched one,
+		// and that distinction has to be visible to whoever reads the trail.
+		if parser.IsUnmappedOneFSEventType(e.EventType) {
+			slog.Warn("cepa_onefs_event_type_unmapped",
+				"remote", r.RemoteAddr,
+				"event_type", e.EventType,
+				"file_path", e.FilePath,
+			)
+		}
 		slog.Debug("cepa_event_detail",
 			"event_type", e.EventType,
 			"file_path", e.FilePath,
