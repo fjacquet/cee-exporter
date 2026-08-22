@@ -112,12 +112,38 @@ func (w *BeatsWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	return nil
 }
 
-// WriteBatch writes each event in turn through WriteEvent. A framed batch
-// implementation that sends the whole batch as one write under one lock
-// acquisition lands in Task 8; until then this satisfies the mandatory
-// interface without changing Beats's throughput.
+// WriteBatch sends the whole batch as one Lumberjack window.
+//
+// The client's Send already takes a slice — the per-event path wrapped each
+// event in a one-element slice — so this is the one backend where batching is
+// native. Lumberjack ACKs per window, so K separate Sends cost K round-trips.
 func (w *BeatsWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
-	return writeBatchSerially(ctx, w, events)
+	if len(events) == 0 {
+		return nil
+	}
+
+	batch := make([]any, 0, len(events))
+	for i := range events {
+		batch = append(batch, buildBeatsEvent(events[i]))
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	send := func() error {
+		_, err := w.client.Send(batch)
+		return err
+	}
+	if err := sendWithRetry(send, func() error {
+		slog.Warn("beats_reconnect")
+		_ = w.client.Close()
+		return w.dial(ctx)
+	}); err != nil {
+		return fmt.Errorf("beats batch %w", err)
+	}
+
+	slog.Debug("beats_batch_sent", "events", len(events))
+	return nil
 }
 
 // Close closes the underlying Lumberjack client connection.
