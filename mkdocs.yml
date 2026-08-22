@@ -46,6 +46,7 @@ nav:
       - ADR-014 go-evtx Extraction: adr/ADR-014-go-evtx-library-extraction.md
       - ADR-015 Windows Message Resource: adr/ADR-015-windows-message-resource.md
       - ADR-016 Three-Oracle EVTX Verification: adr/ADR-016-three-oracle-evtx-verification.md
+      - ADR-017 CEE Partner Identity: adr/ADR-017-cee-partner-identity.md
   - v2 Research: v2-research.md
 
 theme:

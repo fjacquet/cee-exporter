@@ -129,3 +129,4 @@ compiled out there.
   - [ADR-014](adr/ADR-014-go-evtx-library-extraction.md) — go-evtx extracted to its own module
   - [ADR-015](adr/ADR-015-windows-message-resource.md) — Windows message resource compiled into the binary
   - [ADR-016](adr/ADR-016-three-oracle-evtx-verification.md) — Three-oracle EVTX read-back verification
+  - [ADR-017](adr/ADR-017-cee-partner-identity.md) — Register with CEE under an allowlisted partner identity
