@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"unicode/utf16"
+
+	"github.com/fjacquet/cee-exporter/pkg/parser"
 )
 
 // powerStoreHeartbeatXML is the CEPA heartbeat a PowerStore NAS server sends,
@@ -21,14 +22,7 @@ const powerStoreHeartbeatXML = `<CheckFileRequest>` +
 	`<CIFSServerList><CIFSServer netbios="NAS01" domain="DIAB" fqdn="nas01.diab.local" realm="DIAB.LOCAL"/>` +
 	`</CIFSServerList></CEPPHeartBeatArgs></CheckFileRequest>`
 
-func utf16le(s string) []byte {
-	units := utf16.Encode([]rune(s))
-	out := make([]byte, 0, len(units)*2)
-	for _, u := range units {
-		out = append(out, byte(u), byte(u>>8))
-	}
-	return out
-}
+func utf16le(s string) []byte { return parser.EncodeUTF16LE([]byte(s)) }
 
 // TestServeHTTP_AcceptsPowerStorePost is the regression guard for the 405 that
 // made a direct PowerStore→consumer path impossible. The NAS server publishes

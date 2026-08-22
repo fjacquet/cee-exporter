@@ -5,9 +5,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/fjacquet/cee-exporter/pkg/metrics"
 )
 
 // checkEventRequestCEE is Dell CEE's own event delivery, built from
@@ -27,40 +24,15 @@ const checkEventRequestCEE = `<CheckEventRequest><EventList count="1">` +
 // fix this path was unreachable — CEE never sends events to a consumer it
 // could not register — so nothing here had ever run against real traffic.
 func TestServeHTTP_CEEEvent_ReachesTheWriter(t *testing.T) {
-	resetPeers(t)
-
-	done := make(chan struct{}, 1)
-	w := &stubWriter{done: done}
-	h := newTestHandler(t, w, 10, 1)
-
-	before := metrics.M.EventsReceivedTotal.Load()
-
 	req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(checkEventRequestCEE))
 	req.RemoteAddr = "10.26.1.199:51000"
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
+	rec, got := sendAndAwaitWrite(t, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 — CEE marks a partner that does not answer unavailable and stops publishing", rec.Code)
 	}
-
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("event never reached the writer")
-	}
-
-	if got := metrics.M.EventsReceivedTotal.Load(); got != before+1 {
-		t.Errorf("EventsReceivedTotal = %d, want %d", got, before+1)
-	}
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if len(w.events) != 1 {
-		t.Fatalf("writer got %d events, want 1", len(w.events))
-	}
-	if got, want := w.events[0].ObjectName, `\\NAS01\fs01\test\evtest.txt`; got != want {
-		t.Errorf("ObjectName = %q, want %q", got, want)
+	if want := `\\NAS01\fs01\test\evtest.txt`; got.ObjectName != want {
+		t.Errorf("ObjectName = %q, want %q", got.ObjectName, want)
 	}
 }
 

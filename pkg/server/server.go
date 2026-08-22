@@ -295,6 +295,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// partner it has not registered.
 	if dialect == parser.DialectCheckEventRequest {
 		receiveTime := time.Now().UTC()
+
+		// ACK before parsing, as the OneFS branch above does. CEE marks a
+		// partner that does not answer within ~3 s as unavailable and stops
+		// publishing to it entirely, and a CheckEventRequest carries a whole
+		// batch — its unmarshal must not run inside that budget. It also means
+		// a payload we cannot read still gets an answer, which costs far less
+		// than losing the publisher; the body is logged below either way.
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+
 		events, err := parser.ParseCheckEventRequestDecoded(decoded, receiveTime)
 		if err != nil {
 			slog.Warn("cepa_cee_event_unhandled",
@@ -303,11 +315,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				"error", err,
 				"body", string(body),
 			)
-			// ACK anyway: CEE marks a partner that does not answer as
-			// unavailable and stops publishing to it entirely, which would
-			// cost far more than the one payload we could not read — and the
-			// payload is in the log above either way.
-			w.WriteHeader(http.StatusOK)
 			return
 		}
 
@@ -318,10 +325,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"latency_ms", time.Since(start).Milliseconds(),
 		)
 
-		w.WriteHeader(http.StatusOK)
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
 		h.enqueue(events, r)
 		return
 	}

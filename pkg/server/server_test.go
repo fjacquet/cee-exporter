@@ -96,6 +96,41 @@ func (w *stubWriter) WriteEvent(_ context.Context, e evtx.WindowsEvent) error {
 
 func (w *stubWriter) Close() error { return nil }
 
+// sendAndAwaitWrite drives one request end to end and returns the recorded
+// response together with the single event that reached the writer. Every
+// dialect's end-to-end guard needs the same scaffolding — a done channel to
+// wait on instead of sleeping, and the EventsReceivedTotal delta — while the
+// assertions that matter differ per dialect; those stay in the caller.
+func sendAndAwaitWrite(t *testing.T, req *http.Request) (*httptest.ResponseRecorder, evtx.WindowsEvent) {
+	t.Helper()
+	resetPeers(t)
+
+	done := make(chan struct{}, 1)
+	w := &stubWriter{done: done}
+	h := newTestHandler(t, w, 10, 1)
+
+	before := metrics.M.EventsReceivedTotal.Load()
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("event never reached the writer")
+	}
+
+	if got := metrics.M.EventsReceivedTotal.Load(); got != before+1 {
+		t.Errorf("EventsReceivedTotal = %d, want %d", got, before+1)
+	}
+
+	events := w.Events()
+	if len(events) != 1 {
+		t.Fatalf("writer got %d events, want 1", len(events))
+	}
+	return rec, events[0]
+}
+
 func (w *stubWriter) Events() []evtx.WindowsEvent {
 	w.mu.Lock()
 	defer w.mu.Unlock()

@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/fjacquet/cee-exporter/pkg/metrics"
 )
@@ -25,39 +24,13 @@ const checkFileEventOneFS = `<CheckFileRequest><Args action="11" sourceIP="10.26
 //   - the reply is still a well-formed CheckFileResponse, because OneFS treats
 //     an empty or unparseable body as STATUS_DATA_ERROR and stops publishing
 func TestServeHTTP_OneFSEvent_ReachesTheWriter(t *testing.T) {
-	resetPeers(t)
-
-	done := make(chan struct{}, 1)
-	w := &stubWriter{done: done}
-	h := newTestHandler(t, w, 10, 1)
-
-	before := metrics.M.EventsReceivedTotal.Load()
-
 	req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(checkFileEventOneFS))
 	req.RemoteAddr = "10.26.1.150:53139"
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
+	rec, got := sendAndAwaitWrite(t, req)
 
 	if !strings.Contains(rec.Body.String(), "<CheckFileResponse") {
 		t.Fatalf("an event got no CheckFileResponse back; OneFS would report STATUS_DATA_ERROR. body = %q", rec.Body.String())
 	}
-
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("event never reached the writer")
-	}
-
-	if got := metrics.M.EventsReceivedTotal.Load(); got != before+1 {
-		t.Errorf("EventsReceivedTotal = %d, want %d", got, before+1)
-	}
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if len(w.events) != 1 {
-		t.Fatalf("writer got %d events, want 1", len(w.events))
-	}
-	got := w.events[0]
 
 	// eventType 8 is the open/create, which the mapper files as a WriteData
 	// access. A close (256) would be 4658 instead — the distinction only

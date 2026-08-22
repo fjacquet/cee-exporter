@@ -1,5 +1,7 @@
 package server
 
+import "fmt"
+
 // CEE service states, as reported back to CEE in the hbStatus field of a
 // heartbeat reply.
 //
@@ -33,10 +35,8 @@ const (
 // to it, while registration itself keeps succeeding. Check a capture for the
 // actual reply CEE accepts from a working partner before changing anything
 // else.
-var heartbeatReply = []byte("hbStatus=0&ntStatus=0")
-
-// Compile-time proof that the literal above still matches the constants it
-// stands for. A package-level []byte matches checkFileResponse's shape in
-// server.go and costs nothing per heartbeat, but it loses the connection to
-// the named values — this restores it without a runtime format.
-const _ = uint(ceppServiceOnline) + uint(ntStatusSuccess) // both must be 0
+// Built from the named constants rather than written out, so the reply cannot
+// drift from the values it stands for. Rendered once at init, so it costs
+// nothing per heartbeat.
+var heartbeatReply = fmt.Appendf(nil, "hbStatus=%d&ntStatus=%d",
+	ceppServiceOnline, ntStatusSuccess)

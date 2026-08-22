@@ -21,7 +21,6 @@
 package parser
 
 import (
-	"bytes"
 	"encoding/xml"
 	"fmt"
 	"strconv"
@@ -142,14 +141,7 @@ func rootElementIs(body []byte, name string) bool {
 		// report the reason; here the only question is which branch to take.
 		return false
 	}
-	trimmed := bytes.TrimSpace(decoded)
-	// Skip an optional XML declaration: <?xml ...?>
-	if bytes.HasPrefix(trimmed, []byte("<?xml")) {
-		if idx := bytes.Index(trimmed, []byte("?>")); idx >= 0 {
-			trimmed = bytes.TrimSpace(trimmed[idx+2:])
-		}
-	}
-	return bytes.HasPrefix(trimmed, []byte("<"+name))
+	return rootIs(decoded, name)
 }
 
 // ----------------------------------------------------------------------------
