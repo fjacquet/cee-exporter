@@ -375,3 +375,46 @@ comment.
 `CLAUDE.md`: the queue description changes from "buffered channel + worker
 goroutines" to note the batching drain, and the `Writer` interface description
 gains `WriteBatch`.
+
+## Addendum: Task 13 measurement (2026-08-22)
+
+Measured via `make bench` and `BenchmarkParseCheckEventRequest`, same M1 Pro /
+loopback setup as the rest of this document, at realistic batch/event counts
+(100-1000). Batched GELF TCP: 4.14 µs/event at batch=500 (2,070,142 ns / 500),
+4.17 µs/event at batch=100 (416,699 ns / 100) — consistent with the 4.20
+µs/event measured separately for this same task. Parse at events=1000: 8.42
+µs/event (8,422,973 ns / 1000); a second run at `-benchtime=2000x` gave 8.41
+µs/event (8,413,239 ns / 1000), agreeing to within 0.1 µs, well inside normal
+benchmark noise. Parse now costs roughly double the batched write and is the
+dominant per-event cost on the GELF TCP path, so the profile step ran.
+`go tool pprof -top -nodecount=20` on `BenchmarkParseCheckEventRequest` shows
+`runtime.madvise` (48.4%) and `runtime.kevent` (20.3%) on top by flat time —
+GC/allocator overhead, not an `encoding/xml` symbol by name. But the benchmark
+loop calls nothing but `Classify` and `ParseCheckEventRequestDecoded`, so that
+overhead has no other source: it is the direct consequence of `encoding/xml`'s
+own allocation pattern (73 allocs/event, ~4 KB/event, reflection-driven struct
+population). Among named, non-runtime functions, `encoding/xml.(*Decoder).unmarshal`
+is the single largest cumulative consumer (17.43% cum), and `encoding/xml`
+plus the `reflect`/`unicode`/`bytes` helpers it calls account for essentially
+all of the remaining flat CPU time outside GC/runtime bookkeeping — so
+`encoding/xml` is fairly read as "on top" even though the literal top-2 lines
+are runtime symbols. One caveat: the profiled run bundles four subtests
+(events=1/100/1000 and UTF-16) at only 2000 iterations each with
+allocation-heavy setup between them, a pattern that can inflate scavenger
+(madvise) activity relative to sustained load; that affects only the
+attribution of *which* function is costly, not the events=1000 per-event cost
+itself, which matches the unprofiled run.
+
+Decision: **justified, deferred to a separate brainstorming pass** — not
+extending this plan. Scope is fixed by the spec: a hand-rolled attribute
+scanner for `ParseCheckEventRequestDecoded` only (the flat, attribute-only
+CEPA dialect); the OneFS path stays on `encoding/xml`; a differential test
+asserting identical `[]CEPAEvent` against `encoding/xml` over a corpus; and an
+explicit, logged fallback to `encoding/xml` on anything the scanner doesn't
+recognise, never a silent one. No parser code lands on this branch. These are
+loopback, single-machine numbers from one process with no contention from the
+rest of the pipeline (queue, other writers, concurrent requests) — they
+establish relative ordering (parse now costs more than a batched write) but
+say nothing about absolute production throughput or GC behaviour under
+sustained multi-core load; the brainstorming pass should re-measure closer to
+production conditions before committing to an implementation.
