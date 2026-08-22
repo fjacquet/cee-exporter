@@ -95,21 +95,19 @@ func TestServeHTTP_CheckFileRequest_NotTreatedAsEvent(t *testing.T) {
 	}
 }
 
-// checkFileEventOneFS is a OneFS CheckFileRequest carrying an event rather
-// than a heartbeat — same root element, action 11 instead of 9. The byte-exact
-// capture with its NFSEventArgs lives in pkg/parser/onefs_test.go.
-const checkFileEventOneFS = `<CheckFileRequest><Args action="11" sourceIP="10.26.1.150" sourceID="2"/><NFSEventArgs eventType="8"/></CheckFileRequest>`
-
-// TestServeHTTP_CheckFileEvent_AckedAndCounted covers the event branch, which
-// no test reached: an event OneFS sends is answered and then discarded,
-// because nothing decodes it yet.
+// TestServeHTTP_CheckFileEvent_AckedAndParsed covers the event branch.
 //
-// The ACK advances the cluster's forwarding cursor, so the record is destroyed
-// by being acknowledged. That makes the drop counter the only alertable signal
-// that an operator is losing every PowerScale audit event, and this asserts it
-// moves — the failure mode otherwise is a dashboard reading zero drops while
-// nothing is stored.
-func TestServeHTTP_CheckFileEvent_AckedAndCounted(t *testing.T) {
+// This test asserted the opposite until the CEE registration work landed: an
+// event was answered and then DISCARDED, because nothing decoded it yet, and
+// the drop counter was the only alertable signal. OneFS events are parsed and
+// written now, so the same payload must move EventsReceivedTotal and leave
+// EventsDroppedTotal alone. The ACK still has to be a CheckFileResponse --
+// that half never changed, because an empty body is fatal for OneFS whatever
+// the action was.
+//
+// The end-to-end assertion that the event reaches the writer lives in
+// onefs_event_test.go; this one guards the counters and the reply.
+func TestServeHTTP_CheckFileEvent_AckedAndParsed(t *testing.T) {
 	resetPeers(t)
 	h := newTestHandler(t, &stubWriter{}, 10, 1)
 
@@ -121,8 +119,6 @@ func TestServeHTTP_CheckFileEvent_AckedAndCounted(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
-	// It still needs a CheckFileResponse: an empty body is fatal for OneFS
-	// whatever the action was.
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
@@ -133,11 +129,11 @@ func TestServeHTTP_CheckFileEvent_AckedAndCounted(t *testing.T) {
 		t.Fatalf("event request was not answered with a CheckFileResponse: %v\nbody: %s", err, rec.Body.String())
 	}
 
-	if got := metrics.M.EventsDroppedTotal.Load(); got != beforeDropped+1 {
-		t.Errorf("EventsDroppedTotal = %d, want %d — an acknowledged-and-discarded event is invisible to alerting", got, beforeDropped+1)
+	if got := metrics.M.EventsReceivedTotal.Load(); got != beforeReceived+1 {
+		t.Errorf("EventsReceivedTotal = %d, want %d — the event is parsed now, not discarded", got, beforeReceived+1)
 	}
-	if got := metrics.M.EventsReceivedTotal.Load(); got != beforeReceived {
-		t.Errorf("EventsReceivedTotal moved from %d to %d; nothing was received, it was discarded", beforeReceived, got)
+	if got := metrics.M.EventsDroppedTotal.Load(); got != beforeDropped {
+		t.Errorf("EventsDroppedTotal moved from %d to %d; a parsed event is not a drop", beforeDropped, got)
 	}
 
 	// An event is not a handshake. Counting it as one would inflate the
@@ -147,28 +143,40 @@ func TestServeHTTP_CheckFileEvent_AckedAndCounted(t *testing.T) {
 	}
 }
 
-// TestServeHTTP_CheckFileEvent_PayloadLoggingIsSampled asserts that the raw
-// payload stops being logged after a handful of samples, while the drop count
-// keeps rising.
+// TestServeHTTP_UnparseableEvent_LoggingIsSampledAndRedacted asserts that a
+// payload this build cannot decode stops rendering its structure after a
+// handful of samples, while the drop count keeps rising.
 //
-// OneFS sends one CheckFileRequest per file operation, so this branch runs at
-// cluster file-activity rate. Logging every payload would flood the log and
-// copy a UNC path, a user SID and a client IP per event into a second store.
-// The samples answer "what does this format look like"; the counter answers
-// "how much am I losing" — and only the counter has to scale.
-func TestServeHTTP_CheckFileEvent_PayloadLoggingIsSampled(t *testing.T) {
+// This used to fire on every OneFS event, because none of them could be
+// decoded. They are parsed now, so the sampler only sees genuinely
+// unparseable payloads -- an SMB event, say, whose element this build has
+// never met. The reasoning is unchanged: OneFS runs this branch at cluster
+// file-activity rate, the samples answer "what does this format look like",
+// the counter answers "how much am I losing", and only the counter has to
+// scale.
+//
+// The rendered structure is redacted (see redactPayload), so sampling and
+// redaction are two independent limits on the same line: one bounds how often
+// it appears, the other bounds what it may contain.
+func TestServeHTTP_UnparseableEvent_LoggingIsSampledAndRedacted(t *testing.T) {
 	resetPeers(t)
 	h := newTestHandler(t, &stubWriter{}, 10, 1)
+
+	// action="11" routes to the event parser; SMBEventArgs is an element this
+	// build has no decoder for, so parsing fails and the sampler is reached.
+	const unparseable = `<CheckFileRequest><Args action="11" ` +
+		`name="XABcAHAAbwB3AGUAcgBzAGMAYQBsAGUAMQAtADEAXABvAG4AZQBmAHMAJABcAGkAZgBzAFwAdABlAHMAdABcAGUAdgB0AGUAcwB0AC0AMQA3ADgANgA3ADMANQAwADAAMgAuAHQAeAB0AA=="/>` +
+		`<SMBEventArgs eventType="8" userSid="S-1-5-21-9-9-9-1001" clientIP="10.26.1.222"/></CheckFileRequest>`
 
 	var buf bytes.Buffer
 	restore := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
 	t.Cleanup(func() { slog.SetDefault(restore) })
 
-	const sends = onefsPayloadSamples + 5
+	const sends = unhandledPayloadSamples + 5
 	beforeDropped := metrics.M.EventsDroppedTotal.Load()
 	for range sends {
-		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(checkFileEventOneFS))
+		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(unparseable))
 		req.RemoteAddr = "10.26.1.150:42256"
 		h.ServeHTTP(httptest.NewRecorder(), req)
 	}
@@ -178,36 +186,17 @@ func TestServeHTTP_CheckFileEvent_PayloadLoggingIsSampled(t *testing.T) {
 		t.Errorf("EventsDroppedTotal = %d, want %d — sampling must not suppress the count", got, beforeDropped+sends)
 	}
 
-	// The payload carries eventType, which is the identifying detail.
-	if got := strings.Count(buf.String(), `eventType=`); got != onefsPayloadSamples {
-		t.Errorf("payload logged %d times for %d events, want %d samples", got, sends, onefsPayloadSamples)
-	}
-}
-
-// TestLoggableBody_Truncates guards the bound on the WARN line that carries an
-// unhandled OneFS event. readBody accepts up to 64 MiB, and that branch runs
-// once per file operation on the cluster, so an unbounded string(body) is a
-// 64 MiB log line built from a 64 MiB copy — per event.
-func TestLoggableBody_Truncates(t *testing.T) {
-	// A real OneFS event is ~1 KiB and must survive whole: the branch exists
-	// precisely so the payload is recoverable from the log.
-	whole := strings.Repeat("a", maxLoggedBodyBytes)
-	if got := loggableBody([]byte(whole)); got != whole {
-		t.Errorf("a payload at the cap was altered: len = %d, want %d", len(got), len(whole))
+	// body_shape is the sampled field; it appears once per sample and then stops.
+	if got := strings.Count(buf.String(), "SMBEventArgs"); got != unhandledPayloadSamples {
+		t.Errorf("structure logged %d times for %d events, want %d samples", got, sends, unhandledPayloadSamples)
 	}
 
-	// 64 MiB is what readBody accepts, so that is the size the bound has to
-	// hold against — not merely one byte over the cap.
-	over := strings.Repeat("a", 64<<20)
-	got := loggableBody([]byte(over))
-	if len(got) > maxLoggedBodyBytes+len("…[truncated]") {
-		t.Errorf("logged body is %d bytes for a %d-byte payload; the bound did not hold", len(got), len(over))
-	}
-	if !strings.HasSuffix(got, "[truncated]") {
-		t.Errorf("truncated payload is not marked as such: %q", got[max(0, len(got)-32):])
-	}
-	if !strings.HasPrefix(got, strings.Repeat("a", maxLoggedBodyBytes)) {
-		t.Error("truncation dropped the leading bytes, which is where action and eventType are")
+	// Redaction holds on every one of those samples: the element name is what
+	// identifies the format, the values are the audit record.
+	for _, leaked := range []string{"S-1-5-21-9-9-9-1001", "10.26.1.222", `eventType="8"`} {
+		if strings.Contains(buf.String(), leaked) {
+			t.Errorf("sampled log line leaked %q", leaked)
+		}
 	}
 }
 

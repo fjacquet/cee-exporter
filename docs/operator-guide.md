@@ -34,7 +34,7 @@ cee-exporter.exe -config config.toml
 
 ### Build from source
 
-Requires Go 1.26.5. No CGO required.
+Requires Go 1.26.6. No CGO required.
 
 ```bash
 git clone https://github.com/fjacquet/cee-exporter.git
@@ -47,6 +47,84 @@ make build-windows  # Windows/amd64 → ./cee-exporter.exe
 (`make build` alone runs `go build -v ./...` to check compilation — it produces no binary.)
 
 ---
+
+## Publishers that go through Dell CEE — read this first
+
+If your events arrive via **Dell CEE** (PowerStore, Unity, VNX), there is one
+setting that decides whether you receive anything at all, and getting it wrong
+fails **silently**: the service runs, the port listens, the array heartbeats,
+CEE contacts this consumer every ten seconds, and no event is ever published.
+
+CEE will not forward events to a consumer it has not registered, and it only
+registers an identity present in a table compiled into its own binary
+(`CGuidStore`, keyed by *(friendlyName, facility)* → GUID). A self-generated
+GUID is refused; CEE then answers the array `0x16 CEPP_NOT_FOUND` and the array
+discards every event it generates.
+
+So `[cepa]` is mandatory in that topology:
+
+```toml
+[cepa]
+# Must be a name from CEE's allowlist that is valid for the facility CEE has
+# enabled (Audit, for event auditing), and must match the partner id in CEE's
+# own EndPoint value. The defaults do NOT work — see below.
+friendly_name = "PeerSoftwareCollector"
+guid          = "49f4da0f-055f-401c-9f83-a95ce61447f6"
+```
+
+and CEE must be configured with the same name:
+
+```text
+HKLM\SOFTWARE\EMC\CEE\CEPP\Audit\Configuration
+  EndPoint = PeerSoftwareCollector@http://<this-host>:<port>
+```
+
+**The shipped defaults are deliberately ones CEE refuses.** These are other
+vendors' registered identities and there is no way for a third-party consumer to
+obtain its own, so choosing one is a decision with consequences — CEE reports
+your consumer under that vendor's name, and it collides with a real deployment
+of that product on the same CEE host. See ADR-017 for the reasoning and
+cee-worker's `docs/cee-partner-allowlist.md` for the full table.
+
+### Checking it worked
+
+CEE explains a refusal only at `Debug=63` — the value is a 6-bit mask, not a
+scale, and at the default `1` it says nothing (`9` prints *less* than `3`). Set
+`Debug` and `Verbose` to 63 on the CEE host, restart the CEE service, and look
+for:
+
+```text
+CEPPAPIWrapper[Audit][<name>][http://…]::Register(): Exit rpcStatus: 0, NtStatus: 0
+CEPPAPIWrapper[Audit][<name>][http://…]::HeartBeat(): Response: HB Status: 0 - CEPP_SERVICE_ONLINE
+```
+
+Anything else names the problem:
+
+| CEE says | meaning |
+|---|---|
+| `Top node is not RegisterResponse` | the consumer returned an empty body |
+| `unknown or invalid GUID` | that name is not in the allowlist for that facility |
+| `GUID mismatch` | right name, wrong GUID for it |
+| `Substring guid not found` | encoding mismatch (see below) |
+| `HB Status: 1 - CEPP_SERVICE_OFFLINE` | registered, but the heartbeat probe is unanswered |
+
+On Linux that trace goes to stdout (`journalctl -u emc_cee`). On Windows it goes
+to `OutputDebugString`, **not** the event log — read it with Sysinternals
+DebugView or the `dbgcapture.ps1` helper in cee-worker.
+
+Set both back to `0` afterwards; they are diagnostic, not steady-state.
+
+### Two things this consumer handles for you
+
+- **Encoding.** CEE sends the handshake as UTF-16LE to an unrecognised partner
+  and switches to UTF-8 once the identity is allowlisted. Replies mirror the
+  request encoding, so both work.
+- **The liveness probe.** After registering, CEE probes with
+  `<HeartBeatRequest />` and needs `hbStatus=0`, or the partner sits OFFLINE and
+  the array receives `0x12` rather than `0x0`.
+
+**PowerScale/OneFS needs none of this** — it speaks CEPA directly to this
+consumer, with no CEE in the path and no identity to configure.
 
 ## Configuration reference
 
