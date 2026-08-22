@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-08-22
+
+Every array that ever pointed at this exporter was publishing nothing, and
+every observable said otherwise. A bare HTTP 200 does not acknowledge a CEPA
+event batch; Dell CEE reads it as a failed delivery and the array retries the
+same event forever, so its queue head never clears. Fixing that flushed 1780
+events across 14 event types in 30 seconds on an estate that had delivered one
+event, over and over, for eight days.
+
+**Major because a metric changed meaning, not because the API did.**
+`cee_cepa_registrations_total` no longer counts heartbeats. It previously
+incremented on three unrelated exchanges, so it read as a registration rate for
+publishers that had never registered — on the estate this was found on, five of
+six series were heartbeats wearing a registration label. It now counts only the
+`RegisterRequest` handshake, which means **it reads 0 for every array that
+publishes directly**, and any alert or panel built on the old behaviour will go
+quiet. The lost signal is preserved as `cee_cepa_heartbeats_total`.
+
+### Breaking
+
+- `cee_cepa_registrations_total` counts only `RegisterRequest` handshakes.
+  Arrays publishing directly read 0; use `cee_cepa_heartbeats_total` for
+  liveness. Bundled dashboard updated.
+- The consumer now answers `<CheckEventRequest>` with a
+  `<CheckEventResponse status="0x0"/>` document instead of an empty body. This
+  is a wire-visible change, and it is the fix — but any middlebox or test double
+  asserting on an empty response body will see the difference.
+- Requires **go-evtx v0.9.0**, for the `IpAddress` EventData field.
+
 ### Fixed
 
 - **A bare HTTP 200 does not acknowledge a CEPA event batch, and this consumer
