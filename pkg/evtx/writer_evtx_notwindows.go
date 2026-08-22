@@ -267,16 +267,10 @@ func windowsEventToFields(e WindowsEvent) map[string]string {
 		"ObjectType":        clip(e.ObjectType),
 		"ObjectName":        clip(e.ObjectName),
 		"HandleId":          clip(e.HandleID),
-		// Named IpAddress rather than ClientAddr: that is what Windows
-		// Security auditing calls the peer address (4625, 5145), so a reader
-		// parsing genuine Security events finds it where it expects it. The
-		// Win32 writer renders the same value under "Client Address" in its
-		// message text.
-		"IpAddress":   clip(e.ClientAddr),
-		"AccessList":  clip(e.Accesses),
-		"AccessMask":  clip(e.AccessMask),
-		"ProcessId":   fmt.Sprintf("%d", e.ProcessID),
-		"ProcessName": "",
+		"AccessList":        clip(e.Accesses),
+		"AccessMask":        clip(e.AccessMask),
+		"ProcessId":         fmt.Sprintf("%d", e.ProcessID),
+		"ProcessName":       "",
 	}
 
 	// Second pass: the per-field cap bounds one long value, not eleven.
