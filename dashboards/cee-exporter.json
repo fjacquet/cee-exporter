@@ -134,7 +134,7 @@
       "id": 15,
       "type": "timeseries",
       "title": "Events by type and protocol",
-      "description": "What kind of activity is arriving, not just how much. The scalar counter collapsed the whole estate into one number, which is why a single replayed event was indistinguishable from varied traffic.\n\nOn this deployment it resolves to exactly one series — CEPP_CREATE_FILE · NFS — and that IS the finding: a real filesystem produces opens, reads, closes and deletes, not one event type forever.\n\nCounts deliveries, not distinct operations. Protocol comes from the wire's numeric code as ProtocolDesc resolves it (0 CIFS, 1 NFS, 2 FTP, 3 Unknown); an unmapped code renders Unknown rather than blank, so new traffic cannot hide in an empty label.",
+      "description": "What kind of activity is arriving, not just how much. The scalar counter collapsed the whole estate into one number, which is why a single replayed event was indistinguishable from varied traffic.\n\nOn 2026-08-11 this resolved to exactly one series — CEPP_CREATE_FILE · NFS — and that WAS the finding: a real filesystem produces opens, reads, closes and deletes, not one event type forever. On 2026-08-22 the same panel draws several CIFS types (CEPP_CLOSE_MODIFIED, CEPP_CREATE_DIRECTORY, CEPP_CREATE_FILE and more), which is what varied traffic looks like — so read the series count, not a fixed expectation.\n\nCounts deliveries, not distinct operations. Protocol comes from the wire's numeric code as ProtocolDesc resolves it (0 CIFS, 1 NFS, 2 FTP, 3 Unknown); an unmapped code renders Unknown rather than blank, so new traffic cannot hide in an empty label.",
       "gridPos": {
         "h": 10,
         "w": 24,

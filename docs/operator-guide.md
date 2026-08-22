@@ -509,26 +509,52 @@ docker compose -f deploy/compose.yaml up -d
 # Grafana on :3000, Prometheus on :9090
 ```
 
-[![cee-exporter Grafana dashboard: publisher silence, registrations per
-publisher, event throughput, queue depth, seconds since last fsync, and
-requests dropped at the label cap](assets/grafana-dashboard.png)](assets/grafana-dashboard.png)
+[![cee-exporter Grafana dashboard, Diagnostics row: publisher silence,
+handshakes per publisher, event throughput, queue depth, seconds since last
+fsync, deliveries against connection cadence, events by type and protocol, and
+events by NAS server](assets/grafana-dashboard.png)](assets/grafana-dashboard.png)
 
 *Click for full resolution — the panel labels are unreadable at page width.*
 
-The screenshot above is a real capture (Grafana 11.5.1, 2026-08-11) against a
-live exporter with one CEE publisher. Read it as proof the panels provision and
-render — not as a performance baseline:
+The screenshot above is a real capture (Grafana 11.5.1, 2026-08-22) against a
+live exporter fed by several CEE publishers on a PowerStore NAS server. The
+frame is scrolled to the **Diagnostics** row, so the two stat panels and the
+`More metrics` row at the top of the dashboard are out of shot. Read it as
+proof the panels provision, resolve their datasource and render real data —
+not as a performance baseline:
 
-- The traffic is a single short burst at 18:00 on an otherwise idle window.
-  Queue depth flat at zero and `dropped` at zero mean the queue was never put
-  under pressure, not that it holds up under a VCAPS batch load.
-- **Publisher silence** turns yellow at 30 s. That threshold must sit above
+- Both template variables are in use: `Publisher` is `All`, `NAS server` is
+  pinned to `NAS01`. Every panel below the variables honours that filter, so a
+  second NAS server's traffic would not appear in this frame.
+- **Publisher silence** shows one bar per `remote` label — 15 s for
+  `10.26.1.225` here. It goes orange at 30 s and red at 60 s. Those thresholds must sit above
   your CEE `HeartBeatIntervalSecs` plus jitter — see
   [Publisher liveness](#publisher-liveness) — or an idle-but-healthy system
   will sit permanently yellow.
-- `received` and `written` overlap on the throughput panel when nothing is
-  being dropped, so one line can hide the other. Read the legend values, not
-  the shape.
+- **Handshakes per publisher** carries a `register` and a `heartbeat` series
+  per publisher, which is how you tell a partner that keeps re-registering
+  (CEE restarting the handshake) from one that is simply heartbeating.
+- **Event throughput** peaked at 2.78 evt/s over a ~10-minute burst starting
+  16:23, with `dropped` flat at 0 and queue depth flat at 0. That means the
+  queue was never put under pressure in this window — not that it holds up
+  under a VCAPS batch load. `received` and `written` overlap exactly when
+  nothing is being dropped, so one line hides the other; read the legend
+  values, not the shape.
+- **Deliveries against connection cadence** answers whether deliveries are
+  driven by filesystem activity or by the connection clock: parsed events
+  (0.610 req/s last, 2.78 peak) rise well above the heartbeat rate, which
+  holds near 0.497 req/s with registrations near 0.100 req/s. An event rate
+  that instead tracks the heartbeat line exactly is CEE redelivering an event
+  it cannot retire, once per heartbeat, forever — see the panel description
+  for the measured case.
+- **Events by type and protocol** breaks the same traffic down per CEPA event
+  type and access protocol (`CEPP_CLOSE_MODIFIED · CIFS` and friends); the
+  legend scrolls, so the visible three are not the whole set.
+- **Seconds since last fsync** at 17 s is the age of the last durable write,
+  not a latency. It sawtooths up to `flush_interval_s` and back; alert when it
+  exceeds twice that. Only the `evtx` writer fsyncs, so 17 s here means an
+  EVTX file is being written; with a network-only output the underlying gauge
+  never leaves 0 and this panel reads as an epoch-sized age, not as a fault.
 
 No CI job checks this dashboard. Its verification status is tracked in
 [PROMISES.md](PROMISES.md).

@@ -14,6 +14,15 @@
 - [Releases & binaries](https://github.com/fjacquet/cee-exporter/releases)
 - [Docker image](https://ghcr.io/fjacquet/cee-exporter)
 
+## What it looks like running
+
+[![cee-exporter Grafana dashboard showing event throughput, queue depth, fsync age, delivery cadence, events by type and protocol, and events by NAS server](assets/grafana-dashboard.png)](assets/grafana-dashboard.png)
+
+*The bundled dashboard (`dashboards/cee-exporter.json`) against a live estate —
+Grafana 11.5.1, 2026-08-22. Click for full resolution; the panel-by-panel
+reading, and what the capture does **not** prove, is in the
+[operator guide](operator-guide.md#grafana-dashboard).*
+
 ## Architecture overview (v2)
 
 ```mermaid

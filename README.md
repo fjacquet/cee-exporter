@@ -18,6 +18,10 @@
 
 Go daemon that receives Dell PowerStore CEPA audit events (HTTP PUT / XML) and forwards them to a SIEM (GELF, syslog, or Beats) or writes them as Windows EventLog entries — native `ReportEvent` calls on Windows, binary `.evtx` files everywhere else. No external dependencies — single static binary.
 
+[![cee-exporter Grafana dashboard showing event throughput, queue depth, fsync age, delivery cadence, events by type and protocol, and events by NAS server](docs/assets/grafana-dashboard.png)](docs/assets/grafana-dashboard.png)
+
+<p align="center"><em>The bundled Grafana dashboard against a live estate — Grafana 11.5.1, 2026-08-22. Provision it with <code>docker compose -f deploy/compose.yaml up -d</code>; panel-by-panel reading in the <a href="https://fjacquet.github.io/cee-exporter/operator-guide/#grafana-dashboard">operator guide</a>.</em></p>
+
 ## Features
 
 - CEPA protocol compliance — RegisterRequest handshake, heartbeat ACK within 3 s
