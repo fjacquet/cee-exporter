@@ -299,3 +299,39 @@ func TestEventTablesCorroborate(t *testing.T) {
 		t.Errorf("corroborated %d of %d OneFS codes", checked, len(onefsEventType))
 	}
 }
+
+// TestCEETimestampPacked64 pins the PowerStore form of the timeStamp
+// attribute, captured off the wire from NAS01 (10.26.1.199) on 2026-08-22:
+//
+//	timeStamp="0x6a7f7c090008765f"
+//
+// It is not whole seconds. The high 32 bits are the Unix epoch second
+// (0x6a7f7c09 = 1786739721 = 2026-08-14T20:35:21Z, which matches the
+// pstest-1786739721.txt filename the same event carries) and the low 32 bits
+// are a sub-second remainder. Read as one 64-bit second count it becomes
+// 7673988668159719007 — the year 243179022179 — so every record written from
+// a PowerStore event carried a timestamp no reader can use, and the true
+// event time appeared nowhere in the file.
+func TestCEETimestampPacked64(t *testing.T) {
+	fallback := time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC)
+	want := time.Date(2026, 8, 14, 20, 35, 21, 0, time.UTC)
+
+	got := ceeTimestamp("0x6a7f7c090008765f", fallback)
+
+	if !got.Equal(want) {
+		t.Errorf("ceeTimestamp(packed) = %v (year %d), want %v",
+			got, got.Year(), want)
+	}
+}
+
+// TestCEETimestampPlainSecondsStillWorks guards the CIFS/OneFS form against
+// the packed-form fix: a value that fits in 32 bits is a plain epoch second
+// and must not be shifted.
+func TestCEETimestampPlainSecondsStillWorks(t *testing.T) {
+	fallback := time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC)
+	want := time.Date(2026, 8, 14, 19, 16, 42, 0, time.UTC)
+
+	if got := ceeTimestamp("1786735002", fallback); !got.Equal(want) {
+		t.Errorf("ceeTimestamp(plain) = %v, want %v", got, want)
+	}
+}

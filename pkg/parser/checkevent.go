@@ -259,9 +259,31 @@ func parseCEENum(raw string, unprefixedBase int) (uint64, error) {
 	return strconv.ParseUint(s, unprefixedBase, 64)
 }
 
-// ceeTimestamp reads the timeStamp attribute. CEE sends whole seconds since
-// the Unix epoch; a value it cannot represent falls back to receive time
-// rather than to the zero time, which would sort every such record to 1970.
+// ceeTimestamp reads the timeStamp attribute, in either of the two forms CEE
+// sends, and falls back to receive time rather than to the zero time, which
+// would sort every unusable record to 1970.
+//
+// The CIFS/OneFS form is whole seconds since the Unix epoch, decimal:
+//
+//	timeStamp="1786735002"
+//
+// PowerStore sends a packed 64-bit value instead, hex, captured off the wire
+// from NAS01 on 2026-08-22:
+//
+//	timeStamp="0x6a7f7c090008765f"
+//	            ^^^^^^^^ epoch second   ^^^^^^^^ sub-second remainder
+//
+// The high 32 bits are the epoch second (0x6a7f7c09 = 1786739721 =
+// 2026-08-14T20:35:21Z, corroborated by the pstest-1786739721.txt filename in
+// the same event). Reading all 64 bits as a second count yields the year
+// 243179022179, which is what shipped before this split existed.
+//
+// The low word is deliberately discarded. It is a sub-second remainder whose
+// unit is not documented by Dell and could not be determined from the capture
+// — every event in it replayed one identical timestamp, so there was no
+// variation to measure the scale against. Second resolution is what CEPA
+// promises and what the audit record needs; inventing a microsecond or
+// nanosecond reading from one sample would be a fabrication.
 func ceeTimestamp(raw string, fallback time.Time) time.Time {
 	s := strings.TrimSpace(raw)
 	if s == "" {
@@ -276,6 +298,13 @@ func ceeTimestamp(raw string, fallback time.Time) time.Time {
 	// prevent. parseCEENum returns a full uint64, so the input reaches here.
 	if err != nil || n == 0 || n > math.MaxInt64 {
 		return fallback
+	}
+	// A value too large to be a plain epoch second is the packed form. The
+	// discriminator is exact rather than heuristic: a real epoch second stays
+	// inside 32 bits until the year 2106, and the packed form always carries a
+	// non-zero epoch in its high word, so it always exceeds 32 bits.
+	if n > math.MaxUint32 {
+		n >>= 32
 	}
 	return time.Unix(int64(n), 0).UTC()
 }
