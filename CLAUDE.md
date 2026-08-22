@@ -111,7 +111,19 @@ and `nilerr` under `linters:`, plus `gofmt` and `goimports` under a separate
 
 ## CEPA protocol constraints
 
-- RegisterRequest handshake: HTTP 200 OK, **empty body** (enforced in `server.go`).
+- RegisterRequest handshake: HTTP 200 OK with a **`<RegisterResponse>` document**
+  (`pkg/server/register.go`). This file said "empty body" until 2026-08-22 and
+  that was the inverse of the truth — an empty body fails with `Top node is not
+  RegisterResponse`, CEE registers no partner, and the array is told `0x16
+  CEPP_NOT_FOUND` while every observable stays green.
+- **CEE only registers an identity in its compiled-in allowlist** (`CGuidStore`,
+  keyed by *(friendlyName, facility)* → GUID). A self-generated GUID never
+  works; set `[cepa] friendly_name`/`guid` from that table. See
+  cee-worker's `docs/cee-partner-allowlist.md` and `docs/cepa-protocol.md`.
+- After registering, CEE probes with `<HeartBeatRequest />` and needs
+  `hbStatus=0` (`pkg/server/heartbeat.go`), or the partner stays OFFLINE.
+- Mirror the request encoding: CEE sends UTF-16LE to an unknown partner and
+  **UTF-8 once the identity is allowlisted**.
 - Heartbeat PUT timeout: 3 seconds — `ServeHTTP` must return before processing completes.
 - VCAPS mode: batches of thousands of events per PUT; use `gelf_protocol = "tcp"` to avoid UDP loss.
 
