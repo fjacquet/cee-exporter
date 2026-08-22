@@ -55,12 +55,13 @@ var version = "dev"
 
 // Config is the top-level config file structure.
 type Config struct {
-	Listen   ListenConfig  `toml:"listen"`
-	Output   OutputConfig  `toml:"output"`
-	Queue    QueueConfig   `toml:"queue"`
-	Logging  LoggingConfig `toml:"logging"`
-	Metrics  MetricsConfig `toml:"metrics"`
-	Hostname string        `toml:"hostname"` // embedded in events; default: os.Hostname()
+	Listen   ListenConfig              `toml:"listen"`
+	Output   OutputConfig              `toml:"output"`
+	Queue    QueueConfig               `toml:"queue"`
+	Logging  LoggingConfig             `toml:"logging"`
+	Metrics  MetricsConfig             `toml:"metrics"`
+	CEPA     server.RegistrationConfig `toml:"cepa"`
+	Hostname string                    `toml:"hostname"` // embedded in events; default: os.Hostname()
 }
 
 type ListenConfig struct {
@@ -153,6 +154,14 @@ func defaultConfig() Config {
 			GELFPort:         12201,
 			GELFProtocol:     "udp",
 			FlushIntervalSec: 15,
+			// EVTX rotation. Zero means "unlimited"/"disabled" for these three,
+			// so omitting them here left a config that does not mention
+			// rotation with rotation switched off — while config.toml
+			// advertised 100/100/24 as the defaults. A long-running deployment
+			// then grew one .evtx file without bound.
+			MaxFileSizeMB:     100,
+			MaxFileCount:      100,
+			RotationIntervalH: 24,
 		},
 		Queue: QueueConfig{
 			Capacity: 100000,
@@ -259,7 +268,7 @@ func run(ctx context.Context) {
 
 	// Build HTTP mux.
 	mux := http.NewServeMux()
-	mux.Handle("/", server.NewHandler(q, hostname))
+	mux.Handle("/", server.NewHandler(q, hostname, cfg.CEPA))
 	mux.Handle("/health", server.NewHealthHandler(server.HealthConfig{
 		StartTime:   time.Now(),
 		WriterType:  cfg.Output.Type,

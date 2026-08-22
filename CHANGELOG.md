@@ -7,7 +7,183 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.4.0] - 2026-08-13
 
+### Fixed
+
+- **CEE never registered this consumer, so no array ever published.** The
+  `RegisterRequest` handshake was answered with HTTP 200 and a deliberately
+  empty body, on the strength of a comment in `pkg/server/server.go` citing
+  "Dell CEPA documentation". That rule is wrong, and it was the reason two
+  separate PowerStore bring-ups ended in "connected, healthy, and silent".
+
+  CEE parses the reply into a `CRegisterResponse` and rejects a body with no
+  root element — `Top node is not RegisterResponse` — so registration cannot
+  complete, and a consumer that never registers can never be sent events.
+
+  **This IS why the PowerStore deployment saw `CEPP_NOT_FOUND`, and it now
+  works.** Verified end to end 2026-08-22: the fix took a live PowerStore from
+  `0x16` with 151 discarded events to `0x0` with events reaching the consumer
+  and a `.evtx` readable by `Get-WinEvent` on Windows Server 2025. A
+  dead-endpoint control appears to exonerate this leg — identical `0x16` either
+  way — but that is a false negative, since both cases mean "no partner".
+  An unregistered CEE answers array heartbeats `status="0x16"`
+  (`VC_ERROR_CEPP_NOT_FOUND`), and the array counted its events missed and
+  discarded them without ever putting one on the wire.
+
+  The consumer now returns the document CEE requires:
+
+  ```xml
+  <RegisterResponse><EndPoint friendlyName="ceeexporter" guid="…"
+    version="1.0" desc="cee-exporter CEPA consumer"/>
+    <Filter protocol="0"><EventTypeFilter value="0xFFFFFFFF0000000000000000"/></Filter>
+    <Filter protocol="1"><EventTypeFilter value="0xFFFFFFFF0000000000000000"/></Filter>
+  </RegisterResponse>
+  ```
+
+  encoded UTF-16LE when addressed in UTF-16LE, as the OneFS path already did.
+  Configurable under `[cepa]` — `friendly_name`, `guid`, `description`,
+  `protocols`, `event_filter`.
+
+  **The response shape alone is not enough** — CEE also demands an identity it
+  already knows (`CGuidStore`, see `RegistrationConfig`) and a `hbStatus=0`
+  reply to its `<HeartBeatRequest />`. Diagnosing this needs `Debug=63` on the
+  CEE side: `Debug`/`Verbose` are a 6-bit mask, and at `1` — or even `9`, which
+  prints less than `3` — CEE says nothing about why it refused a partner.
+
+  The shape is not inferred. It is CEE's own template for its built-in
+  SplunkHEC proxy, recovered from `libCEPPAPIWrapper.so` in the vendored CEE
+  9.2.0.0 rpm, and the rules it is validated against are the failure messages
+  in `CEndPoint::Init()` (`libCEPPFilter.so`). Protocol codes `0=CIFS, 1=NFS,
+  2=FTP, 3=Unknown` come from CEE's own `ProtocolDesc` table. Dell publishes
+  no protocol specification and CEE on Windows writes no log at all, so the
+  binary is the only available source.
+
+  `NewHandler` now takes a `RegistrationConfig`.
+
 ### Added
+
+- **The CEE partner allowlist is now honoured** (`pkg/server/register.go`).
+  `friendly_name`, `guid` and `version` are configurable under `[cepa]`, because
+  CEE will only register an identity present in `CGuidStore` — a table compiled
+  into `libCEPPAPIWrapper.so` keyed by *(friendlyName, facility)* → GUID. The
+  defaults deliberately do not match any row: picking someone else's registered
+  vendor identity is a decision for the operator, not a silent default. The
+  extracted table lives in cee-worker's `docs/cee-partner-allowlist.md`.
+
+- **CEE's 21 event codes are mapped** (`pkg/parser/checkevent.go`,
+  `pkg/mapper`). `Event/@event` is a bitmask, one bit per event in the order
+  Dell documents (`OpenFileNoAccess … OpenFileWriteOffline`, mask `0x1fffff` —
+  21 names, 21 bits; Dell KB 000194250, and the same order in PowerStore's REST
+  API). **Bit 3 (`0x8` = CreateFile) is confirmed by measurement** against a
+  live array; the other twenty are documented rather than measured and are
+  marked as such in the table. Codes outside the 21 still reach the writers with
+  their raw value preserved and a WARN, as before.
+
+
+
+- **CEE's post-registration heartbeat is answered** (`pkg/server/heartbeat.go`).
+  Once registered, CEE probes the consumer with `<HeartBeatRequest />` and
+  scans the reply for `hbStatus=` and `ntStatus=`. This had never been seen on
+  the wire because CEE only sends it to a partner it managed to register, so
+  it would have fallen through to the event parser and been answered with an
+  empty body — leaving CEE with no idea whether the consumer was online, one
+  step after the registration fix. The reply reports `hbStatus=0`,
+  `CEPP_SERVICE_ONLINE`, whose value is measured: the five state names sit in
+  an indexed pointer array in `libCEPPAPIWrapper.so`, recovered from the
+  relocations, and the index is the value. The separator between the two
+  fields is *not* established and is noted as such in the code.
+
+- **Dell CEE's own event dialect is parsed** (`pkg/parser/checkevent.go`).
+  CEE delivers events as `<CheckEventRequest><EventList><Event …/></EventList>`,
+  a third shape distinct from both the `RegisterRequest` handshake and OneFS's
+  `CheckFileRequest`. The parser was keyed on `<CEEEvent>`/`<EventBatch>` only,
+  so every CEE-delivered event would have been dropped as an unrecognised
+  payload even once registration was fixed. `encodedPath` is preferred over
+  `path` when present, since CEE supplies it precisely when the plain
+  attribute is lossy.
+
+  The numeric `Event/@event` codes **are** mapped: `pkg/parser/checkevent.go`
+  names all 21 documented bits, cross-checked against Dell's Unity CLI
+  `post-Events` ordering rather than against the binary's string layout, which
+  is a compiler artefact and not evidence. A code outside that set is still
+  written, with its raw value preserved in the label
+  (`CEPP_CEE_UNMAPPED_<n>`) and logged at WARN — the same discipline used for
+  the OneFS `eventType` values before an isolation run resolved them by
+  measurement, so a gap stays visible instead of being silently mislabelled.
+
+- **OneFS file events are parsed and written.** `CheckFileRequest` with
+  `action="11"` carries a real audit event, not a heartbeat — same element,
+  different action. These were previously acknowledged and logged at WARN but
+  never written, because acknowledging one advances the cluster's forwarding
+  cursor and dropping it silently would have been worse than refusing it.
+
+  `pkg/parser/onefs.go` decodes the payload into the same `CEPAEvent` the
+  PowerStore path produces — base64 UTF-16LE UNC path, `NFSEventArgs`,
+  microsecond timestamps, I/O counters — so both dialects feed one mapper and
+  one set of writers rather than a parallel pipeline.
+
+  The numeric `eventType` bitmask is fully resolved, by an isolation run of one
+  operation per 10-second window against a live OneFS 9.13.0.0 cluster:
+
+  | eventType | Operation |
+  |---|---|
+  | 8 | open/create |
+  | 32 | delete |
+  | 128 | close after writing |
+  | 256 | ordinary close |
+  | 512 | rename (emitted against the **source** path) |
+  | 2048 | set_security |
+
+  An earlier capture of the same operations batched together could not
+  attribute 32, 512 and 2048, and they were deliberately left unmapped rather
+  than guessed. The attribution now closes on itself: `rm` produced 32, so 512
+  cannot be delete; `mv` produced only 512, so 512 is the rename.
+
+  Values outside that table become `CEPP_ONEFS_UNMAPPED_<n>`, are logged at
+  WARN, and are still written — the cursor has already moved by then, so
+  dropping them would lose them outright — but they carry the mapper's
+  documented default EventID rather than a researched one, and that distinction
+  is visible to whoever reads the trail.
+
+- **`CEPP_CLOSE_UNMODIFIED` → EventID 4658.** OneFS eventType 256 is a close
+  that wrote nothing; 4658 ("The handle to an object was closed") is the
+  Windows audit event for exactly that. Deliberately not folded into
+  `CEPP_CLOSE_MODIFIED`'s 4663, which asserts an access a bare close never
+  performed.
+
+- **The PowerStore CEPA dialect is accepted.** Three changes, each measured off
+  a wire capture of a live PowerStore NAS server:
+
+  - **POST is accepted alongside PUT.** PowerStore's Data Mover publishes with
+    `POST /vee` (`User-Agent: EMC Data Mover`); Dell CEE and OneFS both use
+    PUT. While only PUT was accepted, a NAS server pointed at this consumer got
+    `405 Method Not Allowed` on every heartbeat and could never establish a
+    CEPP session.
+  - **The `CheckFileResponse` is returned in the encoding it was addressed
+    in.** PowerStore speaks UTF-16LE and Dell CEE answers it in UTF-16LE; OneFS
+    speaks UTF-8 and is answered in UTF-8. A reply the publisher cannot parse
+    is fatal to it.
+  - The existing `action="9"` handshake path then answers PowerStore's
+    heartbeat with `status="0x0"`.
+
+  **This does not, by itself, let a PowerStore array publish here directly, and
+  on at least one PowerStoreOS version it cannot.** The Events Publisher's
+  transport selection makes **Microsoft RPC mandatory** — it cannot be
+  unticked, on an existing publisher or a newly created one — and this daemon
+  serves HTTP only. Measured against a live array: with the pool listing a
+  Linux consumer first and a Windows CEE host second, the array skipped the
+  first entry without ever opening a TCP connection to it and used the second.
+  A Linux host cannot be a direct CEPA target for such an array at all.
+
+  What the change is good for: any publisher that speaks the PowerStore dialect
+  over HTTP reaches this consumer correctly now instead of getting 405. That
+  includes Dell CEE itself, and it removes a whole class of silent failure. It
+  is not a route around CEE for PowerStore.
+
+  Context for why it was attempted: Dell CEE 9.2.0.0 and 9.3.0.0 both answer
+  `status="0x16"` (`VC_ERROR_CEPP_NOT_FOUND`) to a correctly-configured
+  PowerStore NAS server, which responds by generating events, counting them as
+  missed, and transmitting nothing. Note also that Dell does not support CEPA
+  without CEE in the path.
 
 - **PowerScale (OneFS) CEPA handshake.** OneFS opens with `<CheckFileRequest>`,
   not the `<RegisterRequest/>` that Dell CEE sends, and it requires a
@@ -41,28 +217,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   heartbeat, so the counter's meaning is unchanged — it was already a
   heartbeat rate, not a count of distinct registrations.
 
-### Known limitation
+### Known limitation (resolved in this release)
 
-- **OneFS events are received but not yet decoded.** Events arrive in the same
-  `CheckFileRequest` element as the heartbeat, distinguished only by
-  `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>` with
-  a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the `CEPP_*`
-  strings `pkg/mapper` keys on. They are counted in `cee_events_dropped_total`
-  rather than silently dropped, because acknowledging an event advances the
-  cluster's forwarding cursor and destroys the record.
+- **OneFS events are received but not yet decoded.** ~~Events arrive in the
+  same `CheckFileRequest` element as the heartbeat, distinguished only by
+  `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>`
+  with a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the
+  `CEPP_*` strings `pkg/mapper` keys on.~~
 
-  The counter is the alertable signal and counts every event. The payload is
-  logged at WARN for the first ten only, capped at 4 KiB, with a payload-free
-  line every thousandth after that: OneFS sends one `CheckFileRequest` per
-  file operation, so logging them all would flood the log and copy a UNC path,
-  a user SID and a client IP per event into a second store. Ten samples answer
-  what the format is; the counter answers how much is being lost.
+  **Superseded.** All six measured event types (8, 32, 128, 256, 512, 2048 — a
+  bitmask) were resolved by an isolation run of one operation per 10-second
+  window against a live OneFS 9.13.0.0 cluster, and OneFS events are now
+  parsed, mapped and written — see "OneFS file events are parsed and written"
+  above. This entry is kept rather than deleted because the reasoning it
+  records (deliberately not guessing the bits: wrong event IDs in an audit
+  trail are worse than no audit trail) is why the isolation run happened.
 
-  Six event types were measured (8, 32, 128, 256, 512, 2048 — a bitmask). Only
-  the open (8) and the closes (128, 256) are identified; 32, 512 and 2048
-  divide between rename, set_security and delete and need one capture per
-  isolated operation to separate. Deliberately not guessed: wrong event IDs in
-  an audit trail are worse than no audit trail.
+  The sampler main introduced for this branch survives, narrowed to its real
+  audience: a payload that still fails to parse renders its structure for the
+  first ten occurrences and then a structure-free line every thousandth, and
+  every one is counted in `cee_events_dropped_total`. What it renders is now
+  redacted — element and attribute names, no values — so the UNC path, user
+  SID and client IP never reach the log store at all.
 
 ## [5.3.3] - 2026-08-11
 

@@ -72,7 +72,7 @@ flowchart TD
 | Binary size | ~11.5 MB (stripped, CGO_ENABLED=0, linux/amd64 — 12,099,746 bytes measured on the released `v5.3.1` artifact, 2026-08-11; grown from an earlier ~6 MB as dependencies were added) |
 | Dependencies | CGO disabled on every platform; the Linux binaries are fully static (no `NEEDED` entries — asserted on every push and every tag). The macOS binaries link the system `libSystem`/`CoreFoundation`/`Security` libraries, as every Go binary on macOS does |
 | Platforms | Linux and macOS on amd64 and arm64; Windows on amd64 (see table below) |
-| Go version | 1.26.5 |
+| Go version | 1.26.6 |
 
 ## Supported platforms
 
@@ -129,3 +129,4 @@ compiled out there.
   - [ADR-014](adr/ADR-014-go-evtx-library-extraction.md) — go-evtx extracted to its own module
   - [ADR-015](adr/ADR-015-windows-message-resource.md) — Windows message resource compiled into the binary
   - [ADR-016](adr/ADR-016-three-oracle-evtx-verification.md) — Three-oracle EVTX read-back verification
+  - [ADR-017](adr/ADR-017-cee-partner-identity.md) — Register with CEE under an allowlisted partner identity

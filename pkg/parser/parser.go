@@ -13,7 +13,6 @@
 package parser
 
 import (
-	"bytes"
 	"encoding/xml"
 	"fmt"
 	"strconv"
@@ -105,6 +104,12 @@ func CheckFileAction(body []byte) string {
 	if err != nil {
 		return ""
 	}
+	return checkFileActionDecoded(decoded)
+}
+
+// checkFileActionDecoded is CheckFileAction for input already decoded by
+// Classify, so a dispatch that has transcoded once does not do it again.
+func checkFileActionDecoded(decoded []byte) string {
 	var r struct {
 		XMLName xml.Name `xml:"CheckFileRequest"`
 		Args    struct {
@@ -134,37 +139,7 @@ func rootElementIs(body []byte, name string) bool {
 		// report the reason; here the only question is which branch to take.
 		return false
 	}
-	trimmed := bytes.TrimSpace(decoded)
-	// Skip an optional XML declaration: <?xml ...?>
-	if bytes.HasPrefix(trimmed, []byte("<?xml")) {
-		if idx := bytes.Index(trimmed, []byte("?>")); idx >= 0 {
-			trimmed = bytes.TrimSpace(trimmed[idx+2:])
-		}
-	}
-	if !bytes.HasPrefix(trimmed, []byte("<"+name)) {
-		return false
-	}
-	rest := trimmed[len("<"+name):]
-	if len(rest) == 0 {
-		// "<RegisterRequest" and nothing else: unterminated, so not a
-		// well-formed root element.
-		return false
-	}
-	switch rest[0] {
-	case '>':
-		return true
-	case '/', ' ', '\t', '\r', '\n':
-		// The name ends here, but the start tag still has to be closed. A
-		// body that stops inside it — mid-attribute, or on the space after
-		// the name — is truncated, and a truncated payload is not a
-		// handshake: answering it would be inventing a request that was
-		// never fully sent, the same reasoning that makes decodeUTF16Pairs
-		// reject an odd trailing byte. Parse reports it instead.
-		return bytes.IndexByte(rest, '>') >= 0
-	default:
-		// Any other byte continues the element name — a different element.
-		return false
-	}
+	return rootIs(decoded, name)
 }
 
 // ----------------------------------------------------------------------------
@@ -229,8 +204,11 @@ func Parse(body []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decoding CEPA payload: %w", err)
 	}
-	body = decoded
+	return parseDecoded(decoded, receiveTime)
+}
 
+// parseDecoded is Parse for input Classify has already decoded.
+func parseDecoded(body []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	// Try batch first.
 	var batch rawBatch
 	if err := xml.Unmarshal(body, &batch); err == nil && len(batch.Events) > 0 {

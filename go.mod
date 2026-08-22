@@ -5,15 +5,15 @@ go 1.26.6
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/crewjam/rfc5424 v0.1.0
-	github.com/fjacquet/go-evtx v0.8.2
+	github.com/fjacquet/go-evtx v0.8.3
 	github.com/kardianos/service v1.3.0
-	golang.org/x/crypto v0.54.0
+	golang.org/x/crypto v0.55.0
 	golang.org/x/sys v0.47.0
 )
 
 require (
-	golang.org/x/net v0.57.0 // indirect
-	golang.org/x/text v0.40.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 )
 
 require (
@@ -30,5 +30,5 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )

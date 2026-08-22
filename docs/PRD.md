@@ -85,7 +85,7 @@ Full requirement list: see [requirements.md](requirements.md)
 
 ### v1.0 (delivered)
 
-- CEPA protocol: CEPA-01 through CEPA-05
+- CEPA protocol: CEPA-01 through CEPA-09
 - Semantic mapping: MAP-01 through MAP-06
 - GELF output: GELF-01 through GELF-04
 - Win32 output: WIN-01, WIN-02
