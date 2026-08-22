@@ -309,17 +309,27 @@ func ceeTimestamp(raw string, fallback time.Time) time.Time {
 	// Accept the 0x form too: several sibling attributes carry it, and there
 	// is no guarantee this one never will.
 	n, err := parseCEENum(s, 10)
-	// > MaxInt64 is the case this function claims to handle and did not: the
-	// conversion below wraps it negative, so the record lands before 1970
-	// instead of at receive time — the exact mis-sort the fallback exists to
-	// prevent. parseCEENum returns a full uint64, so the input reaches here.
-	if err != nil || n == 0 || n > math.MaxInt64 {
+	if err != nil || n == 0 {
 		return fallback
 	}
 	// A value too large to be a plain epoch second is the packed form. The
 	// discriminator is exact rather than heuristic: a real epoch second stays
 	// inside 32 bits until the year 2106, and the packed form always carries a
 	// non-zero epoch in its high word, so it always exceeds 32 bits.
+	//
+	// This runs before any range rejection, and the order is load-bearing. An
+	// earlier guard rejected n > MaxInt64 outright, written when the attribute
+	// was believed to be a plain second count — where such a value is nonsense
+	// and the int64 conversion below would wrap it negative, landing the record
+	// before 1970. For a packed value it is not nonsense: the epoch is in the
+	// high word, so every event after 2038-01-19 sets bit 63 and exceeds
+	// MaxInt64. Rejecting first would have discarded a good timestamp for
+	// receive time from 2038 on.
+	//
+	// Unpacking first makes that rejection unnecessary rather than merely
+	// reordered: the shifted value is at most MaxUint32, and a value that was
+	// already inside 32 bits is unchanged, so n is always <= MaxUint32 here and
+	// the conversion cannot wrap.
 	if n > math.MaxUint32 {
 		n >>= 32
 	}
