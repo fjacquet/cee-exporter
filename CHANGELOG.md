@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A bare HTTP 200 does not acknowledge a CEPA event batch, and this consumer
+  sent one — so no array ever published to it.** `<CheckEventRequest>` must be
+  answered with `<CheckEventResponse status="0x0"/>`, mirroring the request
+  encoding. CEE reads an empty body as a failed delivery, reports
+  `auditStatus="0x1"` to the array, and the array retries **the same event**
+  indefinitely: its queue head never clears and nothing behind it is ever sent.
+
+  On the estate this was found on, that had been running for eight days — one
+  event from 2026-08-14 redelivered every heartbeat, and no other event ever.
+  Every observable stayed green. Registration succeeded, heartbeats returned
+  `hbStatus=0`, events arrived, counters climbed; the only signal anywhere was a
+  Major alert on the array, `0x01301b03 all_servers_unreachable`, which reads as
+  a network fault while the NAS was TCP-connected to CEE throughout.
+
+  Measured both directions against a live array: empty body gives
+  `status="0x1"`, `action="11"` retried six times in 40 s, one distinct path
+  ever seen; the document gives `status="0x0"`, no retries, and the backlog
+  flushed — 1780 events across 14 event types in 30 seconds.
+
+  The requirement is **not discoverable from CEE's binaries**: no
+  `CheckEventResponse` literal exists in either encoding in any of the five
+  Windows DLLs, which is why an earlier reading concluded the empty 200 was the
+  whole contract. Documented as gate 5 in cee-worker's `docs/cepa-protocol.md`.
+
 - **Every PowerStore event was stamped with the year 243179022179.**
   `timeStamp` is not a plain second count in the PowerStore dialect: it is a
   packed 64-bit value whose high 32 bits are the epoch second and whose low 32
@@ -47,6 +71,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   writers, but go-evtx's `EventData` schema was closed at twelve fields and
   `WriteRecord` ignored the key in silence. It now writes `IpAddress`, the name
   Windows Security auditing uses on 4625 and 5145. **Requires go-evtx v0.9.0.**
+
+### Added
+
+- **Event counters broken down by type, protocol and NAS server.**
+  `cee_events_by_type_total{event_type,protocol}` and
+  `cee_events_by_server_total{server}`. The scalar counter collapsed an entire
+  estate into one number, which is why a single redelivered event was
+  indistinguishable from varied traffic for as long as it was. Two metrics
+  rather than one keyed on all three labels, since `event_type` x `protocol` x
+  `server` multiplies out and the two questions are asked separately. The client
+  address is deliberately not a label — it is every workstation that ever
+  touched a share — and both maps are capped, with
+  `cee_event_labels_dropped_total` making a truncated breakdown visible.
+
+  Required parsing `protocol` and `server`, both always on the wire and both
+  previously discarded. An unmapped protocol code renders `Unknown`, never the
+  empty string: an empty label is indistinguishable from an absent one.
+
+- **`cee_last_event_unix_seconds`.** A zero event rate reads identically whether
+  the estate is quiet or the pipeline is dead, and those need different
+  responses. The store had tracked this all along but exposed it only in the
+  health snapshot, so nothing could alert on it.
+
+### Changed
+
+- **The bundled dashboard shows three panels.** Event rate, time since the last
+  event, and what is being captured. Everything else is kept but folded into
+  collapsed rows. It had grown to sixteen panels answering questions nobody was
+  asking.
+
+- **`12228` is documented as borrowed, not assigned.** The Security
+  Configuration Guide 9.x gives it as the default for *Platform-to-CEE*
+  messaging — CEE's own listener — while the CEE-to-partner port has no default
+  and is chosen by the administrator. The default is unchanged, since moving it
+  would break every existing deployment for no gain, but it no longer teaches a
+  wrong fact. Refs #28.
 
 ## [5.5.0] - 2026-08-22
 
