@@ -215,3 +215,108 @@ func TestDrainContextSurvivesParentCancel(t *testing.T) {
 		t.Error("drain ran under a cancelled context; the shutdown flush must not inherit the caller's cancellation")
 	}
 }
+
+// TestBatchAccumulatesUpToMaxBatch proves the events are coalesced rather than
+// written one at a time. Without this the whole change is a no-op that still
+// passes every other test.
+func TestBatchAccumulatesUpToMaxBatch(t *testing.T) {
+	fw := &fakeWriter{done: make(chan struct{}, 16)}
+	fired := make(chan time.Time) // never fires: forces the size trigger
+	q := New(Config{Capacity: 100, Workers: 1, MaxBatch: 5, BatchTimeout: time.Hour}, fw)
+	q.newTimer = func(time.Duration) (<-chan time.Time, func() bool) {
+		return fired, func() bool { return true }
+	}
+	q.Start(context.Background())
+
+	for i := 0; i < 5; i++ {
+		q.Enqueue(evtx.WindowsEvent{EventID: 4663})
+	}
+	q.Stop()
+
+	fw.mu.Lock()
+	defer fw.mu.Unlock()
+	if len(fw.batches) != 1 || fw.batches[0] != 5 {
+		t.Errorf("batches = %v, want exactly one batch of 5", fw.batches)
+	}
+}
+
+// TestBatchFlushesOnTimeout drives the timer directly. pkg/queue may not use
+// time.Sleep for synchronisation, which is why newTimer is injectable.
+func TestBatchFlushesOnTimeout(t *testing.T) {
+	fw := &fakeWriter{done: make(chan struct{}, 4)}
+	fired := make(chan time.Time, 1)
+	q := New(Config{Capacity: 100, Workers: 1, MaxBatch: 500, BatchTimeout: time.Hour}, fw)
+	q.newTimer = func(time.Duration) (<-chan time.Time, func() bool) {
+		return fired, func() bool { return true }
+	}
+	q.Start(context.Background())
+
+	q.Enqueue(evtx.WindowsEvent{EventID: 4663})
+	fired <- time.Now() // the batch timeout expires with one event held
+	<-fw.done           // the worker wrote it
+
+	q.Stop()
+
+	fw.mu.Lock()
+	defer fw.mu.Unlock()
+	if len(fw.batches) == 0 || fw.batches[0] != 1 {
+		t.Errorf("batches = %v, want a first batch of 1 flushed on timeout", fw.batches)
+	}
+}
+
+// TestPartialBatchFlushedOnStop is the silent-loss guard. A worker that
+// returns on channel close without writing its in-flight batch discards up to
+// MaxBatch-1 events per worker on every shutdown — 4x499 with the defaults,
+// with EventsWrittenTotal never counting them and nothing in the log.
+func TestPartialBatchFlushedOnStop(t *testing.T) {
+	fw := &fakeWriter{done: make(chan struct{}, 8)}
+	fired := make(chan time.Time) // never fires
+	q := New(Config{Capacity: 100, Workers: 1, MaxBatch: 500, BatchTimeout: time.Hour}, fw)
+	q.newTimer = func(time.Duration) (<-chan time.Time, func() bool) {
+		return fired, func() bool { return true }
+	}
+	q.Start(context.Background())
+
+	for i := 0; i < 3; i++ {
+		q.Enqueue(evtx.WindowsEvent{EventID: 4663})
+	}
+	q.Stop() // closes the channel with a partial batch in flight
+
+	fw.mu.Lock()
+	defer fw.mu.Unlock()
+	total := 0
+	for _, n := range fw.batches {
+		total += n
+	}
+	if total != 3 {
+		t.Errorf("wrote %d events across %v, want all 3 flushed at Stop", total, fw.batches)
+	}
+}
+
+// TestBatchMetricsAreEventCounted pins the counter semantics. Counting per
+// call instead of per event would drop the observed rate ~500x and silence
+// every existing threshold alert built on these series.
+func TestBatchMetricsAreEventCounted(t *testing.T) {
+	metrics.M.EventsWrittenTotal.Store(0)
+	metrics.M.WriterBatchesTotal.Store(0)
+
+	fw := &fakeWriter{done: make(chan struct{}, 8)}
+	fired := make(chan time.Time)
+	q := New(Config{Capacity: 100, Workers: 1, MaxBatch: 4, BatchTimeout: time.Hour}, fw)
+	q.newTimer = func(time.Duration) (<-chan time.Time, func() bool) {
+		return fired, func() bool { return true }
+	}
+	q.Start(context.Background())
+
+	for i := 0; i < 4; i++ {
+		q.Enqueue(evtx.WindowsEvent{EventID: 4663})
+	}
+	q.Stop()
+
+	if got := metrics.M.EventsWrittenTotal.Load(); got != 4 {
+		t.Errorf("EventsWrittenTotal = %d, want 4 (events, not calls)", got)
+	}
+	if got := metrics.M.WriterBatchesTotal.Load(); got != 1 {
+		t.Errorf("WriterBatchesTotal = %d, want 1 (calls, not events)", got)
+	}
+}

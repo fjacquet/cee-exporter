@@ -151,8 +151,15 @@ gelf_tls      = false   # only applies when gelf_protocol = "tcp"
 # Async queue
 # ─────────────────────────────────────────────────────────────────────────────
 [queue]
-capacity = 100000  # max events buffered before dropping
-workers  = 4       # concurrent writer goroutines
+capacity         = 100000  # max events buffered before dropping
+workers          = 4       # concurrent writer goroutines
+drain_timeout_s  = 30      # how long shutdown waits for the queue to drain
+max_batch        = 500     # events per WriteBatch call; also the duplicate blast
+                            # radius — a TCP write failing after partially landing
+                            # replays the whole batch (delivery is at-least-once)
+batch_timeout_ms = 200     # how long a partial batch waits for more events before
+                            # flushing; also the crash loss window — events held
+                            # in a partial batch are gone on SIGKILL
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging

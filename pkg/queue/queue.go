@@ -33,6 +33,14 @@ type Config struct {
 	// expiry the remaining depth is logged at ERROR; it is not silently
 	// discarded.
 	DrainTimeout time.Duration
+	// MaxBatch is the largest number of events handed to one WriteBatch call.
+	// 500 is the throughput choice; it is also the duplicate blast radius,
+	// because a TCP write failing after partially landing replays the whole
+	// batch.
+	MaxBatch int
+	// BatchTimeout bounds how long a partial batch waits for more events.
+	// It is also the loss window: events held here are gone on SIGKILL.
+	BatchTimeout time.Duration
 }
 
 func (c Config) withDefaults() Config {
@@ -44,6 +52,12 @@ func (c Config) withDefaults() Config {
 	}
 	if c.DrainTimeout <= 0 {
 		c.DrainTimeout = 30 * time.Second
+	}
+	if c.MaxBatch <= 0 {
+		c.MaxBatch = 500
+	}
+	if c.BatchTimeout <= 0 {
+		c.BatchTimeout = 200 * time.Millisecond
 	}
 	return c
 }
@@ -66,6 +80,19 @@ type Queue struct {
 	// than inherited directly from the caller's context.
 	writeCtx    context.Context
 	writeCancel context.CancelFunc
+
+	maxBatch     int
+	batchTimeout time.Duration
+
+	// newTimer returns the channel that fires after d, and a stop function.
+	// Injected in tests so the batch-timeout path is driven deterministically:
+	// this package's tests may not use time.Sleep for synchronisation.
+	newTimer func(d time.Duration) (<-chan time.Time, func() bool)
+}
+
+func realTimer(d time.Duration) (<-chan time.Time, func() bool) {
+	t := time.NewTimer(d)
+	return t.C, t.Stop
 }
 
 // New creates a Queue from cfg.  Call Start() to launch the workers.
@@ -76,6 +103,9 @@ func New(cfg Config, w evtx.Writer) *Queue {
 		writer:       w,
 		workers:      cfg.Workers,
 		drainTimeout: cfg.DrainTimeout,
+		maxBatch:     cfg.MaxBatch,
+		batchTimeout: cfg.BatchTimeout,
+		newTimer:     realTimer,
 	}
 }
 
@@ -187,21 +217,77 @@ func (q *Queue) Stop() {
 func (q *Queue) work(ctx context.Context, id int) {
 	defer q.wg.Done()
 	slog.Debug("worker_started", "worker_id", id)
-	for e := range q.ch {
-		metrics.M.SetQueueDepth(len(q.ch))
-		if err := q.writer.WriteEvent(ctx, e); err != nil {
-			metrics.M.WriterErrorsTotal.Add(1)
-			slog.Error("writer_error",
-				"worker_id", id,
-				"event_id", e.EventID,
-				"cepa_event_type", e.CEPAEventType,
-				"file_path", e.ObjectName,
-				"error", err,
-			)
-		} else {
-			metrics.M.EventsWrittenTotal.Add(1)
-			metrics.M.RecordEventAt()
+	for {
+		batch, more := q.nextBatch()
+		if len(batch) > 0 {
+			q.writeBatch(ctx, batch, id)
+		}
+		if !more {
+			slog.Debug("worker_stopped", "worker_id", id)
+			return
 		}
 	}
-	slog.Debug("worker_stopped", "worker_id", id)
+}
+
+// nextBatch blocks for the first event, then accumulates until maxBatch is
+// reached or batchTimeout expires.
+//
+// more=false means the channel closed. The returned batch is still valid and
+// the caller MUST write it: returning early on close would discard up to
+// maxBatch-1 events per worker on every shutdown, uncounted and unlogged.
+func (q *Queue) nextBatch() (batch []evtx.WindowsEvent, more bool) {
+	first, ok := <-q.ch
+	if !ok {
+		return nil, false
+	}
+
+	batch = make([]evtx.WindowsEvent, 0, q.maxBatch)
+	batch = append(batch, first)
+
+	fire, stop := q.newTimer(q.batchTimeout)
+	defer stop()
+
+	for len(batch) < q.maxBatch {
+		select {
+		case e, ok := <-q.ch:
+			if !ok {
+				return batch, false
+			}
+			batch = append(batch, e)
+		case <-fire:
+			return batch, true
+		}
+	}
+	return batch, true
+}
+
+// writeBatch hands the batch to the writer and records the outcome.
+//
+// EventsWrittenTotal and WriterErrorsTotal advance by len(batch), not by one:
+// they mean events, and every dashboard and alert built on them assumes so.
+// The call-level counters are separate.
+func (q *Queue) writeBatch(ctx context.Context, batch []evtx.WindowsEvent, id int) {
+	metrics.M.SetQueueDepth(len(q.ch))
+	metrics.M.WriterBatchesTotal.Add(1)
+
+	if err := q.writer.WriteBatch(ctx, batch); err != nil {
+		metrics.M.WriterErrorsTotal.Add(int64(len(batch)))
+		metrics.M.WriterBatchErrorsTotal.Add(1)
+		// One line per batch, not per event: a failed 500-event batch would
+		// otherwise emit 500 identical lines. The first event identifies
+		// where in the stream the failure sits.
+		slog.Error("writer_batch_error",
+			"worker_id", id,
+			"batch_size", len(batch),
+			"events_failed", len(batch),
+			"first_event_id", batch[0].EventID,
+			"first_cepa_event_type", batch[0].CEPAEventType,
+			"first_file_path", batch[0].ObjectName,
+			"error", err,
+		)
+		return
+	}
+
+	metrics.M.EventsWrittenTotal.Add(int64(len(batch)))
+	metrics.M.RecordEventAt()
 }

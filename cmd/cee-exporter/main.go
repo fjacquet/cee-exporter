@@ -139,6 +139,12 @@ type QueueConfig struct {
 	// DrainTimeoutS bounds how long shutdown waits for the queue to drain.
 	// Default 30 (set in defaultConfig).
 	DrainTimeoutS int `toml:"drain_timeout_s"`
+	// MaxBatch is the largest number of events written in one call.
+	// Default 500 (set in defaultConfig).
+	MaxBatch int `toml:"max_batch"`
+	// BatchTimeoutMS bounds how long a partial batch waits for more events.
+	// Default 200 (set in defaultConfig). Also the crash loss window.
+	BatchTimeoutMS int `toml:"batch_timeout_ms"`
 }
 
 type LoggingConfig struct {
@@ -172,9 +178,11 @@ func defaultConfig() Config {
 			RotationIntervalH: 24,
 		},
 		Queue: QueueConfig{
-			Capacity:      100000,
-			Workers:       4,
-			DrainTimeoutS: 30,
+			Capacity:       100000,
+			Workers:        4,
+			DrainTimeoutS:  30,
+			MaxBatch:       500,
+			BatchTimeoutMS: 200,
 		},
 		Logging: LoggingConfig{
 			Level:  "info",
@@ -241,6 +249,7 @@ func run(ctx context.Context) {
 		"output_type", cfg.Output.Type,
 		"queue_capacity", cfg.Queue.Capacity,
 		"queue_workers", cfg.Queue.Workers,
+		"queue_max_batch", cfg.Queue.MaxBatch,
 	)
 
 	// Build writer.
@@ -278,6 +287,8 @@ func run(ctx context.Context) {
 		Capacity:     cfg.Queue.Capacity,
 		Workers:      cfg.Queue.Workers,
 		DrainTimeout: time.Duration(cfg.Queue.DrainTimeoutS) * time.Second,
+		MaxBatch:     cfg.Queue.MaxBatch,
+		BatchTimeout: time.Duration(cfg.Queue.BatchTimeoutMS) * time.Millisecond,
 	}, w)
 	q.Start(ctx)
 
