@@ -247,13 +247,26 @@ func TestParseCheckEventRequest_EmptyListIsNamed(t *testing.T) {
 // quietly corrupt the ordering of an audit trail.
 func TestCEETimestampFallback(t *testing.T) {
 	fallback := time.Unix(1786735999, 0).UTC()
-	for _, raw := range []string{"", "0", "not-a-number"} {
+	// The last two exceed MaxInt64. Without an upper bound the int64
+	// conversion wraps them negative and the record sorts *before* 1970 —
+	// worse than the zero time this fallback exists to avoid, and reported by
+	// CodeQL rather than by any test here.
+	for _, raw := range []string{
+		"", "0", "not-a-number",
+		"9223372036854775808",  // MaxInt64 + 1
+		"18446744073709551615", // MaxUint64
+	} {
 		if got := ceeTimestamp(raw, fallback); !got.Equal(fallback) {
 			t.Errorf("ceeTimestamp(%q) = %v, want the fallback %v", raw, got, fallback)
 		}
 	}
 	if got := ceeTimestamp("0x6A7B0C1A", fallback); got.Equal(fallback) {
 		t.Error("ceeTimestamp did not parse the 0x form")
+	}
+	// MaxInt64 itself must still parse: the bound is inclusive, and a check
+	// written as >= would pass every other case in this test.
+	if got := ceeTimestamp("9223372036854775807", fallback); got.Equal(fallback) {
+		t.Error("ceeTimestamp rejected MaxInt64, which converts exactly")
 	}
 }
 

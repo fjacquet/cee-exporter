@@ -3,6 +3,7 @@ package parser
 import (
 	"encoding/xml"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -267,7 +268,11 @@ func ceeTimestamp(raw string, fallback time.Time) time.Time {
 	// Accept the 0x form too: several sibling attributes carry it, and there
 	// is no guarantee this one never will.
 	n, err := parseCEENum(s, 10)
-	if err != nil || n == 0 {
+	// > MaxInt64 is the case this function claims to handle and did not: the
+	// conversion below wraps it negative, so the record lands before 1970
+	// instead of at receive time — the exact mis-sort the fallback exists to
+	// prevent. parseCEENum returns a full uint64, so the input reaches here.
+	if err != nil || n == 0 || n > math.MaxInt64 {
 		return fallback
 	}
 	return time.Unix(int64(n), 0).UTC()
