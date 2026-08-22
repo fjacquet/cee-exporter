@@ -61,6 +61,7 @@ type Config struct {
 	Logging  LoggingConfig             `toml:"logging"`
 	Metrics  MetricsConfig             `toml:"metrics"`
 	CEPA     server.RegistrationConfig `toml:"cepa"`
+	Server   server.LimitsConfig       `toml:"server"`
 	Hostname string                    `toml:"hostname"` // embedded in events; default: os.Hostname()
 }
 
@@ -135,6 +136,15 @@ type OutputConfig struct {
 type QueueConfig struct {
 	Capacity int `toml:"capacity"` // default 100000
 	Workers  int `toml:"workers"`  // default 4
+	// DrainTimeoutS bounds how long shutdown waits for the queue to drain.
+	// Default 30 (set in defaultConfig).
+	DrainTimeoutS int `toml:"drain_timeout_s"`
+	// MaxBatch is the largest number of events written in one call.
+	// Default 500 (set in defaultConfig).
+	MaxBatch int `toml:"max_batch"`
+	// BatchTimeoutMS bounds how long a partial batch waits for more events.
+	// Default 200 (set in defaultConfig). Also the crash loss window.
+	BatchTimeoutMS int `toml:"batch_timeout_ms"`
 }
 
 type LoggingConfig struct {
@@ -168,8 +178,11 @@ func defaultConfig() Config {
 			RotationIntervalH: 24,
 		},
 		Queue: QueueConfig{
-			Capacity: 100000,
-			Workers:  4,
+			Capacity:       100000,
+			Workers:        4,
+			DrainTimeoutS:  30,
+			MaxBatch:       500,
+			BatchTimeoutMS: 200,
 		},
 		Logging: LoggingConfig{
 			Level:  "info",
@@ -178,6 +191,10 @@ func defaultConfig() Config {
 		Metrics: MetricsConfig{
 			Enabled: true,
 			Addr:    "0.0.0.0:9228",
+		},
+		Server: server.LimitsConfig{
+			MaxBodyMB:             8,
+			MaxConcurrentRequests: 8,
 		},
 	}
 }
@@ -232,6 +249,12 @@ func run(ctx context.Context) {
 		"output_type", cfg.Output.Type,
 		"queue_capacity", cfg.Queue.Capacity,
 		"queue_workers", cfg.Queue.Workers,
+		"queue_max_batch", cfg.Queue.MaxBatch,
+		// Logged alongside max_batch, not instead of it: the two together are
+		// the batching policy, and half of it cannot be confirmed from a
+		// running process. batch_timeout_ms is also the in-memory loss window
+		// on SIGKILL, so it is the number an operator needs at hand.
+		"queue_batch_timeout_ms", cfg.Queue.BatchTimeoutMS,
 	)
 
 	// Build writer.
@@ -265,14 +288,18 @@ func run(ctx context.Context) {
 	installSIGHUP(w)
 
 	// Build queue.
-	q := queue.New(cfg.Queue.Capacity, cfg.Queue.Workers, w)
-	queueCtx, queueCancel := context.WithCancel(ctx)
-	defer queueCancel()
-	q.Start(queueCtx)
+	q := queue.New(queue.Config{
+		Capacity:     cfg.Queue.Capacity,
+		Workers:      cfg.Queue.Workers,
+		DrainTimeout: time.Duration(cfg.Queue.DrainTimeoutS) * time.Second,
+		MaxBatch:     cfg.Queue.MaxBatch,
+		BatchTimeout: time.Duration(cfg.Queue.BatchTimeoutMS) * time.Millisecond,
+	}, w)
+	q.Start(ctx)
 
 	// Build HTTP mux.
 	mux := http.NewServeMux()
-	mux.Handle("/", server.NewHandler(q, hostname, cfg.CEPA))
+	mux.Handle("/", server.NewHandler(q, hostname, cfg.CEPA, cfg.Server))
 	mux.Handle("/health", server.NewHealthHandler(server.HealthConfig{
 		StartTime:   time.Now(),
 		WriterType:  cfg.Output.Type,

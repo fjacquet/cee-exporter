@@ -16,6 +16,23 @@ jobs:
   security:
     uses: fjacquet/ci/.github/workflows/go-security.yml@v1
 
+  # Benchmarks are advisory and deliberately not a gate: shared CI runners
+  # are too noisy for a threshold, and a flaky gate gets disabled, which is
+  # worse than no gate. workflow_dispatch is the ONLY trigger — the `if:`
+  # guard keeps this off push and pull_request even though those triggers
+  # fire the workflow itself.
+  bench:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - run: make bench
+
   # First job in this repo's history to execute writer_windows.go and
   # service_windows.go. `make ci` runs on Linux, where //go:build windows
   # excludes both files from the compiler entirely — a Windows-only change

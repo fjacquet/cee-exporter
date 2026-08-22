@@ -88,8 +88,18 @@ rotation_interval_h = 24  # rotate every N hours; 0 = disabled
 # Async queue
 # ─────────────────────────────────────────────────────────────────────────────
 [queue]
-capacity = 100000  # max events buffered before dropping
-workers  = 4       # concurrent writer goroutines
+capacity         = 100000  # max events buffered before dropping
+workers          = 4       # concurrent writer goroutines
+drain_timeout_s  = 30      # how long shutdown waits for the queue to drain.
+                           # Worst-case shutdown is this plus a fixed 5s grace
+                           # period, taken only on the path that already timed
+                           # out, to let an in-flight batch land or fail.
+max_batch        = 500     # events per WriteBatch call; also the duplicate blast
+                            # radius — a TCP write failing after partially landing
+                            # replays the whole batch (delivery is at-least-once)
+batch_timeout_ms = 200     # how long a partial batch waits for more events before
+                            # flushing; also the crash loss window — events held
+                            # in a partial batch are gone on SIGKILL
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging
@@ -143,3 +153,22 @@ addr    = "0.0.0.0:9228"
 # in words no observed consumer ever sets. Narrow it only against observed
 # traffic — a wrong guess here subscribes to nothing and looks like success.
 # event_filter = "0xFFFFFFFF0000000000000000"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Request limits
+#
+# Bounds what one CEPA request may cost. A single 64 MiB body (the old,
+# unconditional cap) measured 269 MiB of live heap and 495 MiB of RSS, with
+# nothing capping how many could be in flight at once — a handful of
+# concurrent full-size PUTs was an OOM. A realistic 1000-event VCAPS batch is
+# ~350 KB, so these defaults have ample headroom.
+#
+# On saturation, requests WAIT for a free slot rather than being rejected —
+# the body is read before the CEPA ACK, so rejecting would lose the publisher
+# entirely. A too-low max_concurrent_requests therefore shows up as missed
+# 3-second ACKs and publishers going OFFLINE, not as errors in this
+# consumer's log. Watch cee_requests_throttled_total.
+# ─────────────────────────────────────────────────────────────────────────────
+[server]
+max_body_mb             = 8  # per-request body cap; ~23k events
+max_concurrent_requests = 8  # bodies in flight at once; worst-case live heap ~270 MiB

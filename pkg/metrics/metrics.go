@@ -19,6 +19,25 @@ type Store struct {
 	EventsDroppedTotal  atomic.Int64
 	WriterErrorsTotal   atomic.Int64
 
+	// WriterBatchesTotal counts WriteBatch calls, success or failure.
+	// EventsWrittenTotal / WriterBatchesTotal is the mean batch size, which is
+	// the only way to tell that batching is actually happening: a
+	// batch_timeout_ms set too low, or a traffic shape delivering events one
+	// at a time, degrades to batch=1 while every other observable stays green
+	// and the throughput ceiling is exactly what it was before.
+	WriterBatchesTotal atomic.Int64
+
+	// WriterBatchErrorsTotal counts failed WriteBatch calls. WriterErrorsTotal
+	// stays event-counted (it advances by len(batch)) so that anything built
+	// on it keeps its meaning; this is the call-level companion.
+	WriterBatchErrorsTotal atomic.Int64
+
+	// RequestsThrottledTotal counts requests that had to wait for a
+	// concurrency slot in pkg/server. Non-zero means max_concurrent_requests
+	// is binding, which shows up at the publisher as a missed 3-second ACK
+	// and nowhere else without this counter.
+	RequestsThrottledTotal atomic.Int64
+
 	// EventsTruncatedTotal counts events with at least one field capped before
 	// handing off to the EVTX writer. An oversized field would otherwise reach
 	// go-evtx's record-size limit.
