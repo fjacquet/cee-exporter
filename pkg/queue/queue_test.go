@@ -161,6 +161,16 @@ func (c *ctxWriter) Close() error { return nil }
 // main.go cancels the parent context before Stop() drains, and the drain must
 // still run under a live context. Without WithoutCancel the writer sees an
 // already-cancelled context for every drained event.
+//
+// Enqueue happens AFTER cancel() — this ordering is load-bearing, not
+// incidental. With Enqueue before cancel(), the single worker can race ahead
+// and consume the event before cancel() runs, in which case the buggy
+// (WithoutCancel-less) code would also observe a live context and the test
+// would pass regardless of whether the fix is present. Enqueueing only after
+// the parent is already cancelled removes that interleaving: the worker
+// cannot possibly see the event before cancellation, so a regression is
+// guaranteed to be caught. Do not reorder this back to Start→Enqueue→cancel;
+// that reintroduces the race and silently re-inerts the test.
 func TestDrainContextSurvivesParentCancel(t *testing.T) {
 	cw := &ctxWriter{}
 	q := New(Config{Capacity: 10, Workers: 1, DrainTimeout: 5 * time.Second}, cw)
@@ -168,10 +178,10 @@ func TestDrainContextSurvivesParentCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	q.Start(ctx)
 
-	q.Enqueue(evtx.WindowsEvent{EventID: 4663})
-
-	// Cancel the parent first, exactly as the SCM Stop path does, then drain.
+	// Cancel the parent first, exactly as the SCM Stop path does, then
+	// enqueue and drain.
 	cancel()
+	q.Enqueue(evtx.WindowsEvent{EventID: 4663})
 	q.Stop()
 
 	cw.mu.Lock()

@@ -274,9 +274,7 @@ func run(ctx context.Context) {
 		Workers:      cfg.Queue.Workers,
 		DrainTimeout: time.Duration(cfg.Queue.DrainTimeoutS) * time.Second,
 	}, w)
-	queueCtx, queueCancel := context.WithCancel(ctx)
-	defer queueCancel()
-	q.Start(queueCtx)
+	q.Start(ctx)
 
 	// Build HTTP mux.
 	mux := http.NewServeMux()

@@ -164,10 +164,14 @@ func (q *Queue) Stop() {
 	case <-timer.C:
 		// Log rather than hang. The events still in the channel are lost, and
 		// a silent loss at shutdown is the failure mode this whole change
-		// exists to avoid, so it is counted where an operator will see it.
+		// exists to avoid, so it is counted where an operator will see it:
+		// on the same metrics.EventsDroppedTotal series as every other loss
+		// path in this package, not only in a log line.
+		undrained := len(q.ch)
+		metrics.M.EventsDroppedTotal.Add(int64(undrained))
 		slog.Error("queue_drain_timeout",
 			"drain_timeout", q.drainTimeout,
-			"events_undrained", len(q.ch),
+			"events_undrained", undrained,
 		)
 	}
 
