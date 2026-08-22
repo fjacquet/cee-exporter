@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -106,5 +107,50 @@ func TestServeHTTP_HeartBeatRequest_ReportsOnline(t *testing.T) {
 	// "handled" from "fell through to the event parser".
 	if body == "" {
 		t.Error("empty reply: the heartbeat fell through to the event parser")
+	}
+}
+
+// TestCheckEventRequestIsAcknowledgedWithADocument is the regression guard for
+// the defect that made this consumer look perfect and publish nothing.
+//
+// A bare HTTP 200 is not an acknowledgement. CEE treats an event batch answered
+// with an empty body as FAILED, reports auditStatus="0x1" to the array, and the
+// array retries the same event forever — so the queue head never clears and no
+// later event is ever sent. Measured against a live PowerStore on 2026-08-22:
+//
+//	empty body  -> CheckFileResponse status="0x1" auditStatus="0x1",
+//	               action="11" retried 6x in 40s, 1 distinct path ever seen
+//	this body   -> CheckFileResponse status="0x0", no retries at all,
+//	               1780 events and 81 distinct paths inside 30s
+//
+// The reply is NOT discoverable from CEE's binaries: they contain no
+// "CheckEventResponse" literal in either encoding, which is exactly why an
+// earlier reading concluded the empty 200 was the whole contract. Absence of
+// the literal did not mean absence of the requirement.
+func TestCheckEventRequestIsAcknowledgedWithADocument(t *testing.T) {
+	resetPeers(t)
+	h := newTestHandler(t, &stubWriter{}, 10, 1)
+
+	body := []byte(`<CheckEventRequest><EventList count="1">` +
+		`<Event event="0x8" path="\\nas01\fs01\a.txt" timeStamp="1786735002" protocol="0"/>` +
+		`</EventList></CheckEventRequest>`)
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.RemoteAddr = "10.26.1.199:5000"
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	got := rec.Body.String()
+	if got == "" {
+		t.Fatal("empty body: CEE reads that as a failed delivery and retries the batch forever")
+	}
+	if !strings.Contains(got, "<CheckEventResponse") {
+		t.Errorf("reply = %q, want a <CheckEventResponse> document", got)
+	}
+	if !strings.Contains(got, `status="0x0"`) {
+		t.Errorf("reply = %q, want status=\"0x0\" — a non-zero status is a rejection", got)
 	}
 }
