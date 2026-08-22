@@ -1,7 +1,10 @@
 package evtx
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -193,6 +196,121 @@ func TestBuildGELFShortMessageTruncation(t *testing.T) {
 				t.Errorf("short_message lost its %q prefix: %q", prefix, sm[:min(len(sm), 40)])
 			}
 		})
+	}
+}
+
+// TestGELFWriteBatchTCPFraming reads the batch back off the wire. TCP GELF
+// frames are null-terminated and concatenated into ONE write; a framing bug
+// here is invisible locally and shows up as unparseable messages at Graylog.
+func TestGELFWriteBatchTCPFraming(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+
+	type result struct {
+		frames [][]byte
+		writes int
+	}
+	results := make(chan result, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer func() { _ = c.Close() }()
+		var all []byte
+		writes := 0
+		buf := make([]byte, 65536)
+		for {
+			_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
+			n, err := c.Read(buf)
+			if n > 0 {
+				writes++
+				all = append(all, buf[:n]...)
+			}
+			if err != nil {
+				break
+			}
+			if bytes.Count(all, []byte{0x00}) >= 3 {
+				break
+			}
+		}
+		frames := bytes.Split(bytes.TrimRight(all, "\x00"), []byte{0x00})
+		results <- result{frames: frames, writes: writes}
+	}()
+
+	host, port := splitHostPort(t, ln.Addr().String())
+	w, err := NewGELFWriter(GELFConfig{Host: host, Port: port, Protocol: "tcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+
+	batch := []WindowsEvent{
+		{EventID: 4663, Computer: "NAS01", ObjectName: "/a", CEPAEventType: "CEPP_FILE_WRITE"},
+		{EventID: 4660, Computer: "NAS01", ObjectName: "/b", CEPAEventType: "CEPP_DELETE_FILE"},
+		{EventID: 4670, Computer: "NAS01", ObjectName: "/c", CEPAEventType: "CEPP_SETACL_FILE"},
+	}
+	if err := w.WriteBatch(context.Background(), batch); err != nil {
+		t.Fatalf("WriteBatch: %v", err)
+	}
+
+	got := <-results
+	if len(got.frames) != 3 {
+		t.Fatalf("got %d frames, want 3", len(got.frames))
+	}
+	for i, f := range got.frames {
+		var m map[string]any
+		if err := json.Unmarshal(f, &m); err != nil {
+			t.Fatalf("frame %d is not valid JSON: %v", i, err)
+		}
+		if m["version"] != "1.1" {
+			t.Errorf("frame %d version = %v, want 1.1", i, m["version"])
+		}
+	}
+}
+
+// TestGELFWriteBatchUDPIsOneDatagramPerEvent is the assertion that stops
+// someone "optimising" UDP into a concatenation later. A GELF datagram is one
+// message; concatenating produces garbage at the collector, and the chunked
+// format (0x1e 0x0f magic) is not implemented here.
+func TestGELFWriteBatchUDPIsOneDatagramPerEvent(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = pc.Close() }()
+
+	count := make(chan int, 1)
+	go func() {
+		buf := make([]byte, 65535)
+		n := 0
+		for n < 3 {
+			_ = pc.SetReadDeadline(time.Now().Add(2 * time.Second))
+			if _, _, err := pc.ReadFrom(buf); err != nil {
+				break
+			}
+			n++
+		}
+		count <- n
+	}()
+
+	host, port := splitHostPort(t, pc.LocalAddr().String())
+	w, err := NewGELFWriter(GELFConfig{Host: host, Port: port, Protocol: "udp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+
+	batch := []WindowsEvent{{EventID: 4663}, {EventID: 4660}, {EventID: 4670}}
+	if err := w.WriteBatch(context.Background(), batch); err != nil {
+		t.Fatalf("WriteBatch: %v", err)
+	}
+
+	if got := <-count; got != 3 {
+		t.Errorf("received %d datagrams, want 3 — UDP must not concatenate", got)
 	}
 }
 

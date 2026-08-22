@@ -103,23 +103,42 @@ func (w *GELFWriter) connect() error {
 	return nil
 }
 
+// writeDeadline bounds how long a single Write may block before returning an
+// error. Prevents a stalled Graylog from pinning all queue workers.
+const writeDeadline = 5 * time.Second
+
+// sendRaw writes b with a deadline and adds no framing. The caller has already
+// framed the payload, which is what lets the batch path concatenate K frames
+// into a single Write.
+func (w *GELFWriter) sendRaw(b []byte) error {
+	_ = w.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
+	_, err := w.conn.Write(b)
+	return err
+}
+
+// retrySend runs send, reconnecting and retrying once on failure. Caller must
+// hold w.mu.
+func (w *GELFWriter) retrySend(send func() error) error {
+	return sendWithRetry(send, func() error {
+		slog.Warn("gelf_reconnect")
+		return w.connect()
+	})
+}
+
 // WriteEvent serialises the event as GELF JSON and sends it.
-func (w *GELFWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
+func (w *GELFWriter) WriteEvent(_ context.Context, e WindowsEvent) error {
 	payload, err := buildGELF(e)
 	if err != nil {
 		return fmt.Errorf("gelf build: %w", err)
+	}
+	if w.cfg.Protocol == "tcp" {
+		payload = append(payload, 0x00)
 	}
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if err := sendWithRetry(
-		func() error { return w.send(payload) },
-		func() error {
-			slog.Warn("gelf_reconnect")
-			return w.connect()
-		},
-	); err != nil {
+	if err := w.retrySend(func() error { return w.sendRaw(payload) }); err != nil {
 		return fmt.Errorf("gelf %w", err)
 	}
 
@@ -131,33 +150,60 @@ func (w *GELFWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	return nil
 }
 
-// writeDeadline bounds how long a single Write may block before returning an
-// error. Prevents a stalled Graylog from pinning all queue workers.
-const writeDeadline = 5 * time.Second
+// WriteBatch sends every event in one lock acquisition.
+//
+// On TCP that is a single Write carrying K null-terminated frames, which is
+// where the throughput comes from: the per-event path took the mutex K times
+// and issued K writes, and measured, sixteen workers against it bought 1.4x.
+//
+// On UDP the events go as K separate datagrams, by protocol — a GELF datagram
+// is one message. The win there is the lock, taken once instead of K times,
+// which is roughly half the per-event cost since buildGELF already runs
+// outside it.
+func (w *GELFWriter) WriteBatch(_ context.Context, events []WindowsEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
 
-func (w *GELFWriter) send(payload []byte) error {
-	_ = w.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
-	switch w.cfg.Protocol {
-	case "tcp":
-		// GELF TCP: payload + null byte terminator
-		frame := append(payload, 0x00)
-		if _, err := w.conn.Write(frame); err != nil {
-			return err
+	// Build before locking: this is the half of the cost that parallelises,
+	// and holding the lock across it would give the batch back nothing.
+	payloads := make([][]byte, 0, len(events))
+	total := 0
+	for i := range events {
+		p, err := buildGELF(events[i])
+		if err != nil {
+			return fmt.Errorf("gelf build event %d/%d: %w", i+1, len(events), err)
 		}
-	default: // udp — single datagram, no framing
-		if _, err := w.conn.Write(payload); err != nil {
-			return err
+		payloads = append(payloads, p)
+		total += len(p) + 1
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.cfg.Protocol == "tcp" {
+		// append on a preallocated slice rather than bytes.Buffer: Buffer.Write
+		// returns an error that errcheck requires handling, for a write that
+		// cannot fail.
+		frame := make([]byte, 0, total)
+		for _, p := range payloads {
+			frame = append(frame, p...)
+			frame = append(frame, 0x00)
+		}
+		if err := w.retrySend(func() error { return w.sendRaw(frame) }); err != nil {
+			return fmt.Errorf("gelf batch %w", err)
+		}
+		slog.Debug("gelf_batch_sent", "events", len(events), "bytes", len(frame))
+		return nil
+	}
+
+	for i, p := range payloads {
+		if err := w.retrySend(func() error { return w.sendRaw(p) }); err != nil {
+			return fmt.Errorf("gelf batch event %d/%d: %w", i+1, len(events), err)
 		}
 	}
+	slog.Debug("gelf_batch_sent", "events", len(events), "datagrams", len(events))
 	return nil
-}
-
-// WriteBatch writes each event in turn through WriteEvent. A framed batch
-// implementation that sends the whole batch as one write under one lock
-// acquisition lands in Task 6; until then this satisfies the mandatory
-// interface without changing GELF's throughput.
-func (w *GELFWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
-	return writeBatchSerially(ctx, w, events)
 }
 
 // Close flushes and closes the connection.
