@@ -135,6 +135,9 @@ type OutputConfig struct {
 type QueueConfig struct {
 	Capacity int `toml:"capacity"` // default 100000
 	Workers  int `toml:"workers"`  // default 4
+	// DrainTimeoutS bounds how long shutdown waits for the queue to drain.
+	// Default 30 (set in defaultConfig).
+	DrainTimeoutS int `toml:"drain_timeout_s"`
 }
 
 type LoggingConfig struct {
@@ -168,8 +171,9 @@ func defaultConfig() Config {
 			RotationIntervalH: 24,
 		},
 		Queue: QueueConfig{
-			Capacity: 100000,
-			Workers:  4,
+			Capacity:      100000,
+			Workers:       4,
+			DrainTimeoutS: 30,
 		},
 		Logging: LoggingConfig{
 			Level:  "info",
@@ -265,7 +269,11 @@ func run(ctx context.Context) {
 	installSIGHUP(w)
 
 	// Build queue.
-	q := queue.New(cfg.Queue.Capacity, cfg.Queue.Workers, w)
+	q := queue.New(queue.Config{
+		Capacity:     cfg.Queue.Capacity,
+		Workers:      cfg.Queue.Workers,
+		DrainTimeout: time.Duration(cfg.Queue.DrainTimeoutS) * time.Second,
+	}, w)
 	queueCtx, queueCancel := context.WithCancel(ctx)
 	defer queueCancel()
 	q.Start(queueCtx)

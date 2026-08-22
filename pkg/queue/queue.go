@@ -14,42 +14,85 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/fjacquet/cee-exporter/pkg/evtx"
 	"github.com/fjacquet/cee-exporter/pkg/metrics"
 )
 
+// Config carries the queue's tunables. A struct rather than positional
+// parameters because the batching fields land here next and a third and
+// fourth positional int would be unreadable at the call site.
+type Config struct {
+	// Capacity is the channel depth. Events arriving at a full queue are
+	// dropped and counted.
+	Capacity int
+	// Workers is the number of drain goroutines.
+	Workers int
+	// DrainTimeout bounds how long Stop waits for workers to finish. On
+	// expiry the remaining depth is logged at ERROR; it is not silently
+	// discarded.
+	DrainTimeout time.Duration
+}
+
+func (c Config) withDefaults() Config {
+	if c.Capacity <= 0 {
+		c.Capacity = 100000
+	}
+	if c.Workers <= 0 {
+		c.Workers = 4
+	}
+	if c.DrainTimeout <= 0 {
+		c.DrainTimeout = 30 * time.Second
+	}
+	return c
+}
+
 // Queue dispatches WindowsEvents to a Writer using a pool of workers.
 type Queue struct {
-	ch      chan evtx.WindowsEvent
-	writer  evtx.Writer
-	workers int
-	wg      sync.WaitGroup
+	ch           chan evtx.WindowsEvent
+	writer       evtx.Writer
+	workers      int
+	drainTimeout time.Duration
+	wg           sync.WaitGroup
 	// mu guards closed. Enqueue takes RLock and Stop takes Lock, so a send on
 	// q.ch cannot race with close(q.ch): the send holds a read lock that the
 	// close must exclude. RLock is uncontended in the normal case and costs
 	// ~20 ns against an 8.6 µs parse, so the fast path is unaffected.
 	mu     sync.RWMutex
 	closed bool
+	// writeCtx/writeCancel bound writes during the drain triggered by Stop.
+	// See Start for why this is derived with context.WithoutCancel rather
+	// than inherited directly from the caller's context.
+	writeCtx    context.Context
+	writeCancel context.CancelFunc
 }
 
-// New creates a Queue with the given channel capacity and number of workers.
-// Call Start() to launch the workers.
-func New(capacity, workers int, w evtx.Writer) *Queue {
+// New creates a Queue from cfg.  Call Start() to launch the workers.
+func New(cfg Config, w evtx.Writer) *Queue {
+	cfg = cfg.withDefaults()
 	return &Queue{
-		ch:      make(chan evtx.WindowsEvent, capacity),
-		writer:  w,
-		workers: workers,
+		ch:           make(chan evtx.WindowsEvent, cfg.Capacity),
+		writer:       w,
+		workers:      cfg.Workers,
+		drainTimeout: cfg.DrainTimeout,
 	}
 }
 
-// Start launches the worker goroutines.  The provided context is used to
-// cancel long-running write operations; the queue itself drains only when
-// Stop() is called.
+// Start launches the worker goroutines.
+//
+// Writes run under a context derived from ctx with context.WithoutCancel:
+// values are kept, cancellation is not. The caller's context is already
+// cancelled by the time Stop() drains on the Windows SCM Stop path
+// (cmd/cee-exporter/main.go), and inheriting that cancellation would abort
+// the shutdown flush itself rather than the individual writes it is meant to
+// bound. Stop() cancels writeCtx once the drain is finished or its deadline
+// has passed.
 func (q *Queue) Start(ctx context.Context) {
+	q.writeCtx, q.writeCancel = context.WithCancel(context.WithoutCancel(ctx))
 	for i := range q.workers {
 		q.wg.Add(1)
-		go q.work(ctx, i)
+		go q.work(q.writeCtx, i)
 	}
 }
 
@@ -108,7 +151,30 @@ func (q *Queue) Stop() {
 	close(q.ch)
 	q.mu.Unlock()
 
-	q.wg.Wait()
+	done := make(chan struct{})
+	go func() {
+		q.wg.Wait()
+		close(done)
+	}()
+
+	timer := time.NewTimer(q.drainTimeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+		// Log rather than hang. The events still in the channel are lost, and
+		// a silent loss at shutdown is the failure mode this whole change
+		// exists to avoid, so it is counted where an operator will see it.
+		slog.Error("queue_drain_timeout",
+			"drain_timeout", q.drainTimeout,
+			"events_undrained", len(q.ch),
+		)
+	}
+
+	// Cancel any write still stalled, then close. Writers serialise Close
+	// against their write path with their own mutex, so this cannot tear a
+	// write in progress.
+	q.writeCancel()
 	if err := q.writer.Close(); err != nil {
 		slog.Error("writer_close_error", "error", err)
 	}

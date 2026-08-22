@@ -218,7 +218,7 @@ func batchXML(n int) string {
 // queue (draining it, closing the writer) via t.Cleanup.
 func newTestHandler(t *testing.T, w evtx.Writer, capacity, workers int) *Handler {
 	t.Helper()
-	q := queue.New(capacity, workers, w)
+	q := queue.New(queue.Config{Capacity: capacity, Workers: workers, DrainTimeout: 5 * time.Second}, w)
 	q.Start(context.Background())
 	t.Cleanup(q.Stop)
 	return NewHandler(q, "test-host", RegistrationConfig{})

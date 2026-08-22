@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/fjacquet/cee-exporter/pkg/evtx"
 	"github.com/fjacquet/cee-exporter/pkg/metrics"
@@ -34,7 +35,7 @@ func TestEnqueue(t *testing.T) {
 	metrics.M.EventsDroppedTotal.Store(0)
 
 	fw := &fakeWriter{done: make(chan struct{}, 1)}
-	q := New(10, 1, fw)
+	q := New(Config{Capacity: 10, Workers: 1, DrainTimeout: 5 * time.Second}, fw)
 	q.Start(context.Background())
 	defer q.Stop()
 
@@ -62,7 +63,7 @@ func TestDropOnFull(t *testing.T) {
 	metrics.M.EventsDroppedTotal.Store(0)
 
 	fw := &fakeWriter{} // no done channel — queue is not started
-	q := New(2, 1, fw)
+	q := New(Config{Capacity: 2, Workers: 1, DrainTimeout: 5 * time.Second}, fw)
 	// Do NOT call q.Start() — workers not running ensures channel fills without being drained.
 
 	// Fill the channel directly (white-box access to q.ch).
@@ -89,7 +90,7 @@ func TestDrainOnStop(t *testing.T) {
 	metrics.M.EventsDroppedTotal.Store(0)
 
 	fw := &fakeWriter{done: make(chan struct{}, 3)}
-	q := New(10, 2, fw)
+	q := New(Config{Capacity: 10, Workers: 2, DrainTimeout: 5 * time.Second}, fw)
 	q.Start(context.Background())
 
 	q.Enqueue(evtx.WindowsEvent{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE"})
@@ -116,7 +117,7 @@ func TestEnqueueAfterStop(t *testing.T) {
 	metrics.M.EventsDroppedTotal.Store(0)
 
 	fw := &fakeWriter{}
-	q := New(10, 1, fw)
+	q := New(Config{Capacity: 10, Workers: 1, DrainTimeout: 5 * time.Second}, fw)
 	q.Start(context.Background())
 	q.Stop()
 
@@ -133,8 +134,52 @@ func TestEnqueueAfterStop(t *testing.T) {
 // the channel is a panic.
 func TestStopIsIdempotent(t *testing.T) {
 	fw := &fakeWriter{}
-	q := New(10, 1, fw)
+	q := New(Config{Capacity: 10, Workers: 1, DrainTimeout: 5 * time.Second}, fw)
 	q.Start(context.Background())
 	q.Stop()
 	q.Stop()
+}
+
+// ctxWriter records whether the context it was handed had already been
+// cancelled. It is the only way to observe the defect: no current writer
+// honours ctx, so the bug is invisible until one does.
+type ctxWriter struct {
+	mu        sync.Mutex
+	cancelled []bool
+}
+
+func (c *ctxWriter) WriteEvent(ctx context.Context, _ evtx.WindowsEvent) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cancelled = append(c.cancelled, ctx.Err() != nil)
+	return nil
+}
+
+func (c *ctxWriter) Close() error { return nil }
+
+// TestDrainContextSurvivesParentCancel pins the Windows SCM shutdown path:
+// main.go cancels the parent context before Stop() drains, and the drain must
+// still run under a live context. Without WithoutCancel the writer sees an
+// already-cancelled context for every drained event.
+func TestDrainContextSurvivesParentCancel(t *testing.T) {
+	cw := &ctxWriter{}
+	q := New(Config{Capacity: 10, Workers: 1, DrainTimeout: 5 * time.Second}, cw)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	q.Start(ctx)
+
+	q.Enqueue(evtx.WindowsEvent{EventID: 4663})
+
+	// Cancel the parent first, exactly as the SCM Stop path does, then drain.
+	cancel()
+	q.Stop()
+
+	cw.mu.Lock()
+	defer cw.mu.Unlock()
+	if len(cw.cancelled) != 1 {
+		t.Fatalf("expected 1 drained event, got %d", len(cw.cancelled))
+	}
+	if cw.cancelled[0] {
+		t.Error("drain ran under a cancelled context; the shutdown flush must not inherit the caller's cancellation")
+	}
 }
