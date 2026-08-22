@@ -250,6 +250,11 @@ func run(ctx context.Context) {
 		"queue_capacity", cfg.Queue.Capacity,
 		"queue_workers", cfg.Queue.Workers,
 		"queue_max_batch", cfg.Queue.MaxBatch,
+		// Logged alongside max_batch, not instead of it: the two together are
+		// the batching policy, and half of it cannot be confirmed from a
+		// running process. batch_timeout_ms is also the in-memory loss window
+		// on SIGKILL, so it is the number an operator needs at hand.
+		"queue_batch_timeout_ms", cfg.Queue.BatchTimeoutMS,
 	)
 
 	// Build writer.

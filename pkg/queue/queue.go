@@ -14,11 +14,24 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fjacquet/cee-exporter/pkg/evtx"
 	"github.com/fjacquet/cee-exporter/pkg/metrics"
 )
+
+// drainGracePeriod is how long Stop waits for in-flight WriteBatch calls
+// after the drain timeout expires and writeCancel has fired.
+//
+// 5 seconds because that is pkg/evtx's writeDeadline: a socket write stalled
+// against an unresponsive collector returns an error at exactly that mark, so
+// a shorter grace would walk away while the write was still guaranteed to
+// resolve on its own, and a longer one would only wait on a worker that has
+// already been given its answer. It is not operator-tunable: drain_timeout_s
+// is the policy knob for "how long may shutdown take", and this is the fixed
+// cost of unwinding a write that policy interrupted.
+const drainGracePeriod = 5 * time.Second
 
 // Config carries the queue's tunables. A struct rather than positional
 // parameters because the batching fields land here next and a third and
@@ -78,16 +91,35 @@ type Queue struct {
 	// writeCtx/writeCancel bound writes during the drain triggered by Stop.
 	// See Start for why this is derived with context.WithoutCancel rather
 	// than inherited directly from the caller's context.
+	//
+	// writeCancel is currently a forward-looking hook, not an active brake:
+	// no writer in pkg/evtx consults the context on its write path (GELF,
+	// syslog, EVTX and Win32 all take `_ context.Context`; Beats observes it
+	// only inside dial). Cancelling therefore does not shorten an in-flight
+	// write today. It is kept because the plumbing must exist before any
+	// writer can honour it, and because Stop's grace period below is what
+	// actually bounds the wait in the meantime — do not cite writeCancel as
+	// the reason a stalled write is accounted for.
 	writeCtx    context.Context
 	writeCancel context.CancelFunc
 
 	maxBatch     int
 	batchTimeout time.Duration
 
+	// inFlight counts events that have left the channel and are inside a
+	// WriteBatch call. Without it the drain-timeout report is blind to
+	// workers × maxBatch events (4 × 500 = 2000 at the defaults) and reports
+	// a total loss as events_undrained=0 with every counter at zero.
+	inFlight atomic.Int64
+
 	// newTimer returns the channel that fires after d, and a stop function.
 	// Injected in tests so the batch-timeout path is driven deterministically:
 	// this package's tests may not use time.Sleep for synchronisation.
 	newTimer func(d time.Duration) (<-chan time.Time, func() bool)
+
+	// drainGrace is drainGracePeriod, overridable by tests so exercising the
+	// drain-timeout path does not cost five wall-clock seconds.
+	drainGrace time.Duration
 }
 
 func realTimer(d time.Duration) (<-chan time.Time, func() bool) {
@@ -106,6 +138,7 @@ func New(cfg Config, w evtx.Writer) *Queue {
 		maxBatch:     cfg.MaxBatch,
 		batchTimeout: cfg.BatchTimeout,
 		newTimer:     realTimer,
+		drainGrace:   drainGracePeriod,
 	}
 }
 
@@ -189,26 +222,51 @@ func (q *Queue) Stop() {
 
 	timer := time.NewTimer(q.drainTimeout)
 	defer timer.Stop()
+	timedOut := false
 	select {
 	case <-done:
 	case <-timer.C:
-		// Log rather than hang. The events still in the channel are lost, and
-		// a silent loss at shutdown is the failure mode this whole change
-		// exists to avoid, so it is counted where an operator will see it:
-		// on the same metrics.EventsDroppedTotal series as every other loss
-		// path in this package, not only in a log line.
-		undrained := len(q.ch)
-		metrics.M.EventsDroppedTotal.Add(int64(undrained))
-		slog.Error("queue_drain_timeout",
-			"drain_timeout", q.drainTimeout,
-			"events_undrained", undrained,
-		)
+		timedOut = true
 	}
 
 	// Cancel any write still stalled, then close. Writers serialise Close
 	// against their write path with their own mutex, so this cannot tear a
-	// write in progress.
+	// write in progress. See the writeCancel field comment: no writer honours
+	// the context on its write path today, so this does not by itself shorten
+	// anything — the grace wait below is what bounds it.
 	q.writeCancel()
+
+	if timedOut {
+		// One more short wait before giving up. A worker inside WriteBatch
+		// holds up to maxBatch events that are in neither the channel nor the
+		// writer; walking away the instant the drain deadline passes loses
+		// them for the sake of a few seconds. The grace is separate from
+		// drain_timeout because it is not operator policy: it is the time a
+		// write already in progress needs to either land or fail.
+		grace := time.NewTimer(q.drainGrace)
+		select {
+		case <-done:
+		case <-grace.C:
+		}
+		grace.Stop()
+
+		// Count and log what is still unwritten. This is deliberately measured
+		// after the grace, so a batch that landed during it is not reported as
+		// dropped — and deliberately includes inFlight, because len(q.ch)
+		// alone cannot see the workers × maxBatch events held inside
+		// WriteBatch. A shutdown that lost 2000 audit events used to log
+		// events_undrained=0 with EventsDroppedTotal and WriterErrorsTotal
+		// both at zero: a silent total loss reported as a clean shutdown, the
+		// exact failure mode this branch exists to prevent.
+		undrained := len(q.ch) + int(q.inFlight.Load())
+		metrics.M.EventsDroppedTotal.Add(int64(undrained))
+		slog.Error("queue_drain_timeout",
+			"drain_timeout", q.drainTimeout,
+			"grace_period", q.drainGrace,
+			"events_undrained", undrained,
+		)
+	}
+
 	if err := q.writer.Close(); err != nil {
 		slog.Error("writer_close_error", "error", err)
 	}
@@ -269,6 +327,13 @@ func (q *Queue) nextBatch() (batch []evtx.WindowsEvent, more bool) {
 func (q *Queue) writeBatch(ctx context.Context, batch []evtx.WindowsEvent, id int) {
 	metrics.M.SetQueueDepth(len(q.ch))
 	metrics.M.WriterBatchesTotal.Add(1)
+
+	// These events are out of the channel and not yet through the writer, so
+	// they are invisible to len(q.ch). Stop's drain-timeout report reads
+	// inFlight to see them; without it a shutdown that loses a whole batch
+	// per worker reports events_undrained=0.
+	q.inFlight.Add(int64(len(batch)))
+	defer q.inFlight.Add(-int64(len(batch)))
 
 	if err := q.writer.WriteBatch(ctx, batch); err != nil {
 		metrics.M.WriterErrorsTotal.Add(int64(len(batch)))
