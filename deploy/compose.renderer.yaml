@@ -1,0 +1,46 @@
+# Optional overlay: server-side PNG rendering of the bundled dashboard.
+#
+# Grafana cannot rasterise a dashboard on its own — /render returns 404 without
+# a rendering backend. This adds one, so the dashboard can be captured headless:
+# in CI, from a script, or from an agent with no browser. It is a development
+# and verification aid, not part of the deployed stack.
+#
+#   docker compose -f deploy/compose.yaml -f deploy/compose.renderer.yaml up -d
+#   curl -u admin:$GF_SECURITY_ADMIN_PASSWORD -o dash.png \
+#     'http://127.0.0.1:3000/render/d/cee-exporter/cee-exporter?width=1500&height=760&kiosk&from=now-10m&to=now'
+#
+# Narrow the time range when reading the result. The event counters run at
+# roughly 0.1 evt/s against a live array, so a window wide enough to include a
+# restart puts the series against the top of a 0-0.1 axis and it reads as flat
+# even though the values are right.
+#
+# GF_RENDERING_RENDERER_TOKEN is required, not cosmetic. Grafana 13 refuses to
+# start the rendering service while the token is its default and exits:
+#
+#   failed to start rendering service: Using the default [rendering]renderer_token
+#   is not allowed for production settings
+#
+# Grafana then restart-loops, which looks like a broken stack rather than a
+# missing setting. Both sides must carry the same value. It is required here
+# with no default, like GF_SECURITY_ADMIN_PASSWORD above it, because a renderer
+# reachable on a shared token is a renderer anyone on that network can drive
+# into fetching arbitrary URLs as Grafana.
+services:
+  renderer:
+    image: grafana/grafana-image-renderer:3.12.6
+    container_name: cee-grafana-renderer
+    restart: unless-stopped
+    environment:
+      AUTH_TOKEN: ${GF_RENDERING_RENDERER_TOKEN:?set GF_RENDERING_RENDERER_TOKEN before starting}
+    # No ports. Grafana reaches it over the compose network; publishing it
+    # would expose an unauthenticated headless browser.
+
+  grafana:
+    environment:
+      GF_RENDERING_SERVER_URL: http://renderer:8081/render
+      # How the renderer calls Grafana back to load the page. Must be the
+      # container-network address, not the 127.0.0.1 the operator uses.
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
+      GF_RENDERING_RENDERER_TOKEN: ${GF_RENDERING_RENDERER_TOKEN:?set GF_RENDERING_RENDERER_TOKEN before starting}
+    depends_on:
+      - renderer

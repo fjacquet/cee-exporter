@@ -10,15 +10,241 @@
   "refresh": "30s",
   "panels": [
     {
+      "id": 7,
+      "type": "stat",
+      "title": "Events parsed / sec",
+      "description": "The headline rate: events parsed off the wire per second, summed across exporters. This is the number that answers \"is the pipeline moving\", and it lived only inside a line-chart legend until now. Against a single replaying publisher it sits at 0.1/s — one event per CEPA heartbeat interval.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cee-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cee_events_received_total[5m]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "eps",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Events written / sec",
+      "description": "Events reaching the output per second. It should track parsed exactly; a persistent gap is backlog, and Queue depth says how much.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cee-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cee_events_written_total[5m]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "eps",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Events dropped",
+      "description": "Dropped plus truncated, cumulative. The only tile here that carries colour, because the reading is a state and not a quantity: zero is green, anything else is red and means audit records were lost or cut. Colour is reserved for exactly this.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cee-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(cee_events_dropped_total) + sum(cee_events_truncated_total)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Publishers reporting",
+      "description": "Distinct CEPA publishers seen. A publisher is whatever opened the connection — a CEE server, or an array publishing directly. A drop here means someone stopped talking; Publisher silence says who.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cee-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "count(cee_cepa_last_request_unix_seconds)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "colorMode": "none"
+      }
+    },
+    {
       "id": 1,
       "type": "stat",
       "title": "Publisher silence (seconds since last request)",
       "description": "Per CEE server. A CEE server, not a NAS Data Mover: a Data Mover that stops publishing into a healthy CEE server is not visible here.",
       "gridPos": {
-        "h": 6,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "targets": [
         {
@@ -64,10 +290,10 @@
       "type": "timeseries",
       "title": "Handshakes per publisher",
       "gridPos": {
-        "h": 6,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 4
       },
       "targets": [
         {
@@ -91,25 +317,61 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps"
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*heartbeat$"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "datasource": {
         "type": "prometheus",
         "uid": "cee-prometheus"
       },
-      "description": "Registrations and heartbeats are separate series because they mean different things. Only a CEE server sends RegisterRequest; arrays publishing directly (PowerStore Data Movers, OneFS nodes) only ever heartbeat, so zero registrations against a healthy heartbeat rate is normal for them. Until v5.4.2 both were counted as registrations, so this panel showed a registration rate for publishers that had never registered."
+      "description": "Registrations and heartbeats are separate series because they mean different things. Only a CEE server sends RegisterRequest; arrays publishing directly (PowerStore Data Movers, OneFS nodes) only ever heartbeat, so zero registrations against a healthy heartbeat rate is normal for them. Until v5.4.2 both were counted as registrations, so this panel showed a registration rate for publishers that had never registered.",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
     },
     {
       "id": 3,
       "type": "timeseries",
       "title": "Event throughput",
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 12,
         "x": 0,
-        "y": 6
+        "y": 11
       },
       "targets": [
         {
@@ -142,25 +404,83 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "eps"
+          "unit": "eps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*written$"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    6
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*dropped$"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    2,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "datasource": {
         "type": "prometheus",
         "uid": "cee-prometheus"
       },
-      "description": "Events per second, split per exporter instance. The counters carry no publisher label — an event batch is attributed to the exporter that parsed it, not to the array that sent it — so {{instance}} is the per-exporter breakdown. Without it two scraped exporters produce two series both legended \"received\" and neither can be identified. received minus written is what the queue has not yet flushed; dropped is what was lost."
+      "description": "Events per second, per exporter instance. received is what was parsed off the wire, written is what reached the output, dropped is what was lost — so received is the parse rate and received minus written is backlog.\n\nThe three series overlap exactly on a healthy pipeline: received and written carry identical values and one hides the other, which reads as a single line or as no line at all when it sits against the top of the axis. written and dropped are dashed so received stays visible beneath them, and the legend carries the numbers so the panel is readable even when the traces coincide.",
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
     },
     {
       "id": 4,
       "type": "timeseries",
       "title": "Queue depth",
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 6,
         "x": 12,
-        "y": 6
+        "y": 11
       },
       "targets": [
         {
@@ -182,6 +502,21 @@
       "datasource": {
         "type": "prometheus",
         "uid": "cee-prometheus"
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
@@ -189,10 +524,10 @@
       "type": "stat",
       "title": "Seconds since last fsync",
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 6,
         "x": 18,
-        "y": 6
+        "y": 11
       },
       "targets": [
         {
@@ -225,7 +560,7 @@
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 21
       },
       "targets": [
         {
