@@ -34,8 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```xml
   <RegisterResponse><EndPoint friendlyName="ceeexporter" guid="…"
     version="1.0" desc="cee-exporter CEPA consumer"/>
-    <Filter protocol="0,1"><EventTypeFilter value="0xFFFFFFFFFFFFFFFFFFFFFFFF"/>
-  </Filter></RegisterResponse>
+    <Filter protocol="0"><EventTypeFilter value="0xFFFFFFFF0000000000000000"/></Filter>
+    <Filter protocol="1"><EventTypeFilter value="0xFFFFFFFF0000000000000000"/></Filter>
+  </RegisterResponse>
   ```
 
   encoded UTF-16LE when addressed in UTF-16LE, as the OneFS path already did.
@@ -100,15 +101,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `path` when present, since CEE supplies it precisely when the plain
   attribute is lossy.
 
-  The numeric `Event/@event` codes are deliberately **not** mapped. CEE names
-  19 events internally (`EVENT_FILE_CREATE`, `EVENT_DIR_RENAME`, …) but which
-  bit each occupies was not recoverable from the binary — the strings are
-  referenced from code, not through a pointer table, so their layout order is
-  a compiler artefact rather than evidence. Every event is written with its raw
-  code preserved in the label (`CEPP_CEE_UNMAPPED_<n>`) and logged at WARN, the
-  same discipline used for the OneFS `eventType` values before an isolation run
-  resolved them by measurement. Fill the table in from real traffic, not from
-  the ordering.
+  The numeric `Event/@event` codes **are** mapped: `pkg/parser/checkevent.go`
+  names all 21 documented bits, cross-checked against Dell's Unity CLI
+  `post-Events` ordering rather than against the binary's string layout, which
+  is a compiler artefact and not evidence. A code outside that set is still
+  written, with its raw value preserved in the label
+  (`CEPP_CEE_UNMAPPED_<n>`) and logged at WARN — the same discipline used for
+  the OneFS `eventType` values before an isolation run resolved them by
+  measurement, so a gap stays visible instead of being silently mislabelled.
 
 - **OneFS file events are parsed and written.** `CheckFileRequest` with
   `action="11"` carries a real audit event, not a heartbeat — same element,
@@ -208,21 +208,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `VC_ERROR_CEPP_NOT_FOUND`. `0x0` for success is an inference from those two,
   not a measurement.
 
-### Known limitation
+### Known limitation (resolved in this release)
 
-- **OneFS events are received but not yet decoded.** Events arrive in the same
-  `CheckFileRequest` element as the heartbeat, distinguished only by
-  `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>` with
-  a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the `CEPP_*`
-  strings `pkg/mapper` keys on. They are logged at WARN with the full payload
-  rather than silently dropped, because acknowledging an event advances the
-  cluster's forwarding cursor and destroys the record.
+- **OneFS events are received but not yet decoded.** ~~Events arrive in the
+  same `CheckFileRequest` element as the heartbeat, distinguished only by
+  `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>`
+  with a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the
+  `CEPP_*` strings `pkg/mapper` keys on.~~
 
-  Six event types were measured (8, 32, 128, 256, 512, 2048 — a bitmask). Only
-  the open (8) and the closes (128, 256) are identified; 32, 512 and 2048
-  divide between rename, set_security and delete and need one capture per
-  isolated operation to separate. Deliberately not guessed: wrong event IDs in
-  an audit trail are worse than no audit trail.
+  **Superseded.** All six measured event types (8, 32, 128, 256, 512, 2048 — a
+  bitmask) were resolved by an isolation run of one operation per 10-second
+  window against a live OneFS 9.13.0.0 cluster, and OneFS events are now
+  parsed, mapped and written — see "OneFS file events are parsed and written"
+  above. This entry is kept rather than deleted because the reasoning it
+  records (deliberately not guessing the bits: wrong event IDs in an audit
+  trail are worse than no audit trail) is why the isolation run happened.
 
 ## [5.3.3] - 2026-08-11
 

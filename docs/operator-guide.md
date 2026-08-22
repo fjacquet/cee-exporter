@@ -34,7 +34,7 @@ cee-exporter.exe -config config.toml
 
 ### Build from source
 
-Requires Go 1.26.5. No CGO required.
+Requires Go 1.26.6. No CGO required.
 
 ```bash
 git clone https://github.com/fjacquet/cee-exporter.git

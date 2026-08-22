@@ -296,3 +296,39 @@ jobs:
             esac
           done < <(sed 's/\\|/\x01/g' docs/PROMISES.md | awk -F'|' '/^[[:space:]]{0,3}\|/ && !/^[[:space:]]{0,3}\|[[:space:]]*-/ && NF>=5 {print $(NF-1)}' | sed 's/\x01/\\|/g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           exit $fail
+
+      # The "Where this stands" summary is itself a claim about the table
+      # below it, and it drifted: it read "55 ... 25 Verified, 8 Verified
+      # (manual), 8 Unverified" while the table held 56 rows, 26, 7 and 9.
+      # Nothing caught it, because every individual row was well-formed --
+      # the same shape of defect this file exists to prevent, one level up.
+      # Recount from the table and require the prose to match exactly.
+      - name: Verify docs/PROMISES.md summary totals match the table
+        run: |
+          set -euo pipefail
+          counts=$(sed 's/\\|/\x01/g' docs/PROMISES.md \
+            | awk -F'|' '/^[[:space:]]{0,3}\|/ && !/^[[:space:]]{0,3}\|[[:space:]]*-/ && NF>=5 {print $(NF-1)}' \
+            | sed 's/\x01/\\|/g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+            | awk '
+                $0 == "Status" { next }
+                { total++ }
+                /^\*\*Verified \(manual\)\*\*/ { manual++; next }
+                /^\*\*Verified \(partial\)\*\*/ { partial++; next }
+                /^\*\*Unverified/                  { unver++;   next }
+                /^(\*\*Verified\*\*|Verified$)/    { ver++;     next }
+                END { printf "%d %d %d %d %d", total, ver, manual, partial, unver }')
+          set -- $counts
+          total=$1 ver=$2 manual=$3 partial=$4 unver=$5
+
+          want="$total user-facing claims are tracked below: **$ver Verified**, **$manual Verified"
+          # The sentence wraps after "Verified", so match it with newlines squashed.
+          prose=$(tr '\n' ' ' < docs/PROMISES.md | tr -s ' ')
+          expected="$total user-facing claims are tracked below: **$ver Verified**, **$manual Verified (manual)**, **$partial Verified (partial)**, **$unver Unverified**."
+          if ! printf '%s' "$prose" | grep -qF "$expected"; then
+            echo "::error::docs/PROMISES.md summary does not match the table it summarises."
+            echo "::error::Table actually holds: $expected"
+            printf '%s' "$prose" | grep -oE '[0-9]+ user-facing claims are tracked below: [^.]*\.' \
+              | sed 's/^/::error::File currently says: /' || true
+            exit 1
+          fi
+          echo "summary matches the table: $expected"

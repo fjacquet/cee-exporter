@@ -183,8 +183,13 @@ func onefsTimestamp(sec, usec string, fallback time.Time) time.Time {
 	if err != nil || s <= 0 {
 		return fallback
 	}
+	// Bounded at both ends. A value >= 1e6 is not a microsecond component:
+	// time.Unix would fold it into a different second, silently moving the
+	// event, and a large enough one overflows us*int64(time.Microsecond)
+	// outright. Out of range means "no sub-second information", not "shift
+	// the timestamp".
 	us, err := strconv.ParseInt(strings.TrimSpace(usec), 10, 64)
-	if err != nil || us < 0 {
+	if err != nil || us < 0 || us >= 1_000_000 {
 		us = 0
 	}
 	return time.Unix(s, us*int64(time.Microsecond)).UTC()

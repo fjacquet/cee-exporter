@@ -75,14 +75,16 @@ const (
 	DefaultDescription  = "cee-exporter CEPA consumer"
 	DefaultProtocols    = "0,1"
 
-	// DefaultEventFilter asks for every event in every phase.
+	// DefaultEventFilter sets all bits of the FIRST of three 32-bit words and
+	// leaves the other two zero.
 	//
-	// The value is three 32-bit words and CEE's own SplunkHEC proxy registers
-	// with 0xFFFFFFFF0000000000000000 — all of one phase, none of the other
-	// two. Which word is which phase is NOT established, and a wrong guess
-	// would silently subscribe to nothing. Setting every bit sidesteps the
-	// ordering entirely: whatever the phases are, we are subscribed to them.
-	// Narrow this once real traffic shows what actually arrives.
+	// This comment described the opposite until 2026-08-22: it argued for
+	// setting every bit of all three words to "sidestep the ordering
+	// entirely", which is the value that was deliberately removed below. The
+	// stale paragraph was left stacked above the replacement, so the constant
+	// carried two contradictory explanations and the header line claimed a
+	// subscription the value does not request.
+	//
 	// All bits of the FIRST 32-bit word, the rest zero. Both known-good
 	// captures put every significant bit there and leave the other two words
 	// zero — CEE's SplunkHEC template (0xFFFFFFFF0000…) and Varonis

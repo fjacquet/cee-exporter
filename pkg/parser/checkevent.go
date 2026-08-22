@@ -160,7 +160,8 @@ func parseCheckEventRequestDecoded(decoded []byte, receiveTime time.Time) ([]CEP
 	if len(r.EventList.Events) == 0 {
 		// count="0" is legitimate — CEE sends EVENT_ADMIN_RESYNC notices with
 		// no event body. Naming it beats a generic failure, because the caller
-		// logs the payload and an empty list is not a defect.
+		// logs the payload's redacted structure and an empty list is not a
+		// defect.
 		return nil, fmt.Errorf("CEE CheckEventRequest carries no <Event> (count=%q)", r.EventList.Count)
 	}
 
@@ -197,7 +198,8 @@ func ceeEventPath(e checkEventXML) string {
 			return p
 		}
 		// Fall through to the plain attribute rather than returning nothing:
-		// a lossy path beats an empty one, and the handler logs the payload.
+		// a lossy path beats an empty one, and the handler logs the payload's
+		// redacted structure.
 	}
 	return e.Path
 }

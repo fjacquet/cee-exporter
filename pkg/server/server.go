@@ -241,15 +241,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// A file event. The CheckFileResponse above has already advanced the
 		// cluster's forwarding cursor, so this record exists nowhere else the
 		// moment we return: anything not written here is lost, which is why
-		// the failure path below logs the whole payload rather than a summary.
+		// the failure path below logs the payload's structure rather than a
+		// bare count -- redacted of its values, which are the audit record.
 		events, err := parser.ParseOneFSEventDecoded(decoded, time.Now().UTC())
 		if err != nil {
+			// Redacted, not verbatim. The payload's shape is what diagnoses
+			// the failure; its values are the audit record -- paths,
+			// usernames, client addresses, SIDs -- and must not be republished
+			// into the log stream. See redactPayload.
 			slog.Warn("cepa_onefs_event_unhandled",
 				"remote", r.RemoteAddr,
 				"action", action,
 				"body_bytes", len(body),
 				"error", err,
-				"body", string(body),
+				"body_sha256", payloadDigest(body),
+				"body_shape", redactPayload(decoded),
 			)
 			return
 		}
@@ -309,11 +315,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		events, err := parser.ParseCheckEventRequestDecoded(decoded, receiveTime)
 		if err != nil {
+			// Redacted for the same reason as the OneFS path above.
 			slog.Warn("cepa_cee_event_unhandled",
 				"remote", r.RemoteAddr,
 				"body_bytes", len(body),
 				"error", err,
-				"body", string(body),
+				"body_sha256", payloadDigest(body),
+				"body_shape", redactPayload(decoded),
 			)
 			return
 		}

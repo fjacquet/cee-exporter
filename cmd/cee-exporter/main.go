@@ -154,6 +154,14 @@ func defaultConfig() Config {
 			GELFPort:         12201,
 			GELFProtocol:     "udp",
 			FlushIntervalSec: 15,
+			// EVTX rotation. Zero means "unlimited"/"disabled" for these three,
+			// so omitting them here left a config that does not mention
+			// rotation with rotation switched off — while config.toml
+			// advertised 100/100/24 as the defaults. A long-running deployment
+			// then grew one .evtx file without bound.
+			MaxFileSizeMB:     100,
+			MaxFileCount:      100,
+			RotationIntervalH: 24,
 		},
 		Queue: QueueConfig{
 			Capacity: 100000,

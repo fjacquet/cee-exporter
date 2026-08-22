@@ -156,6 +156,33 @@ func TestParseOneFSEvent_TimestampFallback(t *testing.T) {
 	}
 }
 
+// TestOneFSTimestampMicrosecondBounds: timeStampMicroSeconds is a sub-second
+// component, so a value outside [0, 1e6) carries no sub-second information and
+// must not be allowed to move the second. Unbounded, 1500000 folds forward into
+// the next second and 9223372036854775807 overflows the nanosecond
+// multiplication — both silently relocate an audit record.
+func TestOneFSTimestampMicrosecondBounds(t *testing.T) {
+	const sec = 1786734886
+	want := time.Unix(sec, 0).UTC()
+
+	for _, usec := range []string{"1000000", "1500000", "9223372036854775807", "-1", "junk", ""} {
+		got := onefsTimestamp("1786734886", usec, time.Unix(0, 0).UTC())
+		if !got.Equal(want) {
+			t.Errorf("onefsTimestamp(usec=%q) = %s, want %s — an out-of-range component must not move the second",
+				usec, got, want)
+		}
+	}
+
+	// In range, it must still be carried: dropping it would collapse the four
+	// close events a single touch produces onto one instant.
+	if got, w := onefsTimestamp("1786734886", "1593", time.Unix(0, 0).UTC()), time.Unix(sec, 1593*1000).UTC(); !got.Equal(w) {
+		t.Errorf("onefsTimestamp(usec=1593) = %s, want %s", got, w)
+	}
+	if got, w := onefsTimestamp("1786734886", "999999", time.Unix(0, 0).UTC()), time.Unix(sec, 999999*1000).UTC(); !got.Equal(w) {
+		t.Errorf("onefsTimestamp(usec=999999) = %s, want %s — 1e6-1 is in range", got, w)
+	}
+}
+
 // TestParseOneFSEvent_IOCountersCarried: bytesWritten/numberOfWrites are what
 // separate eventType 128 from 256 on the wire, and CEPP_CLOSE_MODIFIED is the
 // one event type whose I/O statistics are meaningful downstream.

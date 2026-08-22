@@ -163,13 +163,18 @@ addr    = "0.0.0.0:9228"
 # succeeds it answers every array heartbeat status="0x16"
 # (VC_ERROR_CEPP_NOT_FOUND) and the array never publishes at all.
 #
-# Every field below is optional and defaulted. friendly_name is the one worth
-# setting: CEE indexes registered partners by name, so it should match the
-# partner id in CEE's own EndPoint value — the `name` in
-# `name@http://host:port`. If CEE refuses the registration, it also ships a
-# table of known partner ids (SimpleCEPPServer, SampleCEPPServer,
-# PeerSoftwareCollector, SplunkHEC) and trying one of those is the next thing
-# to reach for.
+# friendly_name and guid must be set TOGETHER, to a matching pair from CEE's
+# compiled-in allowlist. CEE keys CGuidStore on (friendlyName, facility) -> GUID
+# and refuses anything else with "unknown or invalid GUID": it registers no
+# partner, answers the array 0x16 CEPP_NOT_FOUND, and every observable on this
+# side stays green. A self-generated GUID never works, and neither does a known
+# partner name paired with the wrong GUID -- so changing friendly_name alone
+# leaves you with no registration and no events.
+#
+# The defaults below are NOT allowlisted; they are placeholders. Take a real row
+# from cee-worker's docs/cee-partner-allowlist.md (47 entries, e.g.
+# SimpleCEPPServer, SampleCEPPServer, PeerSoftwareCollector, SplunkHEC) and set
+# both fields from that same row. See docs/adr/ADR-017-cee-partner-identity.md.
 # ─────────────────────────────────────────────────────────────────────────────
 [cepa]
 # friendly_name = "ceeexporter"
@@ -180,7 +185,9 @@ addr    = "0.0.0.0:9228"
 # protocols = "0,1"
 
 # EventTypeFilter: three 32-bit words, one per event phase (pre, post-success,
-# post-failure). Which word is which phase is not established, so the default
-# sets every bit and subscribes to everything. Narrow it only against observed
+# post-failure). The default sets every bit of the FIRST word and leaves the
+# other two zero, matching both known-good captures — CEE's own SplunkHEC
+# template and Varonis. The all-96-bits value this file used to show sets bits
+# in words no observed consumer ever sets. Narrow it only against observed
 # traffic — a wrong guess here subscribes to nothing and looks like success.
-# event_filter = "0xFFFFFFFFFFFFFFFFFFFFFFFF"
+# event_filter = "0xFFFFFFFF0000000000000000"

@@ -139,18 +139,23 @@ func TestEventTypeTablesAreInSync(t *testing.T) {
 // TestMapCEEEventTypes covers the seven event types added for Dell CEE's own
 // dialect, which TestMapEventID predates.
 func TestMapCEEEventTypes(t *testing.T) {
+	// wantDesc is asserted exactly, not merely checked for "not the raw event
+	// type". The loose check passed CEPP_OPEN_FILE_NOACCESS while it was
+	// described as "ReadAttributes" against a 0x0 mask -- a right the event
+	// never carried.
 	cases := []struct {
 		eventType string
 		wantID    int
 		wantMask  string
+		wantDesc  string
 	}{
-		{"CEPP_OPEN_FILE_NOACCESS", 4663, "0x0"},
-		{"CEPP_OPEN_FILE_READ", 4663, "0x1"},
-		{"CEPP_OPEN_FILE_WRITE", 4663, "0x2"},
-		{"CEPP_OPEN_DIRECTORY", 4663, "0x1"},
-		{"CEPP_CLOSE_DIRECTORY", 4658, "0x0"},
-		{"CEPP_SETSEC_FILE", 4670, "0x80000"},
-		{"CEPP_SETSEC_DIRECTORY", 4670, "0x80000"},
+		{"CEPP_OPEN_FILE_NOACCESS", 4663, "0x0", "(no access requested)"},
+		{"CEPP_OPEN_FILE_READ", 4663, "0x1", "ReadData (or ListDirectory)"},
+		{"CEPP_OPEN_FILE_WRITE", 4663, "0x2", "WriteData (or AddFile)"},
+		{"CEPP_OPEN_DIRECTORY", 4663, "0x1", "ReadData (or ListDirectory)"},
+		{"CEPP_CLOSE_DIRECTORY", 4658, "0x0", "CloseHandle"},
+		{"CEPP_SETSEC_FILE", 4670, "0x80000", "WRITE_OWNER"},
+		{"CEPP_SETSEC_DIRECTORY", 4670, "0x80000", "WRITE_OWNER"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.eventType, func(t *testing.T) {
@@ -161,8 +166,8 @@ func TestMapCEEEventTypes(t *testing.T) {
 			if got.AccessMask != tc.wantMask {
 				t.Errorf("AccessMask = %q, want %q", got.AccessMask, tc.wantMask)
 			}
-			if got.Accesses == tc.eventType {
-				t.Errorf("Accesses fell back to the raw event type — no description registered")
+			if got.Accesses != tc.wantDesc {
+				t.Errorf("Accesses = %q, want %q", got.Accesses, tc.wantDesc)
 			}
 		})
 	}

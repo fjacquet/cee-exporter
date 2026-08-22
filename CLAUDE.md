@@ -52,7 +52,7 @@ CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg
 ```
 
 - **`cmd/cee-exporter/main.go`** — wires config → writer → queue → HTTP server → signal handling. Config is TOML (`-config config.toml`); `CEE_LOG_LEVEL` and `CEE_LOG_FORMAT` env vars override the file.
-- **`pkg/server`** — HTTP handler. `ServeHTTP` ACKs immediately (CEPA requires response within 3 s); delegates event processing to the queue. `RegisterRequest` must respond HTTP 200 with **strictly empty body** — any XML body is a fatal CEPA error.
+- **`pkg/server`** — HTTP handler. `ServeHTTP` ACKs immediately (CEPA requires response within 3 s); delegates event processing to the queue. `RegisterRequest` must respond HTTP 200 with a **`<RegisterResponse>` document** — an empty body is a fatal CEPA error (`Top node is not RegisterResponse`). See the CEPA protocol constraints below; this line stated the inverse until 2026-08-22.
 - **`pkg/parser`** — CEE XML → `[]CEPAEvent`. Handles both single-event and VCAPS batch (`<EventBatch>`) payloads.
 - **`pkg/mapper`** — `CEPAEvent` → `WindowsEvent` (CEPA event type → Windows EventID + access mask).
 - **`pkg/queue`** — buffered channel + worker goroutines. Drops events with WARN log when full; exposes depth via `/health`.

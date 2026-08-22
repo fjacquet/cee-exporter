@@ -98,7 +98,10 @@ var accessDescFor = map[string]string{
 	"CEPP_SETACL_FILE":      "WRITE_DAC",
 	"CEPP_SETACL_DIRECTORY": "WRITE_DAC",
 
-	"CEPP_OPEN_FILE_NOACCESS": "ReadAttributes",
+	// Matches the 0x0 mask above. "ReadAttributes" claimed a right (0x80) the
+	// event does not carry and the mask does not set — the whole point of
+	// NOACCESS is that none was requested.
+	"CEPP_OPEN_FILE_NOACCESS": "(no access requested)",
 	"CEPP_OPEN_FILE_READ":     "ReadData (or ListDirectory)",
 	"CEPP_OPEN_FILE_WRITE":    "WriteData (or AddFile)",
 	"CEPP_OPEN_DIRECTORY":     "ReadData (or ListDirectory)",

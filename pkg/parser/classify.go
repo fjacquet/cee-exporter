@@ -73,7 +73,30 @@ func rootIs(decoded []byte, name string) bool {
 			trimmed = bytes.TrimSpace(trimmed[idx+2:])
 		}
 	}
-	return bytes.HasPrefix(trimmed, []byte("<"+name))
+	open := []byte("<" + name)
+	if !bytes.HasPrefix(trimmed, open) {
+		return false
+	}
+	// The name has to END here. Prefix-matching alone accepted
+	// <CheckFileRequestExtra> as <CheckFileRequest>, so the handler answered
+	// one dialect's protocol document to another's request and then parsed the
+	// payload on the wrong path — both silent failures on this protocol.
+	rest := trimmed[len(open):]
+	if len(rest) == 0 {
+		return false
+	}
+	return isNameDelimiter(rest[0])
+}
+
+// isNameDelimiter reports whether c can legally follow an XML element name:
+// the tag closes (`>`), self-closes (`/`), or attributes follow (whitespace).
+// Anything else means the name continues and this is a different element.
+func isNameDelimiter(c byte) bool {
+	switch c {
+	case '>', '/', ' ', '\t', '\r', '\n':
+		return true
+	}
+	return false
 }
 
 // ParseDecoded is Parse for input Classify has already decoded.

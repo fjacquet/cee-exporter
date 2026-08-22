@@ -104,12 +104,11 @@ func (w *stubWriter) Close() error { return nil }
 func sendAndAwaitWrite(t *testing.T, req *http.Request) (*httptest.ResponseRecorder, evtx.WindowsEvent) {
 	t.Helper()
 	resetPeers(t)
+	resetEventsReceived(t)
 
 	done := make(chan struct{}, 1)
 	w := &stubWriter{done: done}
 	h := newTestHandler(t, w, 10, 1)
-
-	before := metrics.M.EventsReceivedTotal.Load()
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -120,8 +119,8 @@ func sendAndAwaitWrite(t *testing.T, req *http.Request) (*httptest.ResponseRecor
 		t.Fatal("event never reached the writer")
 	}
 
-	if got := metrics.M.EventsReceivedTotal.Load(); got != before+1 {
-		t.Errorf("EventsReceivedTotal = %d, want %d", got, before+1)
+	if got := metrics.M.EventsReceivedTotal.Load(); got != 1 {
+		t.Errorf("EventsReceivedTotal = %d, want 1", got)
 	}
 
 	events := w.Events()
