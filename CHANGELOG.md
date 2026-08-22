@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.4.0] - 2026-08-13
+## [5.5.0] - 2026-08-22
 
 ### Fixed
 
@@ -77,8 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   live array; the other twenty are documented rather than measured and are
   marked as such in the table. Codes outside the 21 still reach the writers with
   their raw value preserved and a WARN, as before.
-
-
 
 - **CEE's post-registration heartbeat is answered** (`pkg/server/heartbeat.go`).
   Once registered, CEE probes the consumer with `<HeartBeatRequest />` and
@@ -185,6 +183,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   missed, and transmitting nothing. Note also that Dell does not support CEPA
   without CEE in the path.
 
+### Resolved in this release
+
+- **OneFS events are received but not yet decoded.** ~~Events arrive in the
+  same `CheckFileRequest` element as the heartbeat, distinguished only by
+  `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>`
+  with a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the
+  `CEPP_*` strings `pkg/mapper` keys on.~~
+
+  **Superseded.** All six measured event types (8, 32, 128, 256, 512, 2048 — a
+  bitmask) were resolved by an isolation run of one operation per 10-second
+  window against a live OneFS 9.13.0.0 cluster, and OneFS events are now
+  parsed, mapped and written — see "OneFS file events are parsed and written"
+  above. This entry is kept rather than deleted because the reasoning it
+  records (deliberately not guessing the bits: wrong event IDs in an audit
+  trail are worse than no audit trail) is why the isolation run happened.
+
+  The sampler main introduced for this branch survives, narrowed to its real
+  audience: a payload that still fails to parse renders its structure for the
+  first ten occurrences and then a structure-free line every thousandth, and
+  every one is counted in `cee_events_dropped_total`. What it renders is now
+  redacted — element and attribute names, no values — so the UNC path, user
+  SID and client IP never reach the log store at all.
+
+## [5.4.0] - 2026-08-13
+
+### Added
+
 - **PowerScale (OneFS) CEPA handshake.** OneFS opens with `<CheckFileRequest>`,
   not the `<RegisterRequest/>` that Dell CEE sends, and it requires a
   `<CheckFileResponse>` back — where PowerStore requires an empty body and
@@ -217,28 +242,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   heartbeat, so the counter's meaning is unchanged — it was already a
   heartbeat rate, not a count of distinct registrations.
 
-### Known limitation (resolved in this release)
+### Known limitation
 
-- **OneFS events are received but not yet decoded.** ~~Events arrive in the
-  same `CheckFileRequest` element as the heartbeat, distinguished only by
-  `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>`
-  with a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the
-  `CEPP_*` strings `pkg/mapper` keys on.~~
+- **OneFS events are received but not yet decoded.** Events arrive in the same
+  `CheckFileRequest` element as the heartbeat, distinguished only by
+  `Args/@action` (9 = heartbeat, 11 = event), carrying an `<NFSEventArgs>` with
+  a **numeric** `eventType` and a base64 UTF-16LE UNC path — not the `CEPP_*`
+  strings `pkg/mapper` keys on. They are counted in `cee_events_dropped_total`
+  rather than silently dropped, because acknowledging an event advances the
+  cluster's forwarding cursor and destroys the record.
 
-  **Superseded.** All six measured event types (8, 32, 128, 256, 512, 2048 — a
-  bitmask) were resolved by an isolation run of one operation per 10-second
-  window against a live OneFS 9.13.0.0 cluster, and OneFS events are now
-  parsed, mapped and written — see "OneFS file events are parsed and written"
-  above. This entry is kept rather than deleted because the reasoning it
-  records (deliberately not guessing the bits: wrong event IDs in an audit
-  trail are worse than no audit trail) is why the isolation run happened.
+  The counter is the alertable signal and counts every event. The payload is
+  logged at WARN for the first ten only, capped at 4 KiB, with a payload-free
+  line every thousandth after that: OneFS sends one `CheckFileRequest` per
+  file operation, so logging them all would flood the log and copy a UNC path,
+  a user SID and a client IP per event into a second store. Ten samples answer
+  what the format is; the counter answers how much is being lost.
 
-  The sampler main introduced for this branch survives, narrowed to its real
-  audience: a payload that still fails to parse renders its structure for the
-  first ten occurrences and then a structure-free line every thousandth, and
-  every one is counted in `cee_events_dropped_total`. What it renders is now
-  redacted — element and attribute names, no values — so the UNC path, user
-  SID and client IP never reach the log store at all.
+  Six event types were measured (8, 32, 128, 256, 512, 2048 — a bitmask). Only
+  the open (8) and the closes (128, 256) are identified; 32, 512 and 2048
+  divide between rename, set_security and delete and need one capture per
+  isolated operation to separate. Deliberately not guessed: wrong event IDs in
+  an audit trail are worse than no audit trail.
 
 ## [5.3.3] - 2026-08-11
 
