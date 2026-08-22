@@ -40,6 +40,11 @@ Go daemon that receives Dell PowerStore CEPA audit events (HTTP PUT / XML) and f
 
 **Docker (recommended):**
 
+`12228` below is CEE's *own* listener port, borrowed as a default. The
+CEE-to-partner port has no assigned default — you choose it, and it must match
+the port in CEE's `EndPoint`. If CEE runs on this host it already owns 12228, so
+publish a different host port.
+
 ```bash
 docker run -d --name cee-exporter \
   -p 12228:12228 \

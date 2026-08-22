@@ -33,7 +33,8 @@ syslog receivers, native Windows Event Log, or standalone `.evtx` files on Linux
 ## Protocol Constraint (critical)
 
 > The Dell PowerStore CEPA client sends events over **plain HTTP only**. The CEPA endpoint
-> URL must always use `http://`. TLS on the cee-exporter listener port 12228 does not
+> URL must always use `http://`. TLS on the cee-exporter listener port (12228 by
+> default, though that is CEE's own port borrowed rather than a CEPA-assigned one) does not
 > encrypt the PowerStore-to-exporter path — it is only useful when a reverse proxy sits
 > in front. See [ADR-011](adr/ADR-011-tls-certificate-automation.md).
 

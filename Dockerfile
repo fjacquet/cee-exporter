@@ -35,6 +35,10 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /src/cee-exporter /cee-exporter
 
 # CEPA listener port (TCP)
+# 12228 is CEE's own listener port, borrowed as this exporter's default.
+# The CEE-to-partner port has no assigned default — the administrator picks
+# it, and it must match CEE's EndPoint. Override with [listen].addr; publish
+# a different host port when CEE is co-resident, because it owns 12228 there.
 EXPOSE 12228
 
 # Mount your config at /etc/cee-exporter/config.toml:

@@ -132,6 +132,13 @@ flowchart TD
 
 ### Prometheus: Separate Port 9228
 
+> **Correction (2026-08-22).** This document repeatedly calls 12228 "the CEPA
+> port". It is not: the *Common Event Enabler Security Configuration Guide 9.x*
+> (p.8) gives 12228 as the default for **Platform-to-CEE** messaging — CEE's own
+> listener — and states that the CEE-to-partner port, which is this exporter, is
+> "the port which the system administrator selected". There is no assigned
+> default. The reasoning below is unaffected; only the name is wrong. See #28.
+
 The CEPA listener (`:12228`) may be TLS-only in production. Mounting `/metrics` on the
 same mux would require every Prometheus scraper to handle TLS. Industry practice for Go
 exporters is a dedicated port in the `9xxx` range. **Port 9228** follows from `12228`
