@@ -61,6 +61,7 @@ type Config struct {
 	Logging  LoggingConfig             `toml:"logging"`
 	Metrics  MetricsConfig             `toml:"metrics"`
 	CEPA     server.RegistrationConfig `toml:"cepa"`
+	Server   server.LimitsConfig       `toml:"server"`
 	Hostname string                    `toml:"hostname"` // embedded in events; default: os.Hostname()
 }
 
@@ -183,6 +184,10 @@ func defaultConfig() Config {
 			Enabled: true,
 			Addr:    "0.0.0.0:9228",
 		},
+		Server: server.LimitsConfig{
+			MaxBodyMB:             8,
+			MaxConcurrentRequests: 8,
+		},
 	}
 }
 
@@ -278,7 +283,7 @@ func run(ctx context.Context) {
 
 	// Build HTTP mux.
 	mux := http.NewServeMux()
-	mux.Handle("/", server.NewHandler(q, hostname, cfg.CEPA))
+	mux.Handle("/", server.NewHandler(q, hostname, cfg.CEPA, cfg.Server))
 	mux.Handle("/health", server.NewHealthHandler(server.HealthConfig{
 		StartTime:   time.Now(),
 		WriterType:  cfg.Output.Type,

@@ -19,13 +19,13 @@ import (
 )
 
 // TestReadBodyOversized proves that readBody does not panic when a request body
-// exceeds 64 MiB and that it returns a non-nil error in that case.
+// exceeds the cap and that it returns a non-nil error in that case.
 func TestReadBodyOversized(t *testing.T) {
-	big := bytes.Repeat([]byte("x"), (64<<20)+1)
+	big := bytes.Repeat([]byte("x"), (8<<20)+1)
 	req := httptest.NewRequest(http.MethodPut, "/", bytes.NewReader(big))
 	rec := httptest.NewRecorder()
 
-	_, err := readBody(rec, req)
+	_, err := readBody(rec, req, 8<<20)
 	if err == nil {
 		t.Error("expected error for oversized body, got nil")
 	}
@@ -37,12 +37,81 @@ func TestReadBodyNormal(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPut, "/", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 
-	got, err := readBody(rec, req)
+	got, err := readBody(rec, req, 8<<20)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if len(got) != 1024 {
 		t.Errorf("body len = %d, want 1024", len(got))
+	}
+}
+
+// TestBodyCapRejectsOversized pins the 8 MiB default. The old 64 MiB cap
+// admitted ~190k events at ~4.2x body size in live heap — 269 MiB measured,
+// per request, with no concurrency limit behind it.
+func TestBodyCapRejectsOversized(t *testing.T) {
+	limits := LimitsConfig{}.withDefaults()
+	if got := limits.maxBodyBytes(); got != 8<<20 {
+		t.Fatalf("default body cap = %d, want %d", got, 8<<20)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/", bytes.NewReader(make([]byte, (8<<20)+1)))
+	if _, err := readBody(rec, req, limits.maxBodyBytes()); err == nil {
+		t.Fatal("readBody accepted a body over the cap")
+	}
+}
+
+// TestSemaphoreBoundsConcurrency proves the slot count is enforced and that
+// waiting is counted. A silent wait surfaces only as unexplained publisher
+// timeouts, which is indistinguishable from a network fault.
+func TestSemaphoreBoundsConcurrency(t *testing.T) {
+	metrics.M.RequestsThrottledTotal.Store(0)
+
+	h := &Handler{limits: LimitsConfig{MaxConcurrentRequests: 1}.withDefaults()}
+	h.slots = make(chan struct{}, 1)
+
+	h.acquireSlot() // takes the only slot
+
+	acquired := make(chan struct{})
+	go func() {
+		h.acquireSlot()
+		close(acquired)
+	}()
+
+	// The second acquire must not complete while the slot is held.
+	select {
+	case <-acquired:
+		t.Fatal("acquireSlot admitted a second request past the limit")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	h.releaseSlot()
+	<-acquired
+	h.releaseSlot()
+
+	if got := metrics.M.RequestsThrottledTotal.Load(); got != 1 {
+		t.Errorf("RequestsThrottledTotal = %d, want 1", got)
+	}
+}
+
+// TestHealthUnaffectedBySaturation pins that the semaphore covers the CEPA
+// handler alone. Putting observability behind the thing being saturated is
+// how a saturation event becomes invisible: /health is what an operator
+// reaches for precisely when requests are piling up.
+func TestHealthUnaffectedBySaturation(t *testing.T) {
+	h := &Handler{limits: LimitsConfig{MaxConcurrentRequests: 1}.withDefaults()}
+	h.slots = make(chan struct{}, 1)
+	h.acquireSlot() // saturate; never released in this test
+	defer h.releaseSlot()
+
+	health := NewHealthHandler(HealthConfig{StartTime: time.Now()})
+
+	rec := httptest.NewRecorder()
+	health.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("/health returned %d while the CEPA handler was saturated, want 200", rec.Code)
 	}
 }
 
@@ -221,7 +290,7 @@ func newTestHandler(t *testing.T, w evtx.Writer, capacity, workers int) *Handler
 	q := queue.New(queue.Config{Capacity: capacity, Workers: workers, DrainTimeout: 5 * time.Second}, w)
 	q.Start(context.Background())
 	t.Cleanup(q.Stop)
-	return NewHandler(q, "test-host", RegistrationConfig{})
+	return NewHandler(q, "test-host", RegistrationConfig{}, LimitsConfig{})
 }
 
 // TestServeHTTP_RegisterRequest_ReturnsRegisterResponse replaces a test that

@@ -19,6 +19,12 @@ type Store struct {
 	EventsDroppedTotal  atomic.Int64
 	WriterErrorsTotal   atomic.Int64
 
+	// RequestsThrottledTotal counts requests that had to wait for a
+	// concurrency slot in pkg/server. Non-zero means max_concurrent_requests
+	// is binding, which shows up at the publisher as a missed 3-second ACK
+	// and nowhere else without this counter.
+	RequestsThrottledTotal atomic.Int64
+
 	// EventsTruncatedTotal counts events with at least one field capped before
 	// handing off to the EVTX writer. An oversized field would otherwise reach
 	// go-evtx's record-size limit.

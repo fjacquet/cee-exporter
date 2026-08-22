@@ -140,6 +140,33 @@ const unhandledPayloadSamples = 10
 // without its structure, so the loss never goes completely quiet.
 const unhandledSuppressedInterval = 1000
 
+// LimitsConfig bounds what one request may cost. Both fields exist because a
+// single 64 MiB body measured 269 MiB of live heap and 495 MiB of RSS, and
+// nothing capped how many could be in flight at once.
+type LimitsConfig struct {
+	// MaxBodyMB caps the request body. Default 8, which is ~23k events —
+	// well past any documented VCAPS batch, where a realistic 1000-event
+	// batch is ~350 KB.
+	MaxBodyMB int `toml:"max_body_mb"`
+
+	// MaxConcurrentRequests bounds request bodies in flight. Default 8, so
+	// worst-case live heap is ~270 MiB rather than unbounded. Raising it
+	// raises that ceiling roughly linearly.
+	MaxConcurrentRequests int `toml:"max_concurrent_requests"`
+}
+
+func (c LimitsConfig) withDefaults() LimitsConfig {
+	if c.MaxBodyMB <= 0 {
+		c.MaxBodyMB = 8
+	}
+	if c.MaxConcurrentRequests <= 0 {
+		c.MaxConcurrentRequests = 8
+	}
+	return c
+}
+
+func (c LimitsConfig) maxBodyBytes() int64 { return int64(c.MaxBodyMB) << 20 }
+
 // Handler is the CEPA HTTP handler.
 type Handler struct {
 	q        *queue.Queue
@@ -150,6 +177,14 @@ type Handler struct {
 	// fixed for the handler's lifetime. Building it per request measured ~16 µs
 	// and 87 allocations to produce the same 336 bytes.
 	registerReply []byte
+
+	limits LimitsConfig
+
+	// slots bounds concurrent request bodies in flight. Acquired before
+	// readBody and released at the end of ServeHTTP: the slot must cover
+	// parse, not just the read, because parse is where the ~4.2x body-size
+	// live heap actually lives.
+	slots chan struct{}
 
 	// Counters for the log sampler, one per dialect that can fail to parse.
 	// These decide which occurrences carry their redacted structure; the
@@ -181,15 +216,40 @@ func logUnhandled(event string, seen int64, decoded, body []byte, attrs ...any) 
 // hostname is the value used for the WindowsEvent.Computer field
 // (typically the NAS hostname extracted from the CEPA request context).
 // reg describes this consumer to Dell CEE; a zero value takes the defaults.
-func NewHandler(q *queue.Queue, hostname string, reg RegistrationConfig) *Handler {
+// limits bounds request body size and in-flight concurrency; a zero value
+// takes the defaults.
+func NewHandler(q *queue.Queue, hostname string, reg RegistrationConfig, limits LimitsConfig) *Handler {
 	reg = reg.withDefaults()
+	limits = limits.withDefaults()
 	return &Handler{
 		q:             q,
 		hostname:      hostname,
 		reg:           reg,
 		registerReply: reg.registrationResponseXML(),
+		limits:        limits,
+		slots:         make(chan struct{}, limits.MaxConcurrentRequests),
 	}
 }
+
+// acquireSlot takes a concurrency slot, waiting if none is free.
+//
+// It blocks rather than rejecting. readBody runs before the ACK, so a
+// rejection means no ACK at all and the publisher may retry forever or mark
+// this consumer unavailable. A blocked publisher misses its 3-second ACK and
+// degrades — bad, but it is one publisher and it retries. An OOM takes every
+// publisher's stream down at once and loses the queue with it. The wait is
+// bounded by the server's existing 10s ReadTimeout.
+func (h *Handler) acquireSlot() {
+	select {
+	case h.slots <- struct{}{}:
+		return
+	default:
+	}
+	metrics.M.RequestsThrottledTotal.Add(1)
+	h.slots <- struct{}{}
+}
+
+func (h *Handler) releaseSlot() { <-h.slots }
 
 // respond answers in the encoding the request arrived in, sets the content
 // type, writes the reply and reports the bytes written.
@@ -236,8 +296,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	peer := peerHost(r.RemoteAddr)
 	metrics.M.RecordPeerRequestAt(peer, start)
 
+	// After the peer stamp, before the body is read: the stamp must record a
+	// publisher that is alive even when the request goes on to fail, and the
+	// slot must cover everything that allocates.
+	h.acquireSlot()
+	defer h.releaseSlot()
+
 	defer func() { _ = r.Body.Close() }()
-	body, err := readBody(w, r)
+	body, err := readBody(w, r, h.limits.maxBodyBytes())
 	if err != nil {
 		slog.Error("cepa_body_read_error", "remote", r.RemoteAddr, "error", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -501,10 +567,10 @@ func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 	}
 }
 
-// readBody reads up to 64 MiB from the request body. MaxBytesReader enforces
-// the cap; any excess returns an error that the caller maps to HTTP 400.
-func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-	const maxBody = 64 << 20 // 64 MiB
+// readBody reads up to maxBody bytes from the request body. MaxBytesReader
+// enforces the cap; any excess returns an error that the caller maps to
+// HTTP 400.
+func readBody(w http.ResponseWriter, r *http.Request, maxBody int64) ([]byte, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	return io.ReadAll(r.Body)
 }

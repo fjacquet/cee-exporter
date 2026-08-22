@@ -207,3 +207,16 @@ addr    = "0.0.0.0:9228"
 # in words no observed consumer ever sets. Narrow it only against observed
 # traffic — a wrong guess here subscribes to nothing and looks like success.
 # event_filter = "0xFFFFFFFF0000000000000000"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Request limits
+#
+# Bounds what one CEPA request may cost. A single 64 MiB body (the old,
+# unconditional cap) measured 269 MiB of live heap and 495 MiB of RSS, with
+# nothing capping how many could be in flight at once — a handful of
+# concurrent full-size PUTs was an OOM. A realistic 1000-event VCAPS batch is
+# ~350 KB, so these defaults have ample headroom.
+# ─────────────────────────────────────────────────────────────────────────────
+[server]
+max_body_mb             = 8  # per-request body cap; ~23k events
+max_concurrent_requests = 8  # bodies in flight at once; worst-case live heap ~270 MiB

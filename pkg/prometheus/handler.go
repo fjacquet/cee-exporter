@@ -104,6 +104,19 @@ func newRegistry() *prometheus.Registry {
 			},
 			func() float64 { return float64(metrics.M.EventLabelsDropped()) },
 		),
+		prometheus.NewCounterFunc(
+			prometheus.CounterOpts{
+				Name: "cee_requests_throttled_total",
+				Help: "Total CEPA requests that had to wait for a concurrency " +
+					"slot before their body was read. Non-zero means " +
+					"max_concurrent_requests is binding: publishers are being " +
+					"held past their 3-second ACK budget and will mark this " +
+					"consumer unavailable. Raise the limit only after checking " +
+					"that live heap has room — each slot is worth roughly " +
+					"4x max_body_mb.",
+			},
+			func() float64 { return float64(metrics.M.RequestsThrottledTotal.Load()) },
+		),
 	)
 
 	reg.MustRegister(cepaCollector{})
