@@ -33,6 +33,22 @@ func (m *MultiWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	return errors.Join(errs...)
 }
 
+// WriteBatch sends the whole batch to every backend.  All targets are called
+// even if an earlier one errors.  All errors are joined.
+//
+// Fan-out, not a per-event loop: passing the batch through intact is what lets
+// each backend take its lock once. Splitting it here would hand every backend
+// K single-event writes and undo the change entirely.
+func (m *MultiWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
+	var errs []error
+	for _, w := range m.writers {
+		if err := w.WriteBatch(ctx, events); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // Close closes all backends and returns the joined errors.
 func (m *MultiWriter) Close() error {
 	var errs []error

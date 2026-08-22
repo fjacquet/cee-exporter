@@ -152,6 +152,14 @@ func (w *GELFWriter) send(payload []byte) error {
 	return nil
 }
 
+// WriteBatch writes each event in turn through WriteEvent. A framed batch
+// implementation that sends the whole batch as one write under one lock
+// acquisition lands in Task 6; until then this satisfies the mandatory
+// interface without changing GELF's throughput.
+func (w *GELFWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
+	return writeBatchSerially(ctx, w, events)
+}
+
 // Close flushes and closes the connection.
 func (w *GELFWriter) Close() error {
 	w.mu.Lock()

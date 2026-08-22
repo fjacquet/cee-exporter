@@ -114,6 +114,14 @@ func (w *SyslogWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	return nil
 }
 
+// WriteBatch writes each event in turn through WriteEvent. A framed batch
+// implementation that sends the whole batch as one write under one lock
+// acquisition lands in Task 7; until then this satisfies the mandatory
+// interface without changing syslog's throughput.
+func (w *SyslogWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
+	return writeBatchSerially(ctx, w, events)
+}
+
 // Close flushes and closes the connection.
 func (w *SyslogWriter) Close() error {
 	w.mu.Lock()

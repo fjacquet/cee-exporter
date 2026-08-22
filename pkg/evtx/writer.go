@@ -77,8 +77,42 @@ type Writer interface {
 	// than a few milliseconds).
 	WriteEvent(ctx context.Context, e WindowsEvent) error
 
+	// WriteBatch writes several events as one unit. For a backend with a
+	// framed wire protocol this is one lock acquisition and one write for the
+	// whole batch, which is the entire throughput win: measured, sixteen
+	// workers against the per-event path bought 1.4x, because every write
+	// serialised through one mutex.
+	//
+	// Mandatory rather than an optional interface the caller type-asserts.
+	// An optional one lets MultiWriter silently fall back to the per-event
+	// loop when it forgets to implement it, which is precisely how Rotate
+	// silently did nothing for `type = "multi"` (see writer_multi.go). A
+	// missing method must be a compile error.
+	//
+	// Backends whose underlying API takes one record at a time should
+	// implement this as writeBatchSerially(ctx, w, events).
+	WriteBatch(ctx context.Context, events []WindowsEvent) error
+
 	// Close flushes any pending events and releases resources.
 	Close() error
+}
+
+// writeBatchSerially writes each event in turn through w.WriteEvent. It is the
+// WriteBatch implementation for backends with no batch API of their own: the
+// Win32 ReportEvent call and go-evtx's WriteRecord both take one record.
+// Their throughput is unchanged by batching and the spec says so — EVTX's
+// ceiling is fsync inside go-evtx, which this repository cannot batch away.
+//
+// The first error stops the batch. The events after it are the caller's to
+// re-send, and continuing would report a partial write as a whole-batch
+// failure either way.
+func writeBatchSerially(ctx context.Context, w Writer, events []WindowsEvent) error {
+	for i := range events {
+		if err := w.WriteEvent(ctx, events[i]); err != nil {
+			return fmt.Errorf("batch event %d/%d: %w", i+1, len(events), err)
+		}
+	}
+	return nil
 }
 
 // ShortMessage returns "<CEPAEventType> on <ObjectName>" — the summary string

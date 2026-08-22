@@ -60,6 +60,13 @@ func (b *BinaryEvtxWriter) WriteEvent(_ context.Context, e WindowsEvent) error {
 	return b.w.WriteRecord(e.EventID, windowsEventToFields(e))
 }
 
+// WriteBatch writes each record in turn. go-evtx's WriteRecord takes one
+// record, so there is nothing to coalesce; the ceiling here is its per-chunk
+// fsync, tracked as a separate issue upstream (ADR-014).
+func (b *BinaryEvtxWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
+	return writeBatchSerially(ctx, b, events)
+}
+
 // Close flushes all buffered events to disk and finalises the .evtx file.
 //
 // Close is idempotent. go-evtx versions before v0.6.0 panic with

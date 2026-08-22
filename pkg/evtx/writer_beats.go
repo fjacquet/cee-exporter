@@ -112,6 +112,14 @@ func (w *BeatsWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
 	return nil
 }
 
+// WriteBatch writes each event in turn through WriteEvent. A framed batch
+// implementation that sends the whole batch as one write under one lock
+// acquisition lands in Task 8; until then this satisfies the mandatory
+// interface without changing Beats's throughput.
+func (w *BeatsWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
+	return writeBatchSerially(ctx, w, events)
+}
+
 // Close closes the underlying Lumberjack client connection.
 func (w *BeatsWriter) Close() error {
 	w.mu.Lock()

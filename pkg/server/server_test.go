@@ -163,6 +163,15 @@ func (w *stubWriter) WriteEvent(_ context.Context, e evtx.WindowsEvent) error {
 	return nil
 }
 
+func (w *stubWriter) WriteBatch(ctx context.Context, events []evtx.WindowsEvent) error {
+	for i := range events {
+		if err := w.WriteEvent(ctx, events[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (w *stubWriter) Close() error { return nil }
 
 // sendAndAwaitWrite drives one request end to end and returns the recorded

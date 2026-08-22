@@ -11,9 +11,10 @@ import (
 )
 
 type fakeWriter struct {
-	mu     sync.Mutex
-	events []evtx.WindowsEvent
-	done   chan struct{}
+	mu      sync.Mutex
+	events  []evtx.WindowsEvent
+	batches []int
+	done    chan struct{}
 }
 
 func (f *fakeWriter) WriteEvent(_ context.Context, e evtx.WindowsEvent) error {
@@ -24,6 +25,18 @@ func (f *fakeWriter) WriteEvent(_ context.Context, e evtx.WindowsEvent) error {
 		select {
 		case f.done <- struct{}{}:
 		default:
+		}
+	}
+	return nil
+}
+
+func (f *fakeWriter) WriteBatch(ctx context.Context, events []evtx.WindowsEvent) error {
+	f.mu.Lock()
+	f.batches = append(f.batches, len(events))
+	f.mu.Unlock()
+	for i := range events {
+		if err := f.WriteEvent(ctx, events[i]); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -152,6 +165,15 @@ func (c *ctxWriter) WriteEvent(ctx context.Context, _ evtx.WindowsEvent) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.cancelled = append(c.cancelled, ctx.Err() != nil)
+	return nil
+}
+
+func (c *ctxWriter) WriteBatch(ctx context.Context, events []evtx.WindowsEvent) error {
+	for i := range events {
+		if err := c.WriteEvent(ctx, events[i]); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
