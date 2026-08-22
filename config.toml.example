@@ -153,7 +153,10 @@ gelf_tls      = false   # only applies when gelf_protocol = "tcp"
 [queue]
 capacity         = 100000  # max events buffered before dropping
 workers          = 4       # concurrent writer goroutines
-drain_timeout_s  = 30      # how long shutdown waits for the queue to drain
+drain_timeout_s  = 30      # how long shutdown waits for the queue to drain.
+                           # Worst-case shutdown is this plus a fixed 5s grace
+                           # period, taken only on the path that already timed
+                           # out, to let an in-flight batch land or fail.
 max_batch        = 500     # events per WriteBatch call; also the duplicate blast
                             # radius — a TCP write failing after partially landing
                             # replays the whole batch (delivery is at-least-once)

@@ -336,6 +336,13 @@ func (q *Queue) writeBatch(ctx context.Context, batch []evtx.WindowsEvent, id in
 	defer q.inFlight.Add(-int64(len(batch)))
 
 	if err := q.writer.WriteBatch(ctx, batch); err != nil {
+		// Charged whole-batch, and deliberately pessimistic. The serial
+		// fallback path (writeBatchSerially) attempts every event and joins
+		// the failures, so a batch that reports an error may still have
+		// written most of its records — 499 of 500 in the worst case. Those
+		// land in WriterErrorsTotal and never in EventsWrittenTotal, so a
+		// partial failure under-reports successful writes rather than
+		// over-reporting them. Err toward the alarm, not away from it.
 		metrics.M.WriterErrorsTotal.Add(int64(len(batch)))
 		metrics.M.WriterBatchErrorsTotal.Add(1)
 		// One line per batch, not per event: a failed 500-event batch would

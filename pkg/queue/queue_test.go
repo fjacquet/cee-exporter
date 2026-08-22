@@ -391,6 +391,14 @@ func TestBatchErrorMetricsAreEventCounted(t *testing.T) {
 type blockingWriter struct {
 	entered chan int
 	release chan struct{}
+	// finished closes when WriteBatch returns. A test that unparks the writer
+	// must wait on it before returning: the freed worker still runs
+	// EventsWrittenTotal.Add(len(batch)) on its way out, and that add landing
+	// after the *next* test's metrics reset is what makes that test read a
+	// doubled count. once guards the close because nothing here promises
+	// WriteBatch is called only once.
+	finished chan struct{}
+	once     sync.Once
 }
 
 func (b *blockingWriter) WriteEvent(context.Context, evtx.WindowsEvent) error { return nil }
@@ -401,6 +409,7 @@ func (b *blockingWriter) WriteBatch(_ context.Context, events []evtx.WindowsEven
 	default:
 	}
 	<-b.release
+	b.once.Do(func() { close(b.finished) })
 	return nil
 }
 
@@ -418,8 +427,15 @@ func (b *blockingWriter) Close() error { return nil }
 func TestDrainTimeoutCountsInFlightBatches(t *testing.T) {
 	metrics.M.EventsDroppedTotal.Store(0)
 
-	bw := &blockingWriter{entered: make(chan int, 1), release: make(chan struct{})}
-	defer close(bw.release)
+	bw := &blockingWriter{
+		entered:  make(chan int, 1),
+		release:  make(chan struct{}),
+		finished: make(chan struct{}),
+	}
+	defer func() {
+		close(bw.release)
+		<-bw.finished // do not leak the worker into the next test's counters
+	}()
 
 	fired := make(chan time.Time) // never fires: the batch fills by size
 	q := New(Config{
