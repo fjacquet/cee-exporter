@@ -5,6 +5,7 @@ package evtx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -103,16 +104,25 @@ type Writer interface {
 // Their throughput is unchanged by batching and the spec says so — EVTX's
 // ceiling is fsync inside go-evtx, which this repository cannot batch away.
 //
-// The first error stops the batch. The events after it are the caller's to
-// re-send, and continuing would report a partial write as a whole-batch
-// failure either way.
+// A failing event does NOT stop the batch. Every event is attempted and the
+// errors are joined, so the batch still reports as failed while the events
+// that could be written are written.
+//
+// This is not a style choice. The caller is pkg/queue's writeBatch, which does
+// not re-send: it counts WriterErrorsTotal += len(batch) and moves on. Stopping
+// at the first error therefore discards the whole suffix of the batch — with
+// max_batch = 500, one transient per-event rejection loses 500 audit records
+// where the pre-batching per-event loop lost exactly 1. That regression would
+// land on the Win32 and EVTX paths, which are the entire Windows and file
+// products, and this function is their only write path.
 func writeBatchSerially(ctx context.Context, w Writer, events []WindowsEvent) error {
+	var errs []error
 	for i := range events {
 		if err := w.WriteEvent(ctx, events[i]); err != nil {
-			return fmt.Errorf("batch event %d/%d: %w", i+1, len(events), err)
+			errs = append(errs, fmt.Errorf("batch event %d/%d: %w", i+1, len(events), err))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // ShortMessage returns "<CEPAEventType> on <ObjectName>" — the summary string
