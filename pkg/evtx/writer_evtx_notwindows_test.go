@@ -652,3 +652,26 @@ func TestEnforceEncodedBudget_TerminatesOnFixedPoint(t *testing.T) {
 			"suspected infinite loop on the 15-28 byte fixed point")
 	}
 }
+
+// TestWindowsEventToFields_CarriesClientAddress pins the one identifying datum
+// a PowerStore NFS event reliably carries.
+//
+// The field map had no entry for it, so ClientAddr was parsed off the wire,
+// carried all the way through WindowsEvent, emitted by the syslog, GELF, Beats
+// and Win32 writers — and then dropped on the floor by this one. An evtx
+// written on Linux was missing a field the very same event written on Windows
+// included, which is the kind of divergence nothing downstream can detect.
+//
+// IpAddress is the name Windows Security auditing uses for the peer address
+// (4625, 5145), so a reader parsing genuine Security events finds it where it
+// expects it.
+func TestWindowsEventToFields_CarriesClientAddress(t *testing.T) {
+	e := testWindowsEvent()
+	e.ClientAddr = "10.26.1.222"
+
+	fields := windowsEventToFields(e)
+
+	if got, want := fields["IpAddress"], "10.26.1.222"; got != want {
+		t.Errorf("IpAddress = %q, want %q", got, want)
+	}
+}
