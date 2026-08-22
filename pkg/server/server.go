@@ -410,6 +410,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // queue work.
 func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 	metrics.M.EventsReceivedTotal.Add(int64(len(events)))
+	for _, e := range events {
+		// Per event, not per batch: a batch can mix types, protocols and even
+		// NAS servers, and attributing all of it to the first one would be a
+		// quiet lie in exactly the breakdown that exists to prevent one.
+		metrics.M.RecordEvent(e.EventType, e.Protocol, e.Server)
+	}
 
 	hostname := h.hostname
 	if hostname == "" {

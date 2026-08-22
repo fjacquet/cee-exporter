@@ -120,6 +120,7 @@ type checkEventXML struct {
 	Path          string `xml:"path,attr"`
 	Flag          string `xml:"flag,attr"`
 	Server        string `xml:"server,attr"`
+	Protocol      string `xml:"protocol,attr"`
 	Share         string `xml:"share,attr"`
 	ClientIP      string `xml:"clientIP,attr"`
 	ServerIP      string `xml:"serverIP,attr"`
@@ -194,6 +195,8 @@ func convertCheckEvent(e checkEventXML, fallback time.Time) CEPAEvent {
 		EventType:  ceeEventTypeName(e.Event),
 		FilePath:   ceeEventPath(e),
 		UserSID:    ceeUserSID(e),
+		Protocol:   ceeProtocolName(e.Protocol),
+		Server:     strings.TrimSpace(e.Server),
 		ClientAddr: e.ClientIP,
 		Timestamp:  ceeTimestamp(e.TimeStamp, fallback),
 
@@ -373,4 +376,32 @@ func ceeUserSID(e checkEventXML) string {
 		return "S-1-22-1-" + e.Ext.UserID
 	}
 	return ""
+}
+
+// ceeProtocolNames is ProtocolDesc's table, read out of libCEPPFilter.so: the
+// filter resolves the numeric protocol code through a jump table whose arms are
+// a bare `leaq <name>; retq`, so the decode is unambiguous.
+var ceeProtocolNames = map[uint64]string{
+	0: "CIFS",
+	1: "NFS",
+	2: "FTP",
+	3: "Unknown",
+}
+
+// ceeProtocolName resolves the protocol attribute to a label.
+//
+// It never returns the empty string. This value is used as a Prometheus label,
+// and an empty label is indistinguishable from an absent one — a code CEE
+// starts sending that this table does not know would silently merge into
+// whatever else was blank, rather than showing up as traffic nobody can
+// account for.
+func ceeProtocolName(raw string) string {
+	n, err := parseCEENum(strings.TrimSpace(raw), 10)
+	if err != nil {
+		return "Unknown"
+	}
+	if name, ok := ceeProtocolNames[n]; ok {
+		return name
+	}
+	return "Unknown"
 }

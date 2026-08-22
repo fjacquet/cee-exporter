@@ -1,6 +1,7 @@
 package ceeprometheus
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -185,5 +186,66 @@ func TestMetricsHandler_CEPAHeartbeatSeries(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("expected %q in scrape output, not found\nBody:\n%s", want, body)
 		}
+	}
+}
+
+// TestMetricsHandler_EventBreakdown: the event counters were scalar, so the
+// whole estate collapsed into one number. Nothing could say what kind of
+// activity was happening or which NAS server it happened on — and on this
+// deployment that mattered, because CEE replays a single CREATE_FILE and a
+// scalar counter renders that identically to real, varied traffic.
+//
+// Two metrics rather than one with three labels: multiplying event_type by
+// protocol by server would be 20 x 4 x N series, and the two questions ("what
+// is happening" and "where") are asked separately anyway.
+func TestMetricsHandler_EventBreakdown(t *testing.T) {
+	metrics.M.ResetEventBreakdown()
+	t.Cleanup(metrics.M.ResetEventBreakdown)
+
+	metrics.M.RecordEvent("CEPP_CREATE_FILE", "NFS", "10.26.1.224")
+	metrics.M.RecordEvent("CEPP_CREATE_FILE", "NFS", "10.26.1.224")
+	metrics.M.RecordEvent("CEPP_FILE_WRITE", "CIFS", "NAS02")
+
+	h := NewMetricsHandler()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := rec.Body.String()
+
+	for _, want := range []string{
+		`cee_events_by_type_total{event_type="CEPP_CREATE_FILE",protocol="NFS"} 2`,
+		`cee_events_by_type_total{event_type="CEPP_FILE_WRITE",protocol="CIFS"} 1`,
+		`cee_events_by_server_total{server="10.26.1.224"} 2`,
+		`cee_events_by_server_total{server="NAS02"} 1`,
+		"cee_event_labels_dropped_total 0",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in scrape output, not found\nBody:\n%s", want, body)
+		}
+	}
+}
+
+// TestMetricsHandler_EventBreakdownCapped: an unbounded label is how an
+// exporter takes down its own Prometheus. The server label is bounded by the
+// estate in practice, but "in practice" is not a guarantee — so the cap is
+// enforced and its being hit is visible, exactly as MaxPeers already is for the
+// publisher label.
+func TestMetricsHandler_EventBreakdownCapped(t *testing.T) {
+	metrics.M.ResetEventBreakdown()
+	t.Cleanup(metrics.M.ResetEventBreakdown)
+
+	for i := 0; i < metrics.MaxEventLabels+10; i++ {
+		metrics.M.RecordEvent("CEPP_CREATE_FILE", "NFS", fmt.Sprintf("nas%03d", i))
+	}
+
+	h := NewMetricsHandler()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := rec.Body.String()
+
+	if n := strings.Count(body, "cee_events_by_server_total{"); n > metrics.MaxEventLabels {
+		t.Errorf("emitted %d server series, want at most %d", n, metrics.MaxEventLabels)
+	}
+	if strings.Contains(body, "cee_event_labels_dropped_total 0") {
+		t.Error("cee_event_labels_dropped_total is 0 after exceeding the cap; hitting it must be visible")
 	}
 }

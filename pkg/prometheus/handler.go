@@ -81,6 +81,18 @@ func newRegistry() *prometheus.Registry {
 			},
 			func() float64 { return float64(metrics.M.PeersDropped()) },
 		),
+		prometheus.NewCounterFunc(
+			prometheus.CounterOpts{
+				Name: "cee_event_labels_dropped_total",
+				Help: "Total event-breakdown increments discarded because the " +
+					"MaxEventLabels cap was reached. Non-zero means " +
+					"cee_events_by_type_total or cee_events_by_server_total is " +
+					"truncated and a real event type or NAS server may be " +
+					"missing from it; the scalar cee_events_received_total is " +
+					"unaffected and stays authoritative for the total.",
+			},
+			func() float64 { return float64(metrics.M.EventLabelsDropped()) },
+		),
 	)
 
 	reg.MustRegister(cepaCollector{})
@@ -115,6 +127,24 @@ var (
 			"cee_cepa_heartbeats_total.",
 		[]string{"remote"}, nil,
 	)
+	eventsByTypeDesc = prometheus.NewDesc(
+		"cee_events_by_type_total",
+		"Total CEPA events received, by event type and protocol. The scalar "+
+			"cee_events_received_total says how many; this says what. Note it "+
+			"counts deliveries, not distinct operations — a redelivered event "+
+			"increments its type again, so a single type pinned at a constant "+
+			"rate is worth checking against the wire.",
+		[]string{"event_type", "protocol"}, nil,
+	)
+	eventsByServerDesc = prometheus.NewDesc(
+		"cee_events_by_server_total",
+		"Total CEPA events received, by the NAS server the operation happened "+
+			"on. This is the array's own name for itself, not the publisher "+
+			"that delivered it — an event relayed by a CEE server is attributed "+
+			"to the NAS, which is what cee_cepa_* cannot tell you. The client "+
+			"address is deliberately not a label: it is unbounded.",
+		[]string{"server"}, nil,
+	)
 	cepaHeartbeatsDesc = prometheus.NewDesc(
 		"cee_cepa_heartbeats_total",
 		"Total CEPA liveness exchanges received from this publisher, in either "+
@@ -134,6 +164,8 @@ func (cepaCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cepaLastRequestDesc
 	ch <- cepaRegistrationsDesc
 	ch <- cepaHeartbeatsDesc
+	ch <- eventsByTypeDesc
+	ch <- eventsByServerDesc
 }
 
 func (cepaCollector) Collect(ch chan<- prometheus.Metric) {
@@ -149,6 +181,18 @@ func (cepaCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			cepaHeartbeatsDesc, prometheus.CounterValue,
 			float64(p.Heartbeats), host,
+		)
+	}
+	for _, e := range metrics.M.EventTypeSnapshot() {
+		ch <- prometheus.MustNewConstMetric(
+			eventsByTypeDesc, prometheus.CounterValue,
+			float64(e.Count), e.EventType, e.Protocol,
+		)
+	}
+	for server, n := range metrics.M.EventServerSnapshot() {
+		ch <- prometheus.MustNewConstMetric(
+			eventsByServerDesc, prometheus.CounterValue,
+			float64(n), server,
 		)
 	}
 }

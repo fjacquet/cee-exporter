@@ -730,3 +730,39 @@ func TestHeartbeatsAreNotCountedAsRegistrations(t *testing.T) {
 		t.Errorf("10.26.1.225 heartbeats = %d, want 0", got)
 	}
 }
+
+// TestEnqueueRecordsEventBreakdown: the breakdown metrics are only worth
+// anything if the receive path feeds them. This asserts against the real
+// PowerStore payload, so it also pins that an NFS event reaches the counters as
+// NFS and attributed to the NAS server, not to the CEE host that relayed it.
+func TestEnqueueRecordsEventBreakdown(t *testing.T) {
+	resetPeers(t)
+	metrics.M.ResetEventBreakdown()
+	t.Cleanup(metrics.M.ResetEventBreakdown)
+
+	h := newTestHandler(t, &stubWriter{}, 10, 1)
+	body := []byte(`<CheckEventRequest><EventList count="1">` +
+		`<Event event="0x8" path="\\nas01.diab.local\CHECK$\FS01\p.txt" flag="0x2" ` +
+		`server="10.26.1.224" share="/FS01" clientIP="10.26.1.222" serverIP="10.26.1.224" ` +
+		`timeStamp="0x6a7f7c090008765f" protocol="1">` +
+		`<EventExt inode="9450" userId="0" ownerId="0"/>` +
+		`</Event></EventList></CheckEventRequest>`)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.RemoteAddr = "10.26.1.199:5000"
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	var found bool
+	for _, e := range metrics.M.EventTypeSnapshot() {
+		if e.Protocol == "NFS" && e.Count == 1 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no NFS entry in the by-type breakdown: %+v", metrics.M.EventTypeSnapshot())
+	}
+	if got := metrics.M.EventServerSnapshot()["10.26.1.224"]; got != 1 {
+		t.Errorf("by-server count for the NAS = %d, want 1 (got %+v)",
+			got, metrics.M.EventServerSnapshot())
+	}
+}

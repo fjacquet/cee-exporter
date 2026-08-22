@@ -443,3 +443,39 @@ func TestCEETimestampNeverSortsBefore1970(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckEventCarriesProtocolAndServer: the wire has always carried which
+// protocol the operation used and which NAS server it happened on, and the
+// parser discarded both. Without them every event counter is scalar — a single
+// number for the whole estate — so a dashboard cannot say what kind of activity
+// is happening or where, and the one event this array replays is
+// indistinguishable from a hundred distinct ones.
+//
+// protocol is the code ProtocolDesc resolves in libCEPPFilter.so: 0 CIFS,
+// 1 NFS, 2 FTP, 3 Unknown.
+func TestCheckEventCarriesProtocolAndServer(t *testing.T) {
+	evs, err := ParseCheckEventRequestDecoded([]byte(liveNFSEvent), time.Now())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got, want := evs[0].Protocol, "NFS"; got != want {
+		t.Errorf("Protocol = %q, want %q", got, want)
+	}
+	if got, want := evs[0].Server, "10.26.1.224"; got != want {
+		t.Errorf("Server = %q, want %q", got, want)
+	}
+}
+
+// TestCheckEventProtocolVocabulary pins the whole mapping, including the
+// unknown case: an unmapped code must be labelled, not blank, because a blank
+// label silently merges into whatever else is blank.
+func TestCheckEventProtocolVocabulary(t *testing.T) {
+	for raw, want := range map[string]string{
+		"0": "CIFS", "1": "NFS", "2": "FTP", "3": "Unknown",
+		"": "Unknown", "9": "Unknown", "notanumber": "Unknown",
+	} {
+		if got := ceeProtocolName(raw); got != want {
+			t.Errorf("ceeProtocolName(%q) = %q, want %q", raw, got, want)
+		}
+	}
+}

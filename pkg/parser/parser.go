@@ -37,6 +37,18 @@ type CEPAEvent struct {
 	// Network context
 	ClientAddr string
 
+	// Protocol the operation used, resolved from the wire's numeric code:
+	// CIFS, NFS, FTP or Unknown. Never empty — an unmapped code renders
+	// Unknown rather than blank, so it cannot merge with a missing value when
+	// used as a metric label.
+	Protocol string
+
+	// Server is the NAS server the operation happened on, as the array reports
+	// it. Bounded by the size of the estate, unlike ClientAddr, which is every
+	// workstation that ever touched a share — which is why this is the one
+	// safe to carry as a metric label and that one is not.
+	Server string
+
 	// Event timestamp (parsed from the XML or synthesised from receive time)
 	Timestamp time.Time
 

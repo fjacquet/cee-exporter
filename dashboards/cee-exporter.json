@@ -824,21 +824,140 @@
       }
     },
     {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Events by type and protocol",
+      "description": "What kind of activity is arriving, not just how much. The scalar counter collapsed the whole estate into one number, which is why a single replayed event was indistinguishable from varied traffic.\n\nOn this deployment it resolves to exactly one series — CEPP_CREATE_FILE · NFS — and that IS the finding: a real filesystem produces opens, reads, closes and deletes, not one event type forever.\n\nCounts deliveries, not distinct operations. Protocol comes from the wire's numeric code as ProtocolDesc resolves it (0 CIFS, 1 NFS, 2 FTP, 3 Unknown); an unmapped code renders Unknown rather than blank, so new traffic cannot hide in an empty label.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cee-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (event_type, protocol) (rate(cee_events_by_type_total[5m]))",
+          "legendFormat": "{{event_type}} · {{protocol}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "eps",
+          "decimals": 3,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Events by NAS server",
+      "description": "Where the operation happened — the array's own name for itself, taken from the event rather than from the connection.\n\nThis is the question cee_cepa_* cannot answer. Those metrics label by publisher, which for a relayed event is the CEE server; here 10.26.1.224 (NAS01) appears in its own right even though it never opens a connection to this exporter. A NAS that stops generating events while its CEE server keeps heartbeating is visible here and nowhere else.\n\nThe client address is deliberately not a label: it is every workstation that ever touched a share, and unbounded labels are how an exporter takes down its own Prometheus. Server is capped too — see cee_event_labels_dropped_total.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cee-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (server) (rate(cee_events_by_server_total[5m]))",
+          "legendFormat": "{{server}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "eps",
+          "decimals": 3,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
       "id": 6,
       "type": "stat",
       "title": "Requests dropped (label cap reached)",
-      "description": "Counts requests from publishers not recorded once the 64-publisher cap was hit, not distinct publishers. Non-zero means the labelled series above are incomplete.",
+      "description": "Publisher-label and event-label truncation. Non-zero in either means a cap was hit and a real publisher, event type or NAS server is missing from the breakdowns above; the scalar totals stay correct.",
       "gridPos": {
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 39
       },
       "targets": [
         {
           "expr": "cee_cepa_peers_dropped_total",
-          "legendFormat": "dropped",
+          "legendFormat": "publisher labels",
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          }
+        },
+        {
+          "expr": "cee_event_labels_dropped_total",
+          "legendFormat": "event labels",
+          "refId": "B",
           "datasource": {
             "type": "prometheus",
             "uid": "cee-prometheus"

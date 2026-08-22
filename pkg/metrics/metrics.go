@@ -44,6 +44,133 @@ type Store struct {
 	// peersDropped counts peers rejected because MaxPeers was reached, so
 	// that hitting the cap is visible rather than silent.
 	peersDropped atomic.Int64
+
+	// eventsByType and eventsByServer break the scalar event counter down by
+	// what happened and where. Two maps rather than one keyed on all three
+	// labels: event_type x protocol x server would multiply out, and the two
+	// questions are asked separately.
+	breakdownMu    sync.RWMutex
+	eventsByType   map[eventTypeKey]*atomic.Int64
+	eventsByServer map[string]*atomic.Int64
+
+	// eventLabelsDropped counts increments discarded because MaxEventLabels
+	// was reached, so a truncated breakdown is visible rather than silent —
+	// the same contract peersDropped provides for the publisher label.
+	eventLabelsDropped atomic.Int64
+}
+
+// MaxEventLabels bounds each of the two event-breakdown maps.
+//
+// event_type x protocol is naturally bounded — CEE has 19 event names and four
+// protocols — but server is only bounded by the estate, and "bounded in
+// practice" is not a guarantee. An exporter that grows a label set without
+// limit takes down the Prometheus scraping it, so the cap is enforced and
+// hitting it increments eventLabelsDropped.
+const MaxEventLabels = 128
+
+// eventTypeKey is the composite key for the by-type breakdown. A struct rather
+// than a joined string so neither field can be confused with a separator that
+// appears inside the other.
+type eventTypeKey struct {
+	EventType string
+	Protocol  string
+}
+
+// EventTypeStat is an immutable copy of one (event_type, protocol) count.
+type EventTypeStat struct {
+	EventType string
+	Protocol  string
+	Count     int64
+}
+
+// RecordEvent counts one event against both breakdowns.
+//
+// Called once per event, on the receive path, so it must not block: the maps
+// take a read lock for the common case of an already-seen key and only escalate
+// to a write lock on first sight of one.
+func (s *Store) RecordEvent(eventType, protocol, server string) {
+	s.recordBreakdown(eventTypeKey{eventType, protocol}, server)
+}
+
+func (s *Store) recordBreakdown(k eventTypeKey, server string) {
+	s.breakdownMu.RLock()
+	byType, byServer := s.eventsByType[k], s.eventsByServer[server]
+	s.breakdownMu.RUnlock()
+	if byType != nil && (server == "" || byServer != nil) {
+		byType.Add(1)
+		if byServer != nil {
+			byServer.Add(1)
+		}
+		return
+	}
+
+	s.breakdownMu.Lock()
+	defer s.breakdownMu.Unlock()
+	if s.eventsByType == nil {
+		s.eventsByType = make(map[eventTypeKey]*atomic.Int64, MaxEventLabels)
+		s.eventsByServer = make(map[string]*atomic.Int64, MaxEventLabels)
+	}
+	dropped := false
+	if c := s.eventsByType[k]; c != nil {
+		c.Add(1)
+	} else if len(s.eventsByType) >= MaxEventLabels {
+		dropped = true
+	} else {
+		c := &atomic.Int64{}
+		c.Add(1)
+		s.eventsByType[k] = c
+	}
+	// An empty server is not a label value: it would merge every event whose
+	// origin the array did not report into one indistinguishable series.
+	if server != "" {
+		if c := s.eventsByServer[server]; c != nil {
+			c.Add(1)
+		} else if len(s.eventsByServer) >= MaxEventLabels {
+			dropped = true
+		} else {
+			c := &atomic.Int64{}
+			c.Add(1)
+			s.eventsByServer[server] = c
+		}
+	}
+	if dropped {
+		s.eventLabelsDropped.Add(1)
+	}
+}
+
+// EventTypeSnapshot returns an immutable copy of the by-type breakdown.
+func (s *Store) EventTypeSnapshot() []EventTypeStat {
+	s.breakdownMu.RLock()
+	defer s.breakdownMu.RUnlock()
+	out := make([]EventTypeStat, 0, len(s.eventsByType))
+	for k, c := range s.eventsByType {
+		out = append(out, EventTypeStat{k.EventType, k.Protocol, c.Load()})
+	}
+	return out
+}
+
+// EventServerSnapshot returns an immutable copy of the by-server breakdown.
+func (s *Store) EventServerSnapshot() map[string]int64 {
+	s.breakdownMu.RLock()
+	defer s.breakdownMu.RUnlock()
+	out := make(map[string]int64, len(s.eventsByServer))
+	for k, c := range s.eventsByServer {
+		out[k] = c.Load()
+	}
+	return out
+}
+
+// EventLabelsDropped returns the number of increments discarded at the cap.
+func (s *Store) EventLabelsDropped() int64 { return s.eventLabelsDropped.Load() }
+
+// ResetEventBreakdown clears both breakdowns. Test support, mirroring
+// ResetPeers.
+func (s *Store) ResetEventBreakdown() {
+	s.breakdownMu.Lock()
+	defer s.breakdownMu.Unlock()
+	s.eventsByType = nil
+	s.eventsByServer = nil
+	s.eventLabelsDropped.Store(0)
 }
 
 // SetQueueDepth records the current queue depth.
