@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -311,6 +312,129 @@ func TestGELFWriteBatchUDPIsOneDatagramPerEvent(t *testing.T) {
 
 	if got := <-count; got != 3 {
 		t.Errorf("received %d datagrams, want 3 — UDP must not concatenate", got)
+	}
+}
+
+// countingConn wraps a net.Conn and counts Write calls. The batch deliverable
+// is "K events become ONE write", and nothing observable at the sink can
+// prove that — TCP may split one Write across reads or coalesce several.
+// Counting at the writer is exact and deterministic.
+type countingConn struct {
+	net.Conn
+	mu     sync.Mutex
+	writes int
+}
+
+func (c *countingConn) Write(b []byte) (int, error) {
+	c.mu.Lock()
+	c.writes++
+	c.mu.Unlock()
+	return c.Conn.Write(b)
+}
+
+func (c *countingConn) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.writes
+}
+
+// TestGELFWriteBatchTCPSingleWrite is the actual batching guard: it asserts
+// the write count at the writer, not at the sink. TCP is a stream — one
+// Write may split across reads, and several writes may coalesce into one —
+// so a read/write count observed at the sink is flaky in both directions.
+// Counting Write calls on the wrapped net.Conn is exact.
+func TestGELFWriteBatchTCPSingleWrite(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer func() { _ = c.Close() }()
+		buf := make([]byte, 65536)
+		for {
+			if _, err := c.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	host, port := splitHostPort(t, ln.Addr().String())
+	w, err := NewGELFWriter(GELFConfig{Host: host, Port: port, Protocol: "tcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cc := &countingConn{Conn: w.conn}
+	w.conn = cc
+
+	batch := []WindowsEvent{
+		{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE"},
+		{EventID: 4660, CEPAEventType: "CEPP_DELETE_FILE"},
+		{EventID: 4670, CEPAEventType: "CEPP_SETACL_FILE"},
+	}
+	writeErr := w.WriteBatch(context.Background(), batch)
+
+	_ = w.Close()
+	_ = ln.Close()
+	wg.Wait()
+
+	if writeErr != nil {
+		t.Fatalf("WriteBatch: %v", writeErr)
+	}
+	if got := cc.count(); got != 1 {
+		t.Errorf("3 events produced %d writes, want 1; the batch is not being concatenated into a single write", got)
+	}
+}
+
+// TestGELFWriteBatchUDPWritesOnePerEvent is the other half of the batching
+// guard: it catches someone later "optimising" UDP into a concatenation,
+// which would produce garbage at the collector — a GELF datagram is one
+// message.
+func TestGELFWriteBatchUDPWritesOnePerEvent(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 65535)
+		for {
+			if _, _, err := pc.ReadFrom(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	host, port := splitHostPort(t, pc.LocalAddr().String())
+	w, err := NewGELFWriter(GELFConfig{Host: host, Port: port, Protocol: "udp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cc := &countingConn{Conn: w.conn}
+	w.conn = cc
+
+	batch := []WindowsEvent{{EventID: 4663}, {EventID: 4660}, {EventID: 4670}}
+	writeErr := w.WriteBatch(context.Background(), batch)
+
+	_ = w.Close()
+	_ = pc.Close()
+	wg.Wait()
+
+	if writeErr != nil {
+		t.Fatalf("WriteBatch: %v", writeErr)
+	}
+	if got := cc.count(); got != 3 {
+		t.Errorf("3 events produced %d writes, want 3 — UDP must not concatenate", got)
 	}
 }
 
