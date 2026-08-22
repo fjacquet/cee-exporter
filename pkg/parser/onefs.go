@@ -45,6 +45,13 @@ const unmappedPrefix = "CEPP_ONEFS_UNMAPPED_"
 // preserved on the event, but the CEPP vocabulary has no separate open, and
 // CEPP_CREATE_FILE is the family Dell CEE itself reports for this case.
 //
+// These six are also the corroboration for ceeEventType in checkevent.go, whose
+// twenty-one entries come from Dell's documented ordering rather than from
+// measurement: every value here lands on the same name at the same numeric code
+// there. TestEventTablesCorroborate fails if either table drifts from the
+// other, which would mean one of them has been edited without re-checking the
+// evidence.
+//
 // All six map to the _FILE members of the CEPP vocabulary. Nothing in the
 // payload distinguishes a file from a directory — there is no such attribute
 // — so the _DIRECTORY variants are unreachable from this path, and
@@ -116,7 +123,11 @@ func ParseOneFSEvent(body []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decoding OneFS payload: %w", err)
 	}
+	return parseOneFSEventDecoded(decoded, receiveTime)
+}
 
+// parseOneFSEventDecoded is ParseOneFSEvent's body, for already-decoded input.
+func parseOneFSEventDecoded(decoded []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	var r onefsRequest
 	if err := xml.Unmarshal(decoded, &r); err != nil {
 		return nil, fmt.Errorf("parsing OneFS CheckFileRequest: %w", err)

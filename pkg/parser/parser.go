@@ -5,11 +5,19 @@
 //  1. Single-event: <CEEEvent>…</CEEEvent>
 //  2. VCAPS bulk batch: <EventBatch><CEEEvent>…</CEEEvent>…</EventBatch>
 //
-// Two handshakes are detected and handled separately — callers must check for
-// both before calling Parse, because neither is an event payload:
+// Four non-VCAPS shapes arrive on the same URL and are detected separately —
+// callers must dispatch on them before calling Parse, because none is a VCAPS
+// event payload:
 //
-//	<RegisterRequest />   PowerStore, via Dell CEE
-//	<CheckFileRequest>…   PowerScale (OneFS), which speaks CEPA directly
+//	<RegisterRequest />    Dell CEE, opening registration
+//	<HeartBeatRequest />   Dell CEE, liveness probe once registered
+//	<CheckEventRequest>…   Dell CEE, event delivery
+//	<CheckFileRequest>…    PowerScale (OneFS) — heartbeat AND event share this
+//	                       element; use CheckFileAction to tell them apart
+//
+// Prefer Classify over the individual Is* predicates: it decodes the body once
+// and returns both the dialect and the decoded bytes, where dispatching through
+// the predicates decodes the whole payload once per candidate.
 package parser
 
 import (
@@ -105,6 +113,11 @@ func CheckFileAction(body []byte) string {
 	if err != nil {
 		return ""
 	}
+	return checkFileActionDecoded(decoded)
+}
+
+// checkFileActionDecoded is CheckFileAction for already-decoded input.
+func checkFileActionDecoded(decoded []byte) string {
 	var r struct {
 		XMLName xml.Name `xml:"CheckFileRequest"`
 		Args    struct {
@@ -201,7 +214,16 @@ func Parse(body []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decoding CEPA payload: %w", err)
 	}
-	body = decoded
+	return parseDecoded(decoded, receiveTime)
+}
+
+// parseDecoded is Parse's body, for input that is already UTF-8. Split out so
+// the dispatcher can decode once and hand the result to whichever parser wins;
+// see Classify.
+func parseDecoded(body []byte, receiveTime time.Time) ([]CEPAEvent, error) {
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty payload")
+	}
 
 	// Try batch first.
 	var batch rawBatch

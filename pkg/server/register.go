@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 )
@@ -14,33 +15,37 @@ import (
 // registered CEPA partner, and CEE answers every array heartbeat
 // status="0x16" — VC_ERROR_CEPP_NOT_FOUND — so the array never publishes at
 // all. See registrationResponseXML for where the required shape comes from.
+// The toml tags let cmd/cee-exporter bind [cepa] straight to this type. It
+// previously kept a field-for-field clone plus a hand-written copy at the call
+// site, where adding a field meant editing three places and forgetting the copy
+// compiled cleanly while silently ignoring the operator's config.
 type RegistrationConfig struct {
 	// FriendlyName identifies this consumer to CEE. It should match the
 	// partner id in CEE's own EndPoint setting — the `name` in
 	// `name@http://host:port` — because CEE indexes registered partners by
 	// name (CRegisterResponse::GetIndex).
-	FriendlyName string
+	FriendlyName string `toml:"friendly_name"`
 
 	// GUID is this consumer's stable identity. CEE rejects a registration
 	// without one ("Guid or FriendlyName not specified").
-	GUID string
+	GUID string `toml:"guid"`
 
 	// Description populates the desc attribute. CEE requires it:
 	// "Incomplete XML. Required description not present".
-	Description string
+	Description string `toml:"description"`
 
 	// Protocols is the comma-separated protocol list for the Filter element.
 	// Codes are 0=CIFS, 1=NFS, 2=FTP, 3=Unknown, read out of CEE's own
 	// ProtocolDesc table.
-	Protocols string
+	Protocols string `toml:"protocols"`
 
 	// EventFilter is the EventTypeFilter value: 24 hex digits, three 32-bit
 	// words for CEE's three event phases (pre, post-success, post-failure).
-	EventFilter string
+	EventFilter string `toml:"event_filter"`
 
 	// Version populates the EndPoint version attribute. Observed values are
 	// "1.0" (CEE's own SplunkHEC proxy) and "1.2" (Varonis).
-	Version string
+	Version string `toml:"version"`
 }
 
 // Registration defaults.
@@ -92,24 +97,12 @@ const (
 // withDefaults fills any unset field. A zero RegistrationConfig is therefore
 // usable, which keeps the handler constructible in tests without ceremony.
 func (c RegistrationConfig) withDefaults() RegistrationConfig {
-	if c.FriendlyName == "" {
-		c.FriendlyName = DefaultFriendlyName
-	}
-	if c.GUID == "" {
-		c.GUID = DefaultGUID
-	}
-	if c.Description == "" {
-		c.Description = DefaultDescription
-	}
-	if c.Protocols == "" {
-		c.Protocols = DefaultProtocols
-	}
-	if c.EventFilter == "" {
-		c.EventFilter = DefaultEventFilter
-	}
-	if c.Version == "" {
-		c.Version = DefaultVersion
-	}
+	c.FriendlyName = cmp.Or(c.FriendlyName, DefaultFriendlyName)
+	c.GUID = cmp.Or(c.GUID, DefaultGUID)
+	c.Description = cmp.Or(c.Description, DefaultDescription)
+	c.Protocols = cmp.Or(c.Protocols, DefaultProtocols)
+	c.EventFilter = cmp.Or(c.EventFilter, DefaultEventFilter)
+	c.Version = cmp.Or(c.Version, DefaultVersion)
 	return c
 }
 
@@ -137,8 +130,17 @@ func (c RegistrationConfig) withDefaults() RegistrationConfig {
 // operator-supplied and short: an unescaped quote would produce a document
 // CEE cannot parse, and CEE reports that as an ordinary registration failure
 // with no detail on Windows, where it writes no log at all.
+//
+// escapeAttr rather than xml.EscapeText, deliberately: EscapeText would work
+// here (strings.Builder is an io.Writer), but it emits &#34;/&#39; rather than
+// &quot;/&apos; and rewrites TAB/LF/CR as numeric references. All valid XML,
+// but different bytes on a wire whose parser is undocumented and has already
+// surprised us twice. An earlier version of this comment said EscapeText was
+// avoided because "the marshaller reorders and self-closes differently" —
+// that conflated EscapeText with Marshal and was wrong.
 func (c RegistrationConfig) registrationResponseXML() []byte {
-	c = c.withDefaults()
+	// No withDefaults() here: NewHandler applies it once and owns the answer to
+	// "who defaults". Two owners is how they drift.
 	var b strings.Builder
 	b.WriteString("<RegisterResponse>")
 	// Attribute set and ordering copied from a RegisterResponse a shipping
@@ -180,13 +182,18 @@ func (c RegistrationConfig) registrationResponseXML() []byte {
 // xml.EscapeText because the response is assembled as a string: CEE's parser
 // wants the document laid out the way its own template lays it out, and
 // encoding/xml's marshaller reorders and self-closes differently.
+// attrEscaper is package-level because strings.Replacer builds a 256-entry
+// lookup table on construction and is documented safe for concurrent use.
+// Building it per call measured 1371 ns and 6872 B against 44 ns and zero
+// allocations hoisted, and escapeAttr runs eight times per registration reply.
+var attrEscaper = strings.NewReplacer(
+	"&", "&amp;",
+	"<", "&lt;",
+	">", "&gt;",
+	`"`, "&quot;",
+	"'", "&apos;",
+)
+
 func escapeAttr(s string) string {
-	r := strings.NewReplacer(
-		"&", "&amp;",
-		"<", "&lt;",
-		">", "&gt;",
-		`"`, "&quot;",
-		"'", "&apos;",
-	)
-	return r.Replace(s)
+	return attrEscaper.Replace(s)
 }

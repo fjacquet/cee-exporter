@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf16"
 )
 
 // checkEventSingle is a <CheckEventRequest> built from the attribute list in
@@ -25,14 +24,11 @@ const checkEventSingle = `<CheckEventRequest>` +
 	`ntStatus="0x0" relativePath="\test\evtest.txt"/>` +
 	`</EventList></CheckEventRequest>`
 
-func utf16leBytes(s string) []byte {
-	units := utf16.Encode([]rune(s))
-	out := make([]byte, 0, len(units)*2)
-	for _, u := range units {
-		out = append(out, byte(u), byte(u>>8))
-	}
-	return out
-}
+// utf16leBytes wraps the production encoder rather than hand-rolling a second
+// one. Testing a decoder with an independent encoder guards against a shared
+// misunderstanding, but utf16_test.go already pins EncodeUTF16LE against bytes
+// captured from CEE, so that guard exists elsewhere.
+func utf16leBytes(s string) []byte { return EncodeUTF16LE([]byte(s)) }
 
 // TestIsCheckEventRequest_DiscriminatesDialects is the guard that matters most
 // here: three dialects arrive on the same URL and each needs a different reply.
@@ -258,5 +254,35 @@ func TestCEETimestampFallback(t *testing.T) {
 	}
 	if got := ceeTimestamp("0x6A7B0C1A", fallback); got.Equal(fallback) {
 		t.Error("ceeTimestamp did not parse the 0x form")
+	}
+}
+
+// TestEventTablesCorroborate pins the agreement between the two independently
+// derived event tables.
+//
+// onefsEventType was measured on a live OneFS cluster, one operation per
+// capture window. ceeEventType comes from Dell's documented event ordering with
+// a single bit confirmed on a PowerStore. They are different array families and
+// different documents, so their agreeing on six codes is real evidence for the
+// ordering — and it is evidence that would be silently destroyed if someone
+// edited either table without re-checking the other.
+//
+// If this fails, do not "fix" it by editing one table to match. Work out which
+// derivation the new information actually supports.
+func TestEventTablesCorroborate(t *testing.T) {
+	checked := 0
+	for code, onefsName := range onefsEventType {
+		ceeName, ok := ceeEventType[uint64(code)]
+		if !ok {
+			t.Errorf("OneFS measured code %d (%s) has no entry in ceeEventType", code, onefsName)
+			continue
+		}
+		if ceeName != onefsName {
+			t.Errorf("code %d: onefsEventType says %q, ceeEventType says %q", code, onefsName, ceeName)
+		}
+		checked++
+	}
+	if checked != len(onefsEventType) {
+		t.Errorf("corroborated %d of %d OneFS codes", checked, len(onefsEventType))
 	}
 }

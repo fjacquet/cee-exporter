@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"strconv"
@@ -37,13 +36,22 @@ const unmappedCEEPrefix = "CEPP_CEE_UNMAPPED_"
 // against PowerStore diabps01/NAS01 — a file created on an SMB share arrived as
 // event="0x00000008" carrying that file's UNC path.
 //
-// **The other twenty bits are documented, not measured.** They rest on the
-// ordering above being the wire order, which one confirmed bit supports but
-// does not prove. An isolation run — one operation per capture window, as was
-// done for the OneFS eventType values — would settle each of them, and is the
-// right way to promote this table from documented to measured. Until then a
-// wrong entry writes a wrong EventID into an audit trail, so treat anything
-// other than 0x8 as provisional.
+// **Corroborated independently for six bits.** onefsEventType in onefs.go was
+// resolved by an isolation run against a live OneFS 9.13.0.0 cluster — a
+// different array family, a different protocol path, a different numbering
+// scheme on its face — and all six of its measured values land on the same
+// names at the same numeric codes as this table: 8 create, 32 delete, 128
+// close-modified, 256 close-unmodified, 512 rename, 2048 set-ACL.
+// TestEventTablesCorroborate pins that agreement. Two independent derivations
+// agreeing on six of twenty-one is much better evidence for the *ordering
+// hypothesis* than one measured bit alone.
+//
+// **The remaining fifteen are documented, not measured.** They rest on the
+// ordering above being the wire order. An isolation run — one operation per
+// capture window, as was done for OneFS — would settle each of them, and is
+// the right way to promote this table from documented to measured. Until then
+// a wrong entry writes a wrong EventID into an audit trail, so treat anything
+// outside the six corroborated codes and 0x8 as provisional.
 var ceeEventType = map[uint64]string{
 	0x000001: "CEPP_OPEN_FILE_NOACCESS",
 	0x000002: "CEPP_OPEN_FILE_READ",
@@ -112,6 +120,13 @@ type checkEventXML struct {
 	NTStatus      string `xml:"ntStatus,attr"`
 	RelativePath  string `xml:"relativePath,attr"`
 
+	// Fields beyond the seven convertCheckEvent reads are declared
+	// deliberately: this struct is the machine-checked record of the wire
+	// shape, and the ones not yet consumed (newName on a rename, desiredAccess
+	// and createDispo on an open, ntStatus on a failure) are what the
+	// still-unmeasured event codes will need. encoding/xml ignores undeclared
+	// attributes, so they cost nothing at runtime.
+	//
 	// CEE sends the path twice when it cannot represent it in the document's
 	// encoding: encodingType names the scheme and the encoded* attributes
 	// carry the real values.
@@ -131,7 +146,12 @@ func ParseCheckEventRequest(body []byte, receiveTime time.Time) ([]CEPAEvent, er
 	if err != nil {
 		return nil, fmt.Errorf("decoding CEE CheckEventRequest: %w", err)
 	}
+	return parseCheckEventRequestDecoded(decoded, receiveTime)
+}
 
+// parseCheckEventRequestDecoded is ParseCheckEventRequest's body, for
+// already-decoded input.
+func parseCheckEventRequestDecoded(decoded []byte, receiveTime time.Time) ([]CEPAEvent, error) {
 	var r checkEventRequest
 	if err := xml.Unmarshal(decoded, &r); err != nil {
 		return nil, fmt.Errorf("parsing CEE CheckEventRequest: %w", err)
@@ -188,15 +208,10 @@ func ceeEventPath(e checkEventXML) string {
 func decodeCEEEncoded(s, encodingType string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(encodingType)) {
 	case "", "base64", "base64utf16", "utf16":
-		raw, err := base64.StdEncoding.DecodeString(s)
-		if err != nil {
-			return "", fmt.Errorf("base64: %w", err)
-		}
-		out, err := decodeUTF16(raw)
-		if err != nil {
-			return "", err
-		}
-		return string(out), nil
+		// Same encoding OneFS uses for every name attribute, so the same
+		// decoder: if CEE turns out to use unpadded or URL-safe base64, that
+		// is one place to fix rather than two that share no name.
+		return decodeBase64UTF16(s)
 	default:
 		return "", fmt.Errorf("unknown encodingType %q", encodingType)
 	}
@@ -222,7 +237,15 @@ func IsUnmappedCEEEventType(eventType string) bool {
 	return strings.HasPrefix(eventType, unmappedCEEPrefix)
 }
 
-func parseCEEHex(raw string) (uint64, error) {
+func parseCEEHex(raw string) (uint64, error) { return parseCEENum(raw, 16) }
+
+// parseCEENum strips an optional 0x prefix and parses the rest as hex; without
+// the prefix it uses unprefixedBase, which differs by attribute (event codes
+// are hex either way, timestamps are decimal).
+//
+// strconv.ParseUint(s, 0, 64) is NOT a valid shortcut: base 0 reads an
+// unprefixed "200" as decimal, and TestCEEEventTypeMapping pins it as hex.
+func parseCEENum(raw string, unprefixedBase int) (uint64, error) {
 	s := strings.TrimSpace(raw)
 	if s == "" {
 		return 0, fmt.Errorf("empty value")
@@ -230,7 +253,7 @@ func parseCEEHex(raw string) (uint64, error) {
 	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
 		return strconv.ParseUint(s[2:], 16, 64)
 	}
-	return strconv.ParseUint(s, 16, 64)
+	return strconv.ParseUint(s, unprefixedBase, 64)
 }
 
 // ceeTimestamp reads the timeStamp attribute. CEE sends whole seconds since
@@ -243,15 +266,7 @@ func ceeTimestamp(raw string, fallback time.Time) time.Time {
 	}
 	// Accept the 0x form too: several sibling attributes carry it, and there
 	// is no guarantee this one never will.
-	var (
-		n   uint64
-		err error
-	)
-	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
-		n, err = strconv.ParseUint(s[2:], 16, 64)
-	} else {
-		n, err = strconv.ParseUint(s, 10, 64)
-	}
+	n, err := parseCEENum(s, 10)
 	if err != nil || n == 0 {
 		return fallback
 	}

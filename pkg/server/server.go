@@ -100,6 +100,11 @@ type Handler struct {
 	q        *queue.Queue
 	hostname string // embedded in every generated WindowsEvent
 	reg      RegistrationConfig
+
+	// registerReply is rendered once: it is deterministic from reg, and reg is
+	// fixed for the handler's lifetime. Building it per request measured ~16 µs
+	// and 87 allocations to produce the same 336 bytes.
+	registerReply []byte
 }
 
 // NewHandler creates a Handler.
@@ -107,7 +112,36 @@ type Handler struct {
 // (typically the NAS hostname extracted from the CEPA request context).
 // reg describes this consumer to Dell CEE; a zero value takes the defaults.
 func NewHandler(q *queue.Queue, hostname string, reg RegistrationConfig) *Handler {
-	return &Handler{q: q, hostname: hostname, reg: reg.withDefaults()}
+	reg = reg.withDefaults()
+	return &Handler{
+		q:             q,
+		hostname:      hostname,
+		reg:           reg,
+		registerReply: reg.registrationResponseXML(),
+	}
+}
+
+// respond answers in the encoding the request arrived in, sets the content
+// type, writes the reply and reports the bytes written.
+//
+// Every dialect branch below needs this exact sequence, and "mirror the
+// encoding you were addressed in" is a protocol rule, not a per-branch detail:
+// a publisher that cannot parse the reply treats it as fatal, and for OneFS and
+// PowerStore alike the failure is silent. Having one implementation means a new
+// dialect cannot forget it. Returns ok=false when the write failed and the
+// caller must return without further work.
+func respond(w http.ResponseWriter, r *http.Request, reqBody, reply []byte, contentType, errEvent string) (int, bool) {
+	if parser.IsUTF16(reqBody) {
+		reply = parser.EncodeUTF16LE(reply)
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(http.StatusOK)
+	n, err := w.Write(reply)
+	if err != nil {
+		slog.Error(errEvent, "remote", r.RemoteAddr, "error", err)
+		return 0, false
+	}
+	return n, true
 }
 
 // ServeHTTP implements http.Handler.  Only PUT is accepted; everything else
@@ -140,24 +174,27 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Transcode once. Every parser.Is* predicate decodes the whole body just to
+	// read its root element, so dispatching through four of them and then
+	// parsing used to decode the same payload five times — 62% of the time and
+	// 92% of the allocations on a 1000-event batch. See parser.Classify.
+	dialect, decoded, decodeErr := parser.Classify(body)
+	if decodeErr != nil {
+		slog.Error("cepa_decode_error",
+			"remote", r.RemoteAddr, "body_bytes", len(body), "error", decodeErr)
+		// Still ACK: a publisher that gets no answer marks us unreachable and
+		// stops publishing entirely, which costs far more than one payload.
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// -- Handshake -----------------------------------------------------------
-	if parser.IsRegisterRequest(body) {
+	if dialect == parser.DialectRegisterRequest {
 		metrics.M.RecordPeerRegistration(peer)
 
-		// Answer in the encoding we were addressed in, exactly as the OneFS
-		// branch below does. CEE sends UTF-16LE without a BOM and cannot read
-		// a UTF-8 reply.
-		reply := h.reg.registrationResponseXML()
-		if parser.IsUTF16(body) {
-			reply = parser.EncodeUTF16LE(reply)
-		}
-
-		w.Header().Set("Content-Type", "text/xml")
-		w.WriteHeader(http.StatusOK)
-		n, err := w.Write(reply)
-		if err != nil {
-			slog.Error("cepa_register_response_write_error",
-				"remote", r.RemoteAddr, "error", err)
+		n, ok := respond(w, r, body, h.registerReply, "text/xml",
+			"cepa_register_response_write_error")
+		if !ok {
 			return
 		}
 
@@ -178,29 +215,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// STATUS_DATA_ERROR when it cannot, then stops publishing entirely. Both
 	// heartbeats and events arrive in this element and both need the same
 	// reply; only the action attribute separates them.
-	if parser.IsCheckFileRequest(body) {
-		action := parser.CheckFileAction(body)
+	if dialect == parser.DialectCheckFileRequest {
+		action := parser.CheckFileActionDecoded(decoded)
 		heartbeat := action == parser.OneFSHeartbeatAction
 
 		if heartbeat {
 			metrics.M.RecordPeerRegistration(peer)
 		}
 
-		// Answer in the encoding we were addressed in. PowerStore sends
-		// UTF-16LE and CEE answers it in UTF-16LE; OneFS sends UTF-8 and is
-		// answered in UTF-8. Both measured on the wire. A publisher that
-		// cannot parse the reply treats it as fatal, so this is not cosmetic.
-		reply := checkFileResponse
-		if parser.IsUTF16(body) {
-			reply = parser.EncodeUTF16LE(checkFileResponse)
-		}
-
-		w.Header().Set("Content-Type", "text/xml")
-		w.WriteHeader(http.StatusOK)
-		n, err := w.Write(reply)
-		if err != nil {
-			slog.Error("cepa_check_file_response_write_error",
-				"remote", r.RemoteAddr, "error", err)
+		n, ok := respond(w, r, body, checkFileResponse, "text/xml",
+			"cepa_check_file_response_write_error")
+		if !ok {
 			return
 		}
 
@@ -217,7 +242,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// cluster's forwarding cursor, so this record exists nowhere else the
 		// moment we return: anything not written here is lost, which is why
 		// the failure path below logs the whole payload rather than a summary.
-		events, err := parser.ParseOneFSEvent(body, time.Now().UTC())
+		events, err := parser.ParseOneFSEventDecoded(decoded, time.Now().UTC())
 		if err != nil {
 			slog.Warn("cepa_onefs_event_unhandled",
 				"remote", r.RemoteAddr,
@@ -244,19 +269,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// left to fall through to the event parser, which would log it as a parse
 	// error and reply with an empty body — telling CEE nothing about whether
 	// this consumer is online.
-	if parser.IsHeartBeatRequest(body) {
+	if dialect == parser.DialectHeartBeatRequest {
 		metrics.M.RecordPeerRegistration(peer)
 
-		reply := heartbeatReply()
-		if parser.IsUTF16(body) {
-			reply = parser.EncodeUTF16LE(reply)
-		}
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusOK)
-		n, err := w.Write(reply)
-		if err != nil {
-			slog.Error("cepa_heartbeat_response_write_error",
-				"remote", r.RemoteAddr, "error", err)
+		n, ok := respond(w, r, body, heartbeatReply, "text/plain",
+			"cepa_heartbeat_response_write_error")
+		if !ok {
 			return
 		}
 
@@ -275,9 +293,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// RegisterRequest it opens with nor the CheckFileRequest OneFS uses.
 	// Reached only once registration has succeeded — CEE sends no events to a
 	// partner it has not registered.
-	if parser.IsCheckEventRequest(body) {
+	if dialect == parser.DialectCheckEventRequest {
 		receiveTime := time.Now().UTC()
-		events, err := parser.ParseCheckEventRequest(body, receiveTime)
+		events, err := parser.ParseCheckEventRequestDecoded(decoded, receiveTime)
 		if err != nil {
 			slog.Warn("cepa_cee_event_unhandled",
 				"remote", r.RemoteAddr,
@@ -310,7 +328,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// -- Event payload -------------------------------------------------------
 	receiveTime := time.Now().UTC()
-	events, parseErr := parser.Parse(body, receiveTime)
+	events, parseErr := parser.ParseDecoded(decoded, receiveTime)
 	if parseErr != nil {
 		slog.Error("cepa_parse_error",
 			"remote", r.RemoteAddr,
@@ -364,12 +382,11 @@ func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 				"file_path", e.FilePath,
 			)
 		}
-		// Same contract for Dell CEE's numeric event codes, which are ALL
-		// unmapped in this build: pkg/parser/checkevent.go declines to guess
-		// which bit each EVENT_* name occupies. Every such record is written
-		// with the mapper's default EventID and the raw code preserved in the
-		// label, and this line is what makes the gap visible in the log —
-		// including the codes needed to fill the table in.
+		// Same contract for Dell CEE's numeric event codes. The table in
+		// pkg/parser/checkevent.go now names all 21 documented bits, so this
+		// fires only for a code outside that set — written with the mapper's
+		// default EventID and the raw code preserved in the label, so the gap
+		// is visible rather than silently mislabelled.
 		if parser.IsUnmappedCEEEventType(e.EventType) {
 			slog.Warn("cepa_cee_event_type_unmapped",
 				"remote", r.RemoteAddr,

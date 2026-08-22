@@ -102,3 +102,68 @@ func TestMapHostnameFallback(t *testing.T) {
 		t.Errorf("Map with empty hostname: Computer is empty, expected os.Hostname() fallback")
 	}
 }
+
+// TestEventTypeTablesAreInSync guards the three parallel maps.
+//
+// cepaToEventID, accessMaskFor and accessDescFor are keyed by the same event
+// type strings, and Map looks each up independently with a fallback. So a type
+// added to one map but not the others degrades *silently*: the record is still
+// written, with a plausible-looking EventID and an access mask of 0x0. Nothing
+// fails, and the wrong value lands in an audit trail.
+//
+// The table grew by 54% in one commit and will grow again when the remaining
+// CEE event codes are measured, which is exactly when a partial addition is
+// most likely. This is cheaper than folding the three maps into one struct and
+// buys the same guarantee.
+func TestEventTypeTablesAreInSync(t *testing.T) {
+	for k := range cepaToEventID {
+		if _, ok := accessMaskFor[k]; !ok {
+			t.Errorf("%q has an EventID but no access mask; Map would emit 0x0", k)
+		}
+		if _, ok := accessDescFor[k]; !ok {
+			t.Errorf("%q has an EventID but no access description", k)
+		}
+	}
+	for k := range accessMaskFor {
+		if _, ok := cepaToEventID[k]; !ok {
+			t.Errorf("%q has an access mask but no EventID; Map would emit the 4663 default", k)
+		}
+	}
+	for k := range accessDescFor {
+		if _, ok := cepaToEventID[k]; !ok {
+			t.Errorf("%q has an access description but no EventID", k)
+		}
+	}
+}
+
+// TestMapCEEEventTypes covers the seven event types added for Dell CEE's own
+// dialect, which TestMapEventID predates.
+func TestMapCEEEventTypes(t *testing.T) {
+	cases := []struct {
+		eventType string
+		wantID    int
+		wantMask  string
+	}{
+		{"CEPP_OPEN_FILE_NOACCESS", 4663, "0x0"},
+		{"CEPP_OPEN_FILE_READ", 4663, "0x1"},
+		{"CEPP_OPEN_FILE_WRITE", 4663, "0x2"},
+		{"CEPP_OPEN_DIRECTORY", 4663, "0x1"},
+		{"CEPP_CLOSE_DIRECTORY", 4658, "0x0"},
+		{"CEPP_SETSEC_FILE", 4670, "0x80000"},
+		{"CEPP_SETSEC_DIRECTORY", 4670, "0x80000"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.eventType, func(t *testing.T) {
+			got := Map(parser.CEPAEvent{EventType: tc.eventType}, "host")
+			if got.EventID != tc.wantID {
+				t.Errorf("EventID = %d, want %d", got.EventID, tc.wantID)
+			}
+			if got.AccessMask != tc.wantMask {
+				t.Errorf("AccessMask = %q, want %q", got.AccessMask, tc.wantMask)
+			}
+			if got.Accesses == tc.eventType {
+				t.Errorf("Accesses fell back to the raw event type — no description registered")
+			}
+		})
+	}
+}
