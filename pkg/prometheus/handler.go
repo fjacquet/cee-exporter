@@ -72,16 +72,7 @@ func newRegistry() *prometheus.Registry {
 					"need different responses. Pair it with the rate rather than " +
 					"alerting on the rate alone.",
 			},
-			func() float64 {
-				t := metrics.M.LastEventAt()
-				if t.IsZero() {
-					// Not Unix(0): an exporter that has never seen an event must
-					// not report one at the epoch, which would render as a
-					// 56-year-old event rather than as "none".
-					return 0
-				}
-				return float64(t.Unix())
-			},
+			func() float64 { return float64(metrics.M.LastEventUnix()) },
 		),
 		prometheus.NewCounterFunc(
 			prometheus.CounterOpts{
@@ -211,10 +202,10 @@ func (cepaCollector) Collect(ch chan<- prometheus.Metric) {
 			float64(e.Count), e.EventType, e.Protocol,
 		)
 	}
-	for server, n := range metrics.M.EventServerSnapshot() {
+	for _, e := range metrics.M.EventServerSnapshot() {
 		ch <- prometheus.MustNewConstMetric(
 			eventsByServerDesc, prometheus.CounterValue,
-			float64(n), server,
+			float64(e.Count), e.Server,
 		)
 	}
 }

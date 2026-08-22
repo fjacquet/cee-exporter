@@ -260,9 +260,6 @@ func TestMetricsHandler_EventBreakdownCapped(t *testing.T) {
 // an exporter that has never seen an event must not look like one whose last
 // event was at the epoch.
 func TestMetricsHandler_LastEventTimestamp(t *testing.T) {
-	metrics.M.ResetEventBreakdown()
-	t.Cleanup(metrics.M.ResetEventBreakdown)
-
 	h := NewMetricsHandler()
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))

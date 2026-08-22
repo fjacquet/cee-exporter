@@ -2,10 +2,28 @@ package main
 
 import (
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/BurntSushi/toml"
 )
+
+// configSections returns the toml tag of every struct-typed field on Config —
+// i.e. every [section] a shipped config is expected to carry.
+func configSections() []string {
+	var out []string
+	t := reflect.TypeOf(Config{})
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if f.Type.Kind() != reflect.Struct {
+			continue
+		}
+		if tag := f.Tag.Get("toml"); tag != "" {
+			out = append(out, tag)
+		}
+	}
+	return out
+}
 
 // TestShippedConfigsAreIntact guards the two TOML files this repository ships.
 //
@@ -38,7 +56,14 @@ func TestShippedConfigsAreIntact(t *testing.T) {
 			for _, k := range md.Keys() {
 				present[k[0]] = true
 			}
-			for _, section := range []string{"listen", "output", "queue", "logging", "metrics"} {
+			// Derived from Config's own struct-typed toml tags rather than
+			// listed, so a section added tomorrow is guarded the day it is
+			// added. The hand-written list omitted [cepa] — the one section
+			// whose loss is both silent and total, since pkg/server/register.go
+			// states its defaults "DO NOT WORK" against real CEE: falling back
+			// to them means no registration, 0x16 CEPP_NOT_FOUND, and every
+			// observable on this side green.
+			for _, section := range configSections() {
 				if !present[section] {
 					t.Errorf("%s has no [%s] section; a shipped config that omits one "+
 						"silently falls back to defaults", path, section)

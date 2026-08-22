@@ -257,7 +257,13 @@ func convert(r rawEvent, fallback time.Time) CEPAEvent {
 		UserSID:    r.UserSID,
 		LogonID:    r.LogonID,
 		ClientAddr: r.ClientAddress,
-		Timestamp:  parseTimestamp(r.Timestamp, fallback),
+		// The VCAPS payload carries neither a protocol code nor a server name,
+		// so this is genuinely unknown rather than merely unread. Unknown, not
+		// "": Protocol is a metric label and an empty one is indistinguishable
+		// from an absent one. Server stays empty and RecordEvent's own guard
+		// drops it, because inventing a name would be worse than no series.
+		Protocol:  ceeProtocolName(""),
+		Timestamp: parseTimestamp(r.Timestamp, fallback),
 
 		BytesRead:      parseInt64(r.BytesRead),
 		BytesWritten:   parseInt64(r.BytesWritten),

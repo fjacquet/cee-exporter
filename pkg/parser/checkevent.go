@@ -108,8 +108,11 @@ type checkEventRequest struct {
 //
 //	<EventExt inode="9450" userId="0" ownerId="0" fsId="0xb0000009f" parentInode="2"/>
 //
-// Only the ids are consumed. inode, fsId and parentInode identify the object
-// rather than the actor, and ObjectName already names it by path.
+// Only userId is consumed. ownerId is declared but unread, in the same spirit
+// as the unconsumed attributes above: it is the wire shape, machine-checked,
+// and the field an owner-change event will need. inode, fsId and parentInode
+// identify the object rather than the actor, and ObjectName already names it
+// by path.
 type eventExtXML struct {
 	UserID  string `xml:"userId,attr"`
 	OwnerID string `xml:"ownerId,attr"`
@@ -396,7 +399,7 @@ var ceeProtocolNames = map[uint64]string{
 // whatever else was blank, rather than showing up as traffic nobody can
 // account for.
 func ceeProtocolName(raw string) string {
-	n, err := parseCEENum(strings.TrimSpace(raw), 10)
+	n, err := parseCEENum(raw, 10)
 	if err != nil {
 		return "Unknown"
 	}

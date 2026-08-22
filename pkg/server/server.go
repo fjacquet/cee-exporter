@@ -252,9 +252,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if decodeErr != nil {
 		slog.Error("cepa_decode_error",
 			"remote", r.RemoteAddr, "body_bytes", len(body), "error", decodeErr)
-		// Still ACK: a publisher that gets no answer marks us unreachable and
+		// Still answer: a publisher that gets no reply marks us unreachable and
 		// stops publishing entirely, which costs far more than one payload.
-		w.WriteHeader(http.StatusOK)
+		//
+		// A bare 200 is NOT a safe default here, which is the correction this
+		// branch's own checkEventResponse documents: Dell CEE reads an empty
+		// body as a failed delivery and retries the same batch forever. The
+		// dialect is unknowable when the body would not decode, so answer with
+		// the event acknowledgement — it is the only reply whose absence is
+		// known to stall a publisher indefinitely, and OneFS, which wants
+		// <CheckFileResponse>, treats an unexpected document the same way it
+		// treats an empty one.
+		// The return is unconditional either way: respond logs its own write
+		// failure and there is nothing further this branch can do.
+		_, _ = respond(w, r, body, checkEventResponse, "text/xml",
+			"cepa_decode_error_response_write_error")
 		return
 	}
 
@@ -378,7 +390,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		_ = n
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
@@ -395,6 +406,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		slog.Info("cepa_cee_events_received",
+			"response_bytes", n,
 			"remote", r.RemoteAddr,
 			"events_in_batch", len(events),
 			"queue_depth", metrics.M.QueueDepth(),
@@ -443,18 +455,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // queue work.
 func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 	metrics.M.EventsReceivedTotal.Add(int64(len(events)))
-	for _, e := range events {
-		// Per event, not per batch: a batch can mix types, protocols and even
-		// NAS servers, and attributing all of it to the first one would be a
-		// quiet lie in exactly the breakdown that exists to prevent one.
-		metrics.M.RecordEvent(e.EventType, e.Protocol, e.Server)
-	}
 
 	hostname := h.hostname
 	if hostname == "" {
 		hostname = r.Host
 	}
 	for _, e := range events {
+		// Per event, not per batch: a batch can mix types, protocols and even
+		// NAS servers, and attributing all of it to the first one would be a
+		// quiet lie in exactly the breakdown that exists to prevent one.
+		metrics.M.RecordEvent(e.EventType, e.Protocol, e.Server)
+
 		// An eventType OneFS sends that this build has no established meaning
 		// for. The record is still written — the cluster's cursor has already
 		// moved, so dropping it would lose it outright — but it carries the

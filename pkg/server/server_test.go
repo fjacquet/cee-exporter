@@ -761,8 +761,14 @@ func TestEnqueueRecordsEventBreakdown(t *testing.T) {
 	if !found {
 		t.Errorf("no NFS entry in the by-type breakdown: %+v", metrics.M.EventTypeSnapshot())
 	}
-	if got := metrics.M.EventServerSnapshot()["10.26.1.224"]; got != 1 {
+	var serverCount int64
+	for _, e := range metrics.M.EventServerSnapshot() {
+		if e.Server == "10.26.1.224" {
+			serverCount = e.Count
+		}
+	}
+	if serverCount != 1 {
 		t.Errorf("by-server count for the NAS = %d, want 1 (got %+v)",
-			got, metrics.M.EventServerSnapshot())
+			serverCount, metrics.M.EventServerSnapshot())
 	}
 }

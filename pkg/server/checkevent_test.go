@@ -131,9 +131,9 @@ func TestCheckEventRequestIsAcknowledgedWithADocument(t *testing.T) {
 	resetPeers(t)
 	h := newTestHandler(t, &stubWriter{}, 10, 1)
 
-	body := []byte(`<CheckEventRequest><EventList count="1">` +
-		`<Event event="0x8" path="\\nas01\fs01\a.txt" timeStamp="1786735002" protocol="0"/>` +
-		`</EventList></CheckEventRequest>`)
+	// checkEventRequestCEE is this package's CheckEventRequest fixture; the
+	// assertion is on the reply, so the payload's contents do not matter.
+	body := []byte(checkEventRequestCEE)
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.RemoteAddr = "10.26.1.199:5000"
 	rec := httptest.NewRecorder()
