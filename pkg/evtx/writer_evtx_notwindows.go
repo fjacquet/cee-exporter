@@ -271,6 +271,22 @@ func windowsEventToFields(e WindowsEvent) map[string]string {
 		"AccessMask":        clip(e.AccessMask),
 		"ProcessId":         fmt.Sprintf("%d", e.ProcessID),
 		"ProcessName":       "",
+
+		// e.ClientAddr is deliberately absent, and adding it here does
+		// nothing. go-evtx's BinXML template is a fixed [12]string
+		// (dataFieldNames in binxml.go) — SubjectUserSid, SubjectUserName,
+		// SubjectDomainName, SubjectLogonId, ObjectServer, ObjectType,
+		// ObjectName, HandleId, AccessList, AccessMask, ProcessId,
+		// ProcessName — and WriteRecord silently ignores any other key. An
+		// "IpAddress" entry was added here once, passed a unit test that
+		// asserted on this map, and never reached the file: verified against a
+		// live audit.evtx where the string occurred zero times across 19
+		// records.
+		//
+		// So the client address survives only through the syslog, GELF, Beats
+		// and Win32 writers, all of which carry it. Getting it into a binary
+		// .evtx needs a 13th substitution in go-evtx's template, not a change
+		// in this map.
 	}
 
 	// Second pass: the per-field cap bounds one long value, not eleven.
