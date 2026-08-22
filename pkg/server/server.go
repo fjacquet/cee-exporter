@@ -2,17 +2,50 @@
 //
 // Endpoints:
 //
-//	PUT /            — CEPA event receiver (RegisterRequest + event batches)
+//	PUT|POST /       — CEPA receiver: RegisterRequest, CheckFileRequest
+//	                   (OneFS), CheckEventRequest (Dell CEE) and event batches
 //	GET /health      — JSON health status
 //
-// Critical protocol constraints (from Dell CEPA documentation):
-//  1. RegisterRequest: respond HTTP 200 with an EMPTY body.  Any XML in the
-//     response causes a fatal parse error on the PowerStore side.
-//     CheckFileRequest — the OneFS handshake — is the exact opposite: an
-//     empty body is fatal there, and it needs a CheckFileResponse back. The
-//     two dialects must not be collapsed.
+// Critical protocol constraints:
+//
+//  1. RegisterRequest: respond HTTP 200 with a <RegisterResponse> document.
+//     See pkg/server/register.go for the shape and where it comes from.
+//
+//     This file previously said the opposite — "respond with an EMPTY body,
+//     any XML causes a fatal parse error on the PowerStore side" — and that
+//     claim is wrong. It is worth recording rather than deleting, because it
+//     cost two bring-ups. CEE parses the reply (CRegisterResponse, built from
+//     the response string) and refuses an empty one outright: "Top node is not
+//     RegisterResponse", and a consumer CEE never registers can never be sent
+//     events.
+//
+//     This IS what makes CEE answer an array status="0x16" (CEPP_NOT_FOUND) —
+//     verified end to end on 2026-08-22, when fixing it took a PowerStore from
+//     0x16 with 151 discarded events to 0x0 with events flowing. A dead-endpoint
+//     control appears to exonerate this leg (identical 0x16 either way); that is
+//     a false negative, since both cases mean "no partner".
+//
+//     Registering also requires an identity CEE already knows: see
+//     RegistrationConfig. And it is not sufficient on its own — CEE then probes
+//     with <HeartBeatRequest /> and needs hbStatus=0 (see heartbeat.go), or the
+//     partner stays OFFLINE and the array gets 0x12.
+//
+//     Do NOT read CEE's 10-second <RegisterRequest /> cadence as evidence
+//     either way. Measured against three CEE instances whose consumers
+//     returned a valid RegisterResponse, an empty body, and non-XML garbage:
+//     all three kept re-registering every 10 s, identically, forever. The
+//     cadence is just what CEE does over HTTP. The requirement above comes
+//     from CEE's code, not from that behaviour.
+//
+//     The empty-body rule was also read as applying to "the PowerStore side",
+//     but the peer that sends RegisterRequest is CEE itself, not the array.
+//
+//     CheckFileRequest — the OneFS handshake — needs a CheckFileResponse back
+//     and is fatal on an empty body. The dialects must not be collapsed.
+//
 //  2. Response latency: the CEPA heartbeat timeout is ~3 seconds.  The handler
 //     ACKs immediately and delegates work to the async queue.
+//
 //  3. VCAPS batches: a single PUT may contain thousands of events.
 package server
 
@@ -66,13 +99,15 @@ var checkFileResponse = []byte(`<CheckFileResponse status="0x0" ceeVersion="9.2.
 type Handler struct {
 	q        *queue.Queue
 	hostname string // embedded in every generated WindowsEvent
+	reg      RegistrationConfig
 }
 
 // NewHandler creates a Handler.
 // hostname is the value used for the WindowsEvent.Computer field
 // (typically the NAS hostname extracted from the CEPA request context).
-func NewHandler(q *queue.Queue, hostname string) *Handler {
-	return &Handler{q: q, hostname: hostname}
+// reg describes this consumer to Dell CEE; a zero value takes the defaults.
+func NewHandler(q *queue.Queue, hostname string, reg RegistrationConfig) *Handler {
+	return &Handler{q: q, hostname: hostname, reg: reg.withDefaults()}
 }
 
 // ServeHTTP implements http.Handler.  Only PUT is accepted; everything else
@@ -108,13 +143,33 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// -- Handshake -----------------------------------------------------------
 	if parser.IsRegisterRequest(body) {
 		metrics.M.RecordPeerRegistration(peer)
+
+		// Answer in the encoding we were addressed in, exactly as the OneFS
+		// branch below does. CEE sends UTF-16LE without a BOM and cannot read
+		// a UTF-8 reply.
+		reply := h.reg.registrationResponseXML()
+		if parser.IsUTF16(body) {
+			reply = parser.EncodeUTF16LE(reply)
+		}
+
+		w.Header().Set("Content-Type", "text/xml")
+		w.WriteHeader(http.StatusOK)
+		n, err := w.Write(reply)
+		if err != nil {
+			slog.Error("cepa_register_response_write_error",
+				"remote", r.RemoteAddr, "error", err)
+			return
+		}
+
+		// friendly_name is logged because it is the one field CEE may match
+		// against its own EndPoint partner id, and a mismatch there fails
+		// registration with no diagnostic on Windows.
 		slog.Info("cepa_register_request",
 			"remote", r.RemoteAddr,
 			"body_bytes", len(body),
-			"response_bytes", 0, // MUST be 0
+			"response_bytes", n,
+			"friendly_name", h.reg.FriendlyName,
 		)
-		// Respond 200 OK with strictly empty body.
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -185,6 +240,74 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// CEE's post-registration liveness probe. Answered explicitly rather than
+	// left to fall through to the event parser, which would log it as a parse
+	// error and reply with an empty body — telling CEE nothing about whether
+	// this consumer is online.
+	if parser.IsHeartBeatRequest(body) {
+		metrics.M.RecordPeerRegistration(peer)
+
+		reply := heartbeatReply()
+		if parser.IsUTF16(body) {
+			reply = parser.EncodeUTF16LE(reply)
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		n, err := w.Write(reply)
+		if err != nil {
+			slog.Error("cepa_heartbeat_response_write_error",
+				"remote", r.RemoteAddr, "error", err)
+			return
+		}
+
+		// Worth an Info line rather than Debug: seeing this at all is the
+		// signal that registration finally succeeded. Until 2026-08-21 CEE
+		// never progressed past <RegisterRequest />.
+		slog.Info("cepa_heartbeat_request",
+			"remote", r.RemoteAddr,
+			"body_bytes", len(body),
+			"response_bytes", n,
+		)
+		return
+	}
+
+	// Dell CEE's own event delivery. A third dialect: neither the
+	// RegisterRequest it opens with nor the CheckFileRequest OneFS uses.
+	// Reached only once registration has succeeded — CEE sends no events to a
+	// partner it has not registered.
+	if parser.IsCheckEventRequest(body) {
+		receiveTime := time.Now().UTC()
+		events, err := parser.ParseCheckEventRequest(body, receiveTime)
+		if err != nil {
+			slog.Warn("cepa_cee_event_unhandled",
+				"remote", r.RemoteAddr,
+				"body_bytes", len(body),
+				"error", err,
+				"body", string(body),
+			)
+			// ACK anyway: CEE marks a partner that does not answer as
+			// unavailable and stops publishing to it entirely, which would
+			// cost far more than the one payload we could not read — and the
+			// payload is in the log above either way.
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		slog.Info("cepa_cee_events_received",
+			"remote", r.RemoteAddr,
+			"events_in_batch", len(events),
+			"queue_depth", metrics.M.QueueDepth(),
+			"latency_ms", time.Since(start).Milliseconds(),
+		)
+
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		h.enqueue(events, r)
+		return
+	}
+
 	// -- Event payload -------------------------------------------------------
 	receiveTime := time.Now().UTC()
 	events, parseErr := parser.Parse(body, receiveTime)
@@ -236,6 +359,19 @@ func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 		// and that distinction has to be visible to whoever reads the trail.
 		if parser.IsUnmappedOneFSEventType(e.EventType) {
 			slog.Warn("cepa_onefs_event_type_unmapped",
+				"remote", r.RemoteAddr,
+				"event_type", e.EventType,
+				"file_path", e.FilePath,
+			)
+		}
+		// Same contract for Dell CEE's numeric event codes, which are ALL
+		// unmapped in this build: pkg/parser/checkevent.go declines to guess
+		// which bit each EVENT_* name occupies. Every such record is written
+		// with the mapper's default EventID and the raw code preserved in the
+		// label, and this line is what makes the gap visible in the log —
+		// including the codes needed to fill the table in.
+		if parser.IsUnmappedCEEEventType(e.EventType) {
+			slog.Warn("cepa_cee_event_type_unmapped",
 				"remote", r.RemoteAddr,
 				"event_type", e.EventType,
 				"file_path", e.FilePath,

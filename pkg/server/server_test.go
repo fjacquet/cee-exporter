@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/xml"
 	"errors"
 	"io"
 	"net/http"
@@ -186,15 +187,20 @@ func newTestHandler(t *testing.T, w evtx.Writer, capacity, workers int) *Handler
 	q := queue.New(capacity, workers, w)
 	q.Start(context.Background())
 	t.Cleanup(q.Stop)
-	return NewHandler(q, "test-host")
+	return NewHandler(q, "test-host", RegistrationConfig{})
 }
 
-// TestServeHTTP_RegisterRequest_EmptyBody is the CEPA-01 guard: the
-// RegisterRequest handshake must get HTTP 200 with a response body of
-// exactly zero bytes. Any XML in the response — even a single stray
-// newline — is a fatal parse error on the PowerStore side, so this asserts
-// on byte length, not string equality.
-func TestServeHTTP_RegisterRequest_EmptyBody(t *testing.T) {
+// TestServeHTTP_RegisterRequest_ReturnsRegisterResponse replaces a test that
+// asserted the exact opposite — that the reply body must be exactly zero
+// bytes — and the inversion is the whole point, so it is worth stating.
+//
+// An empty reply does not complete registration; it fails it. CEE parses the
+// response (CRegisterResponse) and rejects a body with no root element: "Top
+// node is not RegisterResponse". With no registered partner CEE answers every
+// array heartbeat status="0x16" (VC_ERROR_CEPP_NOT_FOUND) and the array never
+// publishes at all — which is what two bring-ups measured as "connected,
+// healthy, silent".
+func TestServeHTTP_RegisterRequest_ReturnsRegisterResponse(t *testing.T) {
 	cases := []struct {
 		name string
 		body string
@@ -215,10 +221,82 @@ func TestServeHTTP_RegisterRequest_EmptyBody(t *testing.T) {
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want 200", rec.Code)
 			}
-			if n := rec.Body.Len(); n != 0 {
-				t.Fatalf("response body = %d bytes, want exactly 0 (CEPA-01: any body is a fatal parse error on PowerStore)", n)
+
+			body := rec.Body.Bytes()
+			if len(body) == 0 {
+				t.Fatal("empty reply: CEE reports \"Top node is not RegisterResponse\" and never registers")
+			}
+
+			// Assert on the parsed document, not on the literal string: the
+			// contract is the four attributes CEndPoint::Init() requires, not
+			// the byte layout.
+			var probe struct {
+				XMLName  xml.Name `xml:"RegisterResponse"`
+				EndPoint struct {
+					FriendlyName string `xml:"friendlyName,attr"`
+					GUID         string `xml:"guid,attr"`
+					Version      string `xml:"version,attr"`
+					Desc         string `xml:"desc,attr"`
+				} `xml:"EndPoint"`
+				Filter struct {
+					Protocol        string `xml:"protocol,attr"`
+					EventTypeFilter struct {
+						Value string `xml:"value,attr"`
+					} `xml:"EventTypeFilter"`
+				} `xml:"Filter"`
+			}
+			if err := xml.Unmarshal(body, &probe); err != nil {
+				t.Fatalf("reply is not a well-formed RegisterResponse: %v\nbody: %s", err, body)
+			}
+
+			// Each of these has its own CEE rejection message, so each is
+			// checked by name rather than folded into one assertion.
+			if probe.EndPoint.FriendlyName == "" {
+				t.Error(`friendlyName empty: CEE reports "Incomplete XML. Required Name or FriendlyName not present"`)
+			}
+			if probe.EndPoint.GUID == "" {
+				t.Error(`guid empty: CEE reports "Guid or FriendlyName not specified"`)
+			}
+			if probe.EndPoint.Desc == "" {
+				t.Error(`desc empty: CEE reports "Incomplete XML. Required description not present"`)
+			}
+			if probe.EndPoint.Version == "" {
+				t.Error("version empty")
+			}
+			if probe.Filter.Protocol == "" {
+				t.Error("Filter/@protocol empty: CEE builds its per-protocol filter from this")
+			}
+			// An all-zero mask registers a partner subscribed to nothing:
+			// CEE would accept the registration and deliver no event ever.
+			v := probe.Filter.EventTypeFilter.Value
+			if v == "" || strings.Trim(strings.TrimPrefix(v, "0x"), "0") == "" {
+				t.Errorf("EventTypeFilter value = %q: subscribes to no events at all", v)
 			}
 		})
+	}
+}
+
+// TestServeHTTP_RegisterResponse_IsUTF16WhenAsked pins the reply encoding for
+// the registration, the same way TestServeHTTP_PowerStoreGetsUTF16Response
+// does for the heartbeat. CEE sends <RegisterRequest /> as 38 bytes of
+// UTF-16LE with `Accept-Charset: utf-16`; a UTF-8 reply is a document it
+// cannot parse, and it reports that as an ordinary registration failure with
+// no detail at all on Windows.
+func TestServeHTTP_RegisterResponse_IsUTF16WhenAsked(t *testing.T) {
+	h := newTestHandler(t, &stubWriter{}, 1, 1)
+
+	req := httptest.NewRequest(http.MethodPut, "/", bytes.NewReader(utf16le(`<RegisterRequest />`)))
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	body := rec.Body.Bytes()
+	if !bytes.Contains(body, []byte{0x00}) {
+		t.Fatalf("reply carries no NUL bytes, so it is not UTF-16LE: %q", body[:min(64, len(body))])
+	}
+	decoded := bytes.ReplaceAll(body, []byte{0x00}, nil)
+	if !bytes.Contains(decoded, []byte("<RegisterResponse>")) {
+		t.Fatalf("decoded reply is not a RegisterResponse: %q", decoded)
 	}
 }
 

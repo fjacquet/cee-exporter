@@ -7,7 +7,108 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CEE never registered this consumer, so no array ever published.** The
+  `RegisterRequest` handshake was answered with HTTP 200 and a deliberately
+  empty body, on the strength of a comment in `pkg/server/server.go` citing
+  "Dell CEPA documentation". That rule is wrong, and it was the reason two
+  separate PowerStore bring-ups ended in "connected, healthy, and silent".
+
+  CEE parses the reply into a `CRegisterResponse` and rejects a body with no
+  root element — `Top node is not RegisterResponse` — so registration cannot
+  complete, and a consumer that never registers can never be sent events.
+
+  **This IS why the PowerStore deployment saw `CEPP_NOT_FOUND`, and it now
+  works.** Verified end to end 2026-08-22: the fix took a live PowerStore from
+  `0x16` with 151 discarded events to `0x0` with events reaching the consumer
+  and a `.evtx` readable by `Get-WinEvent` on Windows Server 2025. A
+  dead-endpoint control appears to exonerate this leg — identical `0x16` either
+  way — but that is a false negative, since both cases mean "no partner".
+  An unregistered CEE answers array heartbeats `status="0x16"`
+  (`VC_ERROR_CEPP_NOT_FOUND`), and the array counted its events missed and
+  discarded them without ever putting one on the wire.
+
+  The consumer now returns the document CEE requires:
+
+  ```xml
+  <RegisterResponse><EndPoint friendlyName="ceeexporter" guid="…"
+    version="1.0" desc="cee-exporter CEPA consumer"/>
+    <Filter protocol="0,1"><EventTypeFilter value="0xFFFFFFFFFFFFFFFFFFFFFFFF"/>
+  </Filter></RegisterResponse>
+  ```
+
+  encoded UTF-16LE when addressed in UTF-16LE, as the OneFS path already did.
+  Configurable under `[cepa]` — `friendly_name`, `guid`, `description`,
+  `protocols`, `event_filter`.
+
+  **The response shape alone is not enough** — CEE also demands an identity it
+  already knows (`CGuidStore`, see `RegistrationConfig`) and a `hbStatus=0`
+  reply to its `<HeartBeatRequest />`. Diagnosing this needs `Debug=63` on the
+  CEE side: `Debug`/`Verbose` are a 6-bit mask, and at `1` — or even `9`, which
+  prints less than `3` — CEE says nothing about why it refused a partner.
+
+  The shape is not inferred. It is CEE's own template for its built-in
+  SplunkHEC proxy, recovered from `libCEPPAPIWrapper.so` in the vendored CEE
+  9.2.0.0 rpm, and the rules it is validated against are the failure messages
+  in `CEndPoint::Init()` (`libCEPPFilter.so`). Protocol codes `0=CIFS, 1=NFS,
+  2=FTP, 3=Unknown` come from CEE's own `ProtocolDesc` table. Dell publishes
+  no protocol specification and CEE on Windows writes no log at all, so the
+  binary is the only available source.
+
+  `NewHandler` now takes a `RegistrationConfig`.
+
 ### Added
+
+- **The CEE partner allowlist is now honoured** (`pkg/server/register.go`).
+  `friendly_name`, `guid` and `version` are configurable under `[cepa]`, because
+  CEE will only register an identity present in `CGuidStore` — a table compiled
+  into `libCEPPAPIWrapper.so` keyed by *(friendlyName, facility)* → GUID. The
+  defaults deliberately do not match any row: picking someone else's registered
+  vendor identity is a decision for the operator, not a silent default. The
+  extracted table lives in cee-worker's `docs/cee-partner-allowlist.md`.
+
+- **CEE's 21 event codes are mapped** (`pkg/parser/checkevent.go`,
+  `pkg/mapper`). `Event/@event` is a bitmask, one bit per event in the order
+  Dell documents (`OpenFileNoAccess … OpenFileWriteOffline`, mask `0x1fffff` —
+  21 names, 21 bits; Dell KB 000194250, and the same order in PowerStore's REST
+  API). **Bit 3 (`0x8` = CreateFile) is confirmed by measurement** against a
+  live array; the other twenty are documented rather than measured and are
+  marked as such in the table. Codes outside the 21 still reach the writers with
+  their raw value preserved and a WARN, as before.
+
+
+
+- **CEE's post-registration heartbeat is answered** (`pkg/server/heartbeat.go`).
+  Once registered, CEE probes the consumer with `<HeartBeatRequest />` and
+  scans the reply for `hbStatus=` and `ntStatus=`. This had never been seen on
+  the wire because CEE only sends it to a partner it managed to register, so
+  it would have fallen through to the event parser and been answered with an
+  empty body — leaving CEE with no idea whether the consumer was online, one
+  step after the registration fix. The reply reports `hbStatus=0`,
+  `CEPP_SERVICE_ONLINE`, whose value is measured: the five state names sit in
+  an indexed pointer array in `libCEPPAPIWrapper.so`, recovered from the
+  relocations, and the index is the value. The separator between the two
+  fields is *not* established and is noted as such in the code.
+
+- **Dell CEE's own event dialect is parsed** (`pkg/parser/checkevent.go`).
+  CEE delivers events as `<CheckEventRequest><EventList><Event …/></EventList>`,
+  a third shape distinct from both the `RegisterRequest` handshake and OneFS's
+  `CheckFileRequest`. The parser was keyed on `<CEEEvent>`/`<EventBatch>` only,
+  so every CEE-delivered event would have been dropped as an unrecognised
+  payload even once registration was fixed. `encodedPath` is preferred over
+  `path` when present, since CEE supplies it precisely when the plain
+  attribute is lossy.
+
+  The numeric `Event/@event` codes are deliberately **not** mapped. CEE names
+  19 events internally (`EVENT_FILE_CREATE`, `EVENT_DIR_RENAME`, …) but which
+  bit each occupies was not recoverable from the binary — the strings are
+  referenced from code, not through a pointer table, so their layout order is
+  a compiler artefact rather than evidence. Every event is written with its raw
+  code preserved in the label (`CEPP_CEE_UNMAPPED_<n>`) and logged at WARN, the
+  same discipline used for the OneFS `eventType` values before an isolation run
+  resolved them by measurement. Fill the table in from real traffic, not from
+  the ordering.
 
 - **OneFS file events are parsed and written.** `CheckFileRequest` with
   `action="11"` carries a real audit event, not a heartbeat — same element,

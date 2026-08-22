@@ -43,6 +43,18 @@ var cepaToEventID = map[string]int{
 	"CEPP_DELETE_DIRECTORY": 4660,
 	"CEPP_SETACL_FILE":      4670,
 	"CEPP_SETACL_DIRECTORY": 4670,
+
+	// Dell CEE's own event set (pkg/parser/checkevent.go). Opens are 4663
+	// "an attempt was made to access an object" with the access that was
+	// requested; the directory close is 4658 like the file close; SetSec
+	// changes ownership rather than the DACL, which is 4670's other half.
+	"CEPP_OPEN_FILE_NOACCESS": 4663,
+	"CEPP_OPEN_FILE_READ":     4663,
+	"CEPP_OPEN_FILE_WRITE":    4663,
+	"CEPP_OPEN_DIRECTORY":     4663,
+	"CEPP_CLOSE_DIRECTORY":    4658,
+	"CEPP_SETSEC_FILE":        4670,
+	"CEPP_SETSEC_DIRECTORY":   4670,
 }
 
 // accessMaskFor returns the Windows access mask hex string for an event type.
@@ -60,6 +72,14 @@ var accessMaskFor = map[string]string{
 	"CEPP_DELETE_DIRECTORY": "0x10000",
 	"CEPP_SETACL_FILE":      "0x40000", // WRITE_DAC
 	"CEPP_SETACL_DIRECTORY": "0x40000",
+
+	"CEPP_OPEN_FILE_NOACCESS": "0x0",     // opened requesting no access
+	"CEPP_OPEN_FILE_READ":     "0x1",     // ReadData
+	"CEPP_OPEN_FILE_WRITE":    "0x2",     // WriteData
+	"CEPP_OPEN_DIRECTORY":     "0x1",     // ListDirectory
+	"CEPP_CLOSE_DIRECTORY":    "0x0",     // a bare close exercises no access
+	"CEPP_SETSEC_FILE":        "0x80000", // WRITE_OWNER
+	"CEPP_SETSEC_DIRECTORY":   "0x80000",
 }
 
 // accessDescFor returns a human-readable access description.
@@ -77,6 +97,14 @@ var accessDescFor = map[string]string{
 	"CEPP_DELETE_DIRECTORY": "DELETE",
 	"CEPP_SETACL_FILE":      "WRITE_DAC",
 	"CEPP_SETACL_DIRECTORY": "WRITE_DAC",
+
+	"CEPP_OPEN_FILE_NOACCESS": "ReadAttributes",
+	"CEPP_OPEN_FILE_READ":     "ReadData (or ListDirectory)",
+	"CEPP_OPEN_FILE_WRITE":    "WriteData (or AddFile)",
+	"CEPP_OPEN_DIRECTORY":     "ReadData (or ListDirectory)",
+	"CEPP_CLOSE_DIRECTORY":    "CloseHandle",
+	"CEPP_SETSEC_FILE":        "WRITE_OWNER",
+	"CEPP_SETSEC_DIRECTORY":   "WRITE_OWNER",
 }
 
 // ProviderName is embedded in every generated event. Exported because

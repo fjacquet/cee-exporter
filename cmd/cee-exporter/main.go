@@ -60,7 +60,26 @@ type Config struct {
 	Queue    QueueConfig   `toml:"queue"`
 	Logging  LoggingConfig `toml:"logging"`
 	Metrics  MetricsConfig `toml:"metrics"`
+	CEPA     CEPAConfig    `toml:"cepa"`
 	Hostname string        `toml:"hostname"` // embedded in events; default: os.Hostname()
+}
+
+// CEPAConfig describes this consumer to Dell CEE at registration time.
+// Every field is optional; pkg/server supplies the defaults.
+//
+// friendly_name is the one worth setting. CEE indexes registered partners by
+// name, so it should match the partner id in CEE's own EndPoint value — the
+// `name` in `name@http://host:port`. If registration is refused, CEE also
+// ships a table of known partner ids (SimpleCEPPServer, SampleCEPPServer,
+// PeerSoftwareCollector, SplunkHEC…) and trying one of those is the next
+// thing to reach for, which is why this is configuration and not a constant.
+type CEPAConfig struct {
+	FriendlyName string `toml:"friendly_name"` // default "ceeexporter"
+	GUID         string `toml:"guid"`          // default: a stable built-in GUID
+	Description  string `toml:"description"`
+	Protocols    string `toml:"protocols"`    // default "0,1" — 0=CIFS, 1=NFS, 2=FTP
+	EventFilter  string `toml:"event_filter"` // default: all bits of the first 32-bit word
+	Version      string `toml:"version"`      // default "1.2"
 }
 
 type ListenConfig struct {
@@ -259,7 +278,14 @@ func run(ctx context.Context) {
 
 	// Build HTTP mux.
 	mux := http.NewServeMux()
-	mux.Handle("/", server.NewHandler(q, hostname))
+	mux.Handle("/", server.NewHandler(q, hostname, server.RegistrationConfig{
+		FriendlyName: cfg.CEPA.FriendlyName,
+		GUID:         cfg.CEPA.GUID,
+		Description:  cfg.CEPA.Description,
+		Protocols:    cfg.CEPA.Protocols,
+		EventFilter:  cfg.CEPA.EventFilter,
+		Version:      cfg.CEPA.Version,
+	}))
 	mux.Handle("/health", server.NewHealthHandler(server.HealthConfig{
 		StartTime:   time.Now(),
 		WriterType:  cfg.Output.Type,

@@ -97,3 +97,33 @@ format = "json"  # json (production) | text (development)
 [metrics]
 enabled = true
 addr    = "0.0.0.0:9228"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CEPA registration
+#
+# Dell CEE will not send events to a consumer it has not registered. It PUTs
+# <RegisterRequest /> here every 10 s and parses the reply; until that
+# succeeds it answers every array heartbeat status="0x16"
+# (VC_ERROR_CEPP_NOT_FOUND) and the array never publishes at all.
+#
+# Every field below is optional and defaulted. friendly_name is the one worth
+# setting: CEE indexes registered partners by name, so it should match the
+# partner id in CEE's own EndPoint value — the `name` in
+# `name@http://host:port`. If CEE refuses the registration, it also ships a
+# table of known partner ids (SimpleCEPPServer, SampleCEPPServer,
+# PeerSoftwareCollector, SplunkHEC) and trying one of those is the next thing
+# to reach for.
+# ─────────────────────────────────────────────────────────────────────────────
+[cepa]
+# friendly_name = "ceeexporter"
+# guid          = "bbefd339-b011-4c7a-89a7-1180d5d531c2"
+# description   = "cee-exporter CEPA consumer"
+
+# Protocol codes CEE filters on: 0=CIFS, 1=NFS, 2=FTP, 3=Unknown.
+# protocols = "0,1"
+
+# EventTypeFilter: three 32-bit words, one per event phase (pre, post-success,
+# post-failure). Which word is which phase is not established, so the default
+# sets every bit and subscribes to everything. Narrow it only against observed
+# traffic — a wrong guess here subscribes to nothing and looks like success.
+# event_filter = "0xFFFFFFFFFFFFFFFFFFFFFFFF"
