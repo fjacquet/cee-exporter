@@ -1,3 +1,9 @@
+//go:build !windows
+
+// BinaryEvtxWriter is the non-Windows writer — writer_evtx_notwindows.go
+// carries the same constraint — so this test cannot compile on Windows, where
+// the Win32 writer takes its place and carries the client address in its own
+// message text.
 package evtx_test
 
 import (

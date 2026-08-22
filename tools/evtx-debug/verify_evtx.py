@@ -26,8 +26,13 @@ EXPECTED_IDS = {4660, 4663, 4670}
 # absent: emitTestEvents sets it, but the evtx field map does not carry it --
 # only the syslog writer does. Expecting it here would fail on correct output.
 #
+# ClientAddr used to be in that same category and no longer is. go-evtx v0.9.0
+# added IpAddress as a thirteenth EventData field, so the address the writer
+# was already carrying reaches the file; before that the schema was closed at
+# twelve and WriteRecord ignored the key in silence.
+#
 # Presence of these names cannot currently fail: go-evtx v0.7.0 renders a
-# fixed per-EventID template with all twelve EventData slots always emitted,
+# fixed per-EventID template with all thirteen EventData slots always emitted,
 # so a missing key in windowsEventToFields yields an empty value, not a
 # missing element (measured 2026-08-09 by deleting HandleId from the writer
 # and observing the field still appear, empty). This list is kept as a guard
@@ -46,11 +51,12 @@ EXPECTED_FIELDS = [
     "AccessMask",
     "ProcessId",
     "ProcessName",
+    "IpAddress",
 ]
 
-# Values -emit-test-events produces, covering all twelve EventData fields.
+# Values -emit-test-events produces, covering all thirteen EventData fields.
 # Asserting these is what separates "the file parsed" from "the file carries
-# our data": a writer that emitted twelve correctly-named empty fields would
+# our data": a writer that emitted thirteen correctly-named empty fields would
 # satisfy a names-only check, and until this covered every field, a writer
 # that dropped SubjectUserSid or silently mis-set ProcessId would too.
 EXPECTED_VALUES = {
@@ -66,6 +72,7 @@ EXPECTED_VALUES = {
     "HandleId": "",
     "ProcessId": "0",
     "ProcessName": "",
+    "IpAddress": "127.0.0.1",
 }
 
 
@@ -272,7 +279,7 @@ def main():
             print(f"FAIL: {failure}", file=sys.stderr)
         return 1
 
-    print(f"OK: {path} -- 3 records, IDs {sorted(EXPECTED_IDS)}, all 12 EventData fields")
+    print(f"OK: {path} -- 3 records, IDs {sorted(EXPECTED_IDS)}, all 13 EventData fields")
     return 0
 
 
