@@ -10,30 +10,92 @@
   "refresh": "30s",
   "panels": [
     {
-      "id": 1,
+      "id": 7,
       "type": "stat",
-      "title": "Publisher silence (seconds since last request)",
-      "description": "Per CEE server. A CEE server, not a NAS Data Mover: a Data Mover that stops publishing into a healthy CEE server is not visible here.",
+      "title": "Events received / sec",
+      "description": "Delivery rate, not file activity. This counts event batches arriving from CEE; it does not count distinct filesystem operations, and nothing here deduplicates.\n\nCEE redelivers an event it cannot retire, at the heartbeat interval, forever. Measured on this estate: one event from 2026-08-14 20:35:21, byte-identical on every delivery — same path, same timeStamp, same inode — six deliveries in 65 seconds alongside seven heartbeats. That is not throughput, and the consumer cannot tell the difference: an empty HTTP 200 is the whole acknowledgement CEE expects for an event batch (its binaries carry no CheckEventResponse literal at all), so a replay is indistinguishable from real traffic at the wire.\n\nRead it with Events per heartbeat: a value pinned at 1.00 means every delivery is arriving on the heartbeat clock, which is the replay shape.",
       "gridPos": {
-        "h": 6,
-        "w": 12,
+        "h": 4,
+        "w": 8,
         "x": 0,
         "y": 0
       },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cee-prometheus"
+      },
       "targets": [
         {
-          "expr": "time() - cee_cepa_last_request_unix_seconds",
-          "legendFormat": "{{remote}}",
+          "expr": "sum(rate(cee_events_received_total[5m]))",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "cee-prometheus"
+          },
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "eps",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
           }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Since last event",
+      "description": "Age of the newest event processed. This is the tile that makes a zero event rate readable: 0 evt/s next to \"18 min\" is a quiet estate, 0 evt/s next to hours is a dead pipeline, and the rate alone cannot tell you which.\n\nShows no value when nothing has been processed yet, rather than a 56-year age from a zero timestamp. Amber past 15 minutes and red past an hour are placeholders — set them to whatever counts as suspicious quiet on your estate, which on a busy NAS is far shorter.\n\nPer exporter instance, and it resets when the exporter does. \"no events yet\" immediately after a restart is accurate — this process has seen none — even while the chart below still shows history Prometheus retained from the previous run.",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "cee-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "time() - (sum(cee_last_event_unix_seconds) > 0)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "decimals": 0,
+          "noValue": "no events yet",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -42,119 +104,51 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 30
+                "color": "orange",
+                "value": 900
               },
               {
                 "color": "red",
-                "value": 60
+                "value": 3600
               }
             ]
           }
         },
         "overrides": []
       },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cee-prometheus"
-      }
-    },
-    {
-      "id": 2,
-      "type": "timeseries",
-      "title": "Registrations per publisher",
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "targets": [
-        {
-          "expr": "rate(cee_cepa_registrations_total[5m])",
-          "legendFormat": "{{remote}}",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "cee-prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "overrides": []
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cee-prometheus"
+        "textMode": "auto",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "colorMode": "value"
       }
     },
     {
-      "id": 3,
+      "id": 15,
       "type": "timeseries",
-      "title": "Event throughput",
+      "title": "Events by type and protocol",
+      "description": "What kind of activity is arriving, not just how much. The scalar counter collapsed the whole estate into one number, which is why a single replayed event was indistinguishable from varied traffic.\n\nOn this deployment it resolves to exactly one series — CEPP_CREATE_FILE · NFS — and that IS the finding: a real filesystem produces opens, reads, closes and deletes, not one event type forever.\n\nCounts deliveries, not distinct operations. Protocol comes from the wire's numeric code as ProtocolDesc resolves it (0 CIFS, 1 NFS, 2 FTP, 3 Unknown); an unmapped code renders Unknown rather than blank, so new traffic cannot hide in an empty label.",
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 10,
+        "w": 24,
         "x": 0,
-        "y": 6
-      },
-      "targets": [
-        {
-          "expr": "rate(cee_events_received_total[5m])",
-          "legendFormat": "received",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "cee-prometheus"
-          }
-        },
-        {
-          "expr": "rate(cee_events_written_total[5m])",
-          "legendFormat": "written",
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "cee-prometheus"
-          }
-        },
-        {
-          "expr": "rate(cee_events_dropped_total[5m])",
-          "legendFormat": "dropped",
-          "refId": "C",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "cee-prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "eps"
-        },
-        "overrides": []
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
         "uid": "cee-prometheus"
-      }
-    },
-    {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Queue depth",
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 6
       },
       "targets": [
         {
-          "expr": "cee_queue_depth",
-          "legendFormat": "depth",
+          "expr": "sum by (event_type, protocol) (rate(cee_events_by_type_total[5m]))",
+          "legendFormat": "{{event_type}} · {{protocol}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -164,93 +158,1010 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cee-prometheus"
-      }
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Seconds since last fsync",
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 6
-      },
-      "targets": [
-        {
-          "expr": "time() - cee_last_fsync_unix_seconds",
-          "legendFormat": "fsync age",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "cee-prometheus"
+          "unit": "eps",
+          "decimals": 3,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "axisSoftMin": 0
           }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
         },
         "overrides": []
       },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cee-prometheus"
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
-      "id": 6,
-      "type": "stat",
-      "title": "Requests dropped (label cap reached)",
-      "description": "Counts requests from publishers not recorded once the 64-publisher cap was hit, not distinct publishers. Non-zero means the labelled series above are incomplete.",
+      "id": 18,
+      "type": "row",
+      "title": "More metrics",
       "gridPos": {
-        "h": 4,
+        "h": 1,
         "w": 24,
         "x": 0,
         "y": 14
       },
-      "targets": [
+      "collapsed": true,
+      "panels": [
         {
-          "expr": "cee_cepa_peers_dropped_total",
-          "legendFormat": "dropped",
-          "refId": "A",
+          "id": 8,
+          "type": "stat",
+          "title": "Writes / sec → evtx",
+          "description": "Records per second reaching the configured output — the .evtx file on this deployment. cee_events_written_total counts what the writer accepted, so this is the rate the audit file actually grows at.\n\nIt should track Events received exactly; a persistent gap is backlog and Queue depth says how much. Deliveries, not distinct filesystem operations: nothing here deduplicates, and CEE on this estate redelivers one event from 2026-08-14 on every heartbeat. See Events per heartbeat. A replayed event is written again on every delivery, so this is also the rate duplicate records accumulate.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 0,
+            "y": 15
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(cee_events_written_total[5m]))",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              },
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "wps",
+              "decimals": 3,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "colorMode": "none"
+          }
+        },
+        {
+          "id": 13,
+          "type": "stat",
+          "title": "Events in range",
+          "description": "Absolute count of events received over the dashboard's selected time range — the number behind the rate. Over a 65-second window against this estate it reads 6, matching the six CheckEventRequest batches counted on the wire in that span.\n\nFollows the time picker, so widening the range widens the count. Deliveries, not distinct filesystem operations: nothing here deduplicates, and CEE on this estate redelivers one event from 2026-08-14 on every heartbeat. See Events per heartbeat.\n\nAn estimate, not a count. increase() extrapolates to the window edges and sums across counter resets, so it can exceed the number of events actually seen — measured here reporting 1097 over an hour against a raw counter of 984, spanning exporter restarts.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 4,
+            "y": 15
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(increase(cee_events_received_total[$__range]))",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              },
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "colorMode": "none"
+          }
+        },
+        {
+          "id": 14,
+          "type": "stat",
+          "title": "Writes in range",
+          "description": "Records written to the .evtx over the selected range. Equal to Events in range on a healthy pipeline; short of it means the difference is still queued, dropped or truncated.\n\nAn estimate, not a count. increase() extrapolates to the window edges and sums across counter resets, so it can exceed the number of events actually seen — measured here reporting 1097 over an hour against a raw counter of 984, spanning exporter restarts.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 8,
+            "y": 15
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(increase(cee_events_written_total[$__range]))",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              },
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "colorMode": "none"
+          }
+        },
+        {
+          "id": 9,
+          "type": "stat",
+          "title": "Dropped + truncated",
+          "description": "Dropped plus truncated, cumulative. The only tile here that carries colour, because the reading is a state and not a quantity: zero is green, anything else is red and means audit records were lost or cut. Colour is reserved for exactly this.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 12,
+            "y": 15
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(cee_events_dropped_total) + sum(cee_events_truncated_total)",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              },
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "colorMode": "value"
+          }
+        },
+        {
+          "id": 12,
+          "type": "stat",
+          "title": "Deliveries per heartbeat",
+          "description": "Event deliveries divided by heartbeats across all publishers — a replay detector derived from counters that already existed.\n\nRead the STEADINESS, not the level. The level is arbitrary: heartbeats are summed over every publisher while events arrive from CEE alone, so this estate sits at 0.20 (0.1 events/s against 0.5 heartbeats/s from six publishers), not at 1.00. What matters is that it does not move.\n\nA value that holds exactly constant means deliveries are clocked by the connection rather than produced by filesystem activity — CEE redelivering an event it cannot retire. Real traffic is bursty and this value moves. Zero means nothing is being delivered at all.\n\nA signature, not a proof. Confirm on the wire, where a replay shows byte-identical timeStamp, path and inode on every delivery — as it does here, for an event dated 2026-08-14.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 16,
+            "y": 15
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(cee_events_received_total[5m])) / clamp_min(sum(rate(cee_cepa_heartbeats_total[5m])), 0.0001)",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              },
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 2,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "colorMode": "none"
+          }
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "row",
+      "title": "Diagnostics",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 1,
+          "type": "bargauge",
+          "title": "Publisher silence",
+          "description": "Seconds since each publisher last said anything. The question is which one has gone quiet, so the publishers are ranked against a common scale and a threshold rather than shown as six separate numbers you have to compare by eye.\n\nThresholds are set against CEE's HeartBeatIntervalSecs, default 10: amber past 30s, red past 60s — three and six intervals. A publisher in red has missed several heartbeats and is the one to chase.\n\nScrape interval inflates this. The gauge cannot be fresher than the last scrape, so with Prometheus at 15s a perfectly healthy 10s heartbeat reads anywhere from 0 to about 25s, and a test stack scraping at 30s reads up to 40s. Judge the thresholds, not small values — and do not set a scrape interval longer than the heartbeat you are trying to observe.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 20
+          },
+          "targets": [
+            {
+              "expr": "time() - cee_cepa_last_request_unix_seconds{remote=~\"$publisher\"}",
+              "legendFormat": "{{remote}}",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 0,
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 30
+                  },
+                  {
+                    "color": "red",
+                    "value": 60
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "options": {
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "showUnfilled": true,
+            "valueMode": "color",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "minVizWidth": 8,
+            "minVizHeight": 16
+          }
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Handshakes per publisher",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 20
+          },
+          "targets": [
+            {
+              "expr": "rate(cee_cepa_registrations_total{remote=~\"$publisher\"}[5m])",
+              "legendFormat": "{{remote}} register",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            },
+            {
+              "expr": "rate(cee_cepa_heartbeats_total{remote=~\"$publisher\"}[5m])",
+              "legendFormat": "{{remote}} heartbeat",
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 0,
+                "showPoints": "never",
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": ".*heartbeat$"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "fill": "dash",
+                      "dash": [
+                        10,
+                        6
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "description": "Registrations and heartbeats are separate series because they mean different things. Only a CEE server sends RegisterRequest; arrays publishing directly (PowerStore Data Movers, OneFS nodes) only ever heartbeat, so zero registrations against a healthy heartbeat rate is normal for them. Until v5.4.2 both were counted as registrations, so this panel showed a registration rate for publishers that had never registered.",
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 10,
+          "type": "stat",
+          "title": "Publishers reporting",
+          "description": "Distinct CEPA publishers seen. A publisher is whatever opened the connection — a CEE server, or an array publishing directly — which is not the same as where the event happened. A NAS whose events a CEE server relays never appears here at all; look for it in Events by NAS server. A drop means someone stopped talking; Publisher silence says who.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 28
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "targets": [
+            {
+              "expr": "count(cee_cepa_last_request_unix_seconds{remote=~\"$publisher\"})",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              },
+              "legendFormat": ""
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "colorMode": "none"
+          }
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Event throughput",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 28
+          },
+          "targets": [
+            {
+              "expr": "rate(cee_events_received_total[5m])",
+              "legendFormat": "{{instance}} received",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            },
+            {
+              "expr": "rate(cee_events_written_total[5m])",
+              "legendFormat": "{{instance}} written",
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            },
+            {
+              "expr": "rate(cee_events_dropped_total[5m])",
+              "legendFormat": "{{instance}} dropped",
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "eps",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 0,
+                "showPoints": "never",
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": ".*written$"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "fill": "dash",
+                      "dash": [
+                        10,
+                        6
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": ".*dropped$"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "fill": "dash",
+                      "dash": [
+                        2,
+                        4
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "description": "Events per second, per exporter instance. received is what was parsed off the wire, written is what reached the output, dropped is what was lost — so received is the parse rate and received minus written is backlog.\n\nThe three series overlap exactly on a healthy pipeline: received and written carry identical values and one hides the other, which reads as a single line or as no line at all when it sits against the top of the axis. written and dropped are dashed so received stays visible beneath them, and the legend carries the numbers so the panel is readable even when the traces coincide.",
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Queue depth",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 36
+          },
+          "targets": [
+            {
+              "expr": "cee_queue_depth",
+              "legendFormat": "{{instance}} depth",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Seconds since last fsync",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 36
+          },
+          "targets": [
+            {
+              "expr": "time() - cee_last_fsync_unix_seconds",
+              "legendFormat": "fsync age",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          }
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Deliveries against connection cadence",
+          "description": "Whether event deliveries are driven by filesystem activity or by the connection clock.\n\nCEE redelivers an event it cannot retire, at the heartbeat interval, forever. Measured on this estate: one event from 2026-08-14 20:35:21, byte-identical on every delivery — same path, same timeStamp, same inode — six deliveries in 65 seconds alongside seven heartbeats. That is not throughput, and the consumer cannot tell the difference: an empty HTTP 200 is the whole acknowledgement CEE expects for an event batch (its binaries carry no CheckEventResponse literal at all), so a replay is indistinguishable from real traffic at the wire.\n\nSo the reading is the RELATIONSHIP, not the levels. Deliveries sitting exactly on the heartbeat line, both flat, is the replay signature. Deliveries varying independently of heartbeats is real traffic. Deliveries flat at zero while heartbeats run is the other CEE failure — registration refused, every observable green, nothing published.\n\nEstate-wide, not per publisher: the event counters carry no publisher label, because a batch is attributed to the exporter that parsed it rather than the array that sent it.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 44
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(cee_events_received_total[5m]))",
+              "legendFormat": "events parsed",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            },
+            {
+              "expr": "sum(rate(cee_cepa_heartbeats_total[5m]))",
+              "legendFormat": "heartbeats",
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            },
+            {
+              "expr": "sum(rate(cee_cepa_registrations_total[5m]))",
+              "legendFormat": "registrations",
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 0,
+                "showPoints": "never",
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "events parsed"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 3
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "registrations"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "fill": "dash",
+                      "dash": [
+                        10,
+                        6
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": [
+                "lastNotNull",
+                "min",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 16,
+          "type": "timeseries",
+          "title": "Events by NAS server",
+          "description": "Where the operation happened — the array's own name for itself, taken from the event rather than from the connection.\n\nThis is the question cee_cepa_* cannot answer. Those metrics label by publisher, which for a relayed event is the CEE server, so a NAS behind a CEE server appears here and nowhere else. A NAS that stops generating events while its CEE server keeps heartbeating is visible only on this panel.\n\nThe client address is deliberately not a label: it is every workstation that ever touched a share, and unbounded labels are how an exporter takes down its own Prometheus. Server is capped too — see cee_event_labels_dropped_total.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 44
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          },
+          "targets": [
+            {
+              "expr": "sum by (server) (rate(cee_events_by_server_total{server=~\"$server\"}[5m]))",
+              "legendFormat": "{{server}}",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "eps",
+              "decimals": 3,
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 0,
+                "showPoints": "never",
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 6,
+          "type": "stat",
+          "title": "Requests dropped (label cap reached)",
+          "description": "Publisher-label and event-label truncation. Non-zero in either means a cap was hit and a real publisher, event type or NAS server is missing from the breakdowns above; the scalar totals stay correct.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 52
+          },
+          "targets": [
+            {
+              "expr": "cee_cepa_peers_dropped_total",
+              "legendFormat": "publisher labels",
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            },
+            {
+              "expr": "cee_event_labels_dropped_total",
+              "legendFormat": "event labels",
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "cee-prometheus"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
           "datasource": {
             "type": "prometheus",
             "uid": "cee-prometheus"
           }
         }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "cee-prometheus"
-      }
+      ]
     }
   ],
-  "__inputs": []
+  "__inputs": [],
+  "templating": {
+    "list": [
+      {
+        "name": "publisher",
+        "label": "Publisher",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "cee-prometheus"
+        },
+        "definition": "label_values(cee_cepa_last_request_unix_seconds, remote)",
+        "query": {
+          "query": "label_values(cee_cepa_last_request_unix_seconds, remote)",
+          "refId": "publisher"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1,
+        "hide": 0,
+        "options": []
+      },
+      {
+        "name": "server",
+        "label": "NAS server",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "cee-prometheus"
+        },
+        "definition": "label_values(cee_events_by_server_total, server)",
+        "query": {
+          "query": "label_values(cee_events_by_server_total, server)",
+          "refId": "server"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "sort": 1,
+        "hide": 0,
+        "options": []
+      }
+    ]
+  }
 }

@@ -685,3 +685,90 @@ func TestServeHTTP_CountsRegistrationsOnly(t *testing.T) {
 		t.Errorf("Registrations = %d, want 2 (two handshakes; the event batch is not one)", got)
 	}
 }
+
+// TestHeartbeatsAreNotCountedAsRegistrations pins what
+// cee_cepa_registrations_total actually means.
+//
+// RecordPeerRegistration was called from three places — the RegisterRequest
+// handshake, the OneFS CheckFileRequest heartbeat, and CEE's HeartBeatRequest
+// probe — while the metric's own HELP string said "Total CEPA RegisterRequest
+// handshakes received from this publisher". Measured against a live estate,
+// five of six series were heartbeats wearing a registration label: the four
+// OneFS nodes and the PowerStore Data Mover had never sent a RegisterRequest
+// in their lives, and the Grafana "Registrations per publisher" panel plotted
+// their heartbeat cadence as a registration rate.
+//
+// Heartbeats are still counted, under their own name.
+func TestHeartbeatsAreNotCountedAsRegistrations(t *testing.T) {
+	resetPeers(t)
+	h := newTestHandler(t, &stubWriter{}, 10, 1)
+
+	post := func(body []byte, remote string) {
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+		req.RemoteAddr = remote
+		h.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	post(utf16le(powerStoreHeartbeatXML), "10.26.1.224:1000") // OneFS-shaped heartbeat
+	post([]byte(`<HeartBeatRequest />`), "10.26.1.199:1001")  // CEE liveness probe
+	post([]byte(`<RegisterRequest />`), "10.26.1.225:1002")   // the real handshake
+
+	snap := metrics.M.PeerSnapshot()
+
+	for _, host := range []string{"10.26.1.224", "10.26.1.199"} {
+		if got := snap[host].Registrations; got != 0 {
+			t.Errorf("%s registrations = %d, want 0 — it sent a heartbeat, not a handshake", host, got)
+		}
+		if got := snap[host].Heartbeats; got != 1 {
+			t.Errorf("%s heartbeats = %d, want 1", host, got)
+		}
+	}
+	if got := snap["10.26.1.225"].Registrations; got != 1 {
+		t.Errorf("10.26.1.225 registrations = %d, want 1", got)
+	}
+	if got := snap["10.26.1.225"].Heartbeats; got != 0 {
+		t.Errorf("10.26.1.225 heartbeats = %d, want 0", got)
+	}
+}
+
+// TestEnqueueRecordsEventBreakdown: the breakdown metrics are only worth
+// anything if the receive path feeds them. This asserts against the real
+// PowerStore payload, so it also pins that an NFS event reaches the counters as
+// NFS and attributed to the NAS server, not to the CEE host that relayed it.
+func TestEnqueueRecordsEventBreakdown(t *testing.T) {
+	resetPeers(t)
+	metrics.M.ResetEventBreakdown()
+	t.Cleanup(metrics.M.ResetEventBreakdown)
+
+	h := newTestHandler(t, &stubWriter{}, 10, 1)
+	body := []byte(`<CheckEventRequest><EventList count="1">` +
+		`<Event event="0x8" path="\\nas01.diab.local\CHECK$\FS01\p.txt" flag="0x2" ` +
+		`server="10.26.1.224" share="/FS01" clientIP="10.26.1.222" serverIP="10.26.1.224" ` +
+		`timeStamp="0x6a7f7c090008765f" protocol="1">` +
+		`<EventExt inode="9450" userId="0" ownerId="0"/>` +
+		`</Event></EventList></CheckEventRequest>`)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.RemoteAddr = "10.26.1.199:5000"
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	var found bool
+	for _, e := range metrics.M.EventTypeSnapshot() {
+		if e.Protocol == "NFS" && e.Count == 1 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no NFS entry in the by-type breakdown: %+v", metrics.M.EventTypeSnapshot())
+	}
+	var serverCount int64
+	for _, e := range metrics.M.EventServerSnapshot() {
+		if e.Server == "10.26.1.224" {
+			serverCount = e.Count
+		}
+	}
+	if serverCount != 1 {
+		t.Errorf("by-server count for the NAS = %d, want 1 (got %+v)",
+			serverCount, metrics.M.EventServerSnapshot())
+	}
+}

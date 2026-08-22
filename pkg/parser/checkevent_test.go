@@ -242,31 +242,35 @@ func TestParseCheckEventRequest_EmptyListIsNamed(t *testing.T) {
 	}
 }
 
-// TestCEETimestampFallback: an unusable timestamp must fall back to receive
+// TestCEETimestampFallback: an unparseable timestamp must fall back to receive
 // time, not to the zero time, which would sort every such record to 1970 and
 // quietly corrupt the ordering of an audit trail.
+//
+// This test previously also required "9223372036854775808" (MaxInt64+1) and
+// "18446744073709551615" (MaxUint64) to fall back, guarding a > MaxInt64
+// rejection added when the attribute was believed to be a plain second count.
+// The wire says otherwise: PowerStore packs the epoch into the high 32 bits,
+// so a value above MaxInt64 is an ordinary timestamp for any event after
+// 2038-01-19, and rejecting it would substitute receive time for a perfectly
+// good one. Those two cases now decode as 2038 and 2106 respectively, and the
+// separate TestCEETimestampPackedAfter2038 pins that.
+//
+// The concern behind the rejection — CodeQL's, that the int64 conversion wraps
+// a large uint64 negative and sorts the record before 1970 — is unchanged as a
+// requirement and is now met by construction rather than by a bound:
+// ceeTimestamp unpacks before converting, so its input to time.Unix is always
+// at most MaxUint32. TestCEETimestampNeverSortsBefore1970 asserts the property
+// directly, across the whole uint64 range, which is a stronger guarantee than
+// the two sampled values were.
 func TestCEETimestampFallback(t *testing.T) {
 	fallback := time.Unix(1786735999, 0).UTC()
-	// The last two exceed MaxInt64. Without an upper bound the int64
-	// conversion wraps them negative and the record sorts *before* 1970 —
-	// worse than the zero time this fallback exists to avoid, and reported by
-	// CodeQL rather than by any test here.
-	for _, raw := range []string{
-		"", "0", "not-a-number",
-		"9223372036854775808",  // MaxInt64 + 1
-		"18446744073709551615", // MaxUint64
-	} {
+	for _, raw := range []string{"", "0", "not-a-number"} {
 		if got := ceeTimestamp(raw, fallback); !got.Equal(fallback) {
 			t.Errorf("ceeTimestamp(%q) = %v, want the fallback %v", raw, got, fallback)
 		}
 	}
 	if got := ceeTimestamp("0x6A7B0C1A", fallback); got.Equal(fallback) {
 		t.Error("ceeTimestamp did not parse the 0x form")
-	}
-	// MaxInt64 itself must still parse: the bound is inclusive, and a check
-	// written as >= would pass every other case in this test.
-	if got := ceeTimestamp("9223372036854775807", fallback); got.Equal(fallback) {
-		t.Error("ceeTimestamp rejected MaxInt64, which converts exactly")
 	}
 }
 
@@ -297,5 +301,181 @@ func TestEventTablesCorroborate(t *testing.T) {
 	}
 	if checked != len(onefsEventType) {
 		t.Errorf("corroborated %d of %d OneFS codes", checked, len(onefsEventType))
+	}
+}
+
+// TestCEETimestampPacked64 pins the PowerStore form of the timeStamp
+// attribute, captured off the wire from NAS01 (10.26.1.199) on 2026-08-22:
+//
+//	timeStamp="0x6a7f7c090008765f"
+//
+// It is not whole seconds. The high 32 bits are the Unix epoch second
+// (0x6a7f7c09 = 1786739721 = 2026-08-14T20:35:21Z, which matches the
+// pstest-1786739721.txt filename the same event carries) and the low 32 bits
+// are a sub-second remainder. Read as one 64-bit second count it becomes
+// 7673988668159719007 — the year 243179022179 — so every record written from
+// a PowerStore event carried a timestamp no reader can use, and the true
+// event time appeared nowhere in the file.
+func TestCEETimestampPacked64(t *testing.T) {
+	fallback := time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC)
+	want := time.Date(2026, 8, 14, 20, 35, 21, 0, time.UTC)
+
+	got := ceeTimestamp("0x6a7f7c090008765f", fallback)
+
+	if !got.Equal(want) {
+		t.Errorf("ceeTimestamp(packed) = %v (year %d), want %v",
+			got, got.Year(), want)
+	}
+}
+
+// TestCEETimestampPlainSecondsStillWorks guards the CIFS/OneFS form against
+// the packed-form fix: a value that fits in 32 bits is a plain epoch second
+// and must not be shifted.
+func TestCEETimestampPlainSecondsStillWorks(t *testing.T) {
+	fallback := time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC)
+	want := time.Date(2026, 8, 14, 19, 16, 42, 0, time.UTC)
+
+	if got := ceeTimestamp("1786735002", fallback); !got.Equal(want) {
+		t.Errorf("ceeTimestamp(plain) = %v, want %v", got, want)
+	}
+}
+
+// liveNFSEvent is the payload PowerStore actually publishes, captured off the
+// wire from NAS01 (10.26.1.199) on 2026-08-22. Note protocol="1" (NFS) and the
+// complete absence of userSid: NFS has no Windows SID to send, so the actor is
+// carried as a POSIX uid on the EventExt child element instead.
+const liveNFSEvent = `<CheckEventRequest><EventList count="1">` +
+	`<Event event="0x8" path="\\nas01.diab.local\CHECK$\FS01\pstest.txt" flag="0x2" ` +
+	`server="10.26.1.224" share="/FS01" clientIP="10.26.1.222" serverIP="10.26.1.224" ` +
+	`sourceID="5" timeStamp="0x6a7f7c090008765f" fileSize="0x0" protocol="1" type="0">` +
+	`<EventExt inode="9450" userId="0" ownerId="0" fsId="0xb0000009f" parentInode="2"/>` +
+	`</Event></EventList></CheckEventRequest>`
+
+// TestCheckEventNFSCarriesActorIdentity: an NFS event must not produce a record
+// with no actor. EventExt/@userId was not parsed at all, so SubjectUserSid and
+// SubjectUserName were empty on every record this array produced — an audit
+// trail that records what happened and to which file, but never by whom.
+//
+// The uid is rendered in the S-1-22-1-<uid> form, which is not an invention
+// here: it is the same representation OneFS itself puts in userSid for a POSIX
+// account (see the worked payload above ParseCheckFileRequest), so a reader
+// that already handles OneFS needs no new case.
+func TestCheckEventNFSCarriesActorIdentity(t *testing.T) {
+	evs, err := ParseCheckEventRequestDecoded([]byte(liveNFSEvent), time.Now())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("got %d events, want 1", len(evs))
+	}
+	if got, want := evs[0].UserSID, "S-1-22-1-0"; got != want {
+		t.Errorf("UserSID = %q, want %q", got, want)
+	}
+}
+
+// TestCheckEventCIFSUserSidWins guards the CIFS path: when the array does send
+// a real userSid, the synthesised POSIX form must not displace it.
+func TestCheckEventCIFSUserSidWins(t *testing.T) {
+	payload := `<CheckEventRequest><EventList count="1">` +
+		`<Event event="0x8" path="\\NAS01\fs01\a.txt" timeStamp="1786735002" ` +
+		`userSid="S-1-5-21-1-2-3-1001" protocol="0">` +
+		`<EventExt inode="1" userId="0" ownerId="0"/>` +
+		`</Event></EventList></CheckEventRequest>`
+
+	evs, err := ParseCheckEventRequestDecoded([]byte(payload), time.Now())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got, want := evs[0].UserSID, "S-1-5-21-1-2-3-1001"; got != want {
+		t.Errorf("UserSID = %q, want the CIFS SID %q", got, want)
+	}
+}
+
+// TestCEETimestampPackedAfter2038 guards the interaction between the two
+// guards in ceeTimestamp, which arrived from different branches and were
+// merged in the wrong order.
+//
+// The > MaxInt64 rejection was written when the attribute was believed to be a
+// plain second count, where such a value is nonsense. For a packed value it is
+// not: the epoch lives in the high word, so any event timestamped after
+// 2038-01-19 sets bit 63 and makes the whole 64-bit value exceed MaxInt64. A
+// rejection ordered before the unpack therefore discards a perfectly good
+// timestamp and silently substitutes receive time — the exact failure the
+// packed-form fix was written to end, returning in 2038.
+//
+// Unpacking first makes the rejection structurally unreachable for packed
+// input: the shifted value is at most MaxUint32, so the int64 conversion the
+// guard protects cannot wrap.
+func TestCEETimestampPackedAfter2038(t *testing.T) {
+	fallback := time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC)
+	// Epoch 2^31 = 2038-01-19T03:14:08Z, with a sub-second remainder.
+	want := time.Date(2038, 1, 19, 3, 14, 8, 0, time.UTC)
+
+	got := ceeTimestamp("0x8000000000001234", fallback)
+
+	if got.Equal(fallback) {
+		t.Fatalf("ceeTimestamp fell back to receive time; want %v", want)
+	}
+	if !got.Equal(want) {
+		t.Errorf("ceeTimestamp = %v, want %v", got, want)
+	}
+}
+
+// TestCEETimestampNeverSortsBefore1970 is the property the removed > MaxInt64
+// bound was protecting, asserted directly instead of at two sampled points: no
+// input, anywhere in the uint64 range, may produce a record that sorts before
+// the epoch. That was CodeQL's finding — a large uint64 converted to int64
+// wraps negative — and unpacking before converting makes it unreachable.
+func TestCEETimestampNeverSortsBefore1970(t *testing.T) {
+	epoch := time.Unix(0, 0).UTC()
+	fallback := time.Unix(1786735999, 0).UTC()
+	for _, raw := range []string{
+		"9223372036854775807",  // MaxInt64
+		"9223372036854775808",  // MaxInt64 + 1
+		"18446744073709551615", // MaxUint64
+		"0xFFFFFFFFFFFFFFFF",
+		"0x8000000000000000",
+		"0x6a7f7c090008765f", // the real PowerStore value
+		"4294967296",         // MaxUint32 + 1, the smallest packed value
+	} {
+		if got := ceeTimestamp(raw, fallback); got.Before(epoch) {
+			t.Errorf("ceeTimestamp(%q) = %v, which sorts before the Unix epoch", raw, got)
+		}
+	}
+}
+
+// TestCheckEventCarriesProtocolAndServer: the wire has always carried which
+// protocol the operation used and which NAS server it happened on, and the
+// parser discarded both. Without them every event counter is scalar — a single
+// number for the whole estate — so a dashboard cannot say what kind of activity
+// is happening or where, and the one event this array replays is
+// indistinguishable from a hundred distinct ones.
+//
+// protocol is the code ProtocolDesc resolves in libCEPPFilter.so: 0 CIFS,
+// 1 NFS, 2 FTP, 3 Unknown.
+func TestCheckEventCarriesProtocolAndServer(t *testing.T) {
+	evs, err := ParseCheckEventRequestDecoded([]byte(liveNFSEvent), time.Now())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got, want := evs[0].Protocol, "NFS"; got != want {
+		t.Errorf("Protocol = %q, want %q", got, want)
+	}
+	if got, want := evs[0].Server, "10.26.1.224"; got != want {
+		t.Errorf("Server = %q, want %q", got, want)
+	}
+}
+
+// TestCheckEventProtocolVocabulary pins the whole mapping, including the
+// unknown case: an unmapped code must be labelled, not blank, because a blank
+// label silently merges into whatever else is blank.
+func TestCheckEventProtocolVocabulary(t *testing.T) {
+	for raw, want := range map[string]string{
+		"0": "CIFS", "1": "NFS", "2": "FTP", "3": "Unknown",
+		"": "Unknown", "9": "Unknown", "notanumber": "Unknown",
+	} {
+		if got := ceeProtocolName(raw); got != want {
+			t.Errorf("ceeProtocolName(%q) = %q, want %q", raw, got, want)
+		}
 	}
 }

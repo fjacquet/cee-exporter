@@ -1,6 +1,9 @@
 package parser
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // checkFileRequestOneFS is the exact heartbeat body captured on the wire from
 // an OneFS 9.13.0.0 cluster (tcpdump, powerscale1-1 → CEE 9.2.0.0,
@@ -158,5 +161,31 @@ func TestIsCheckFileRequest(t *testing.T) {
 				t.Errorf("IsCheckFileRequest(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestOneFSEventCarriesProtocolAndServer: CEPAEvent.Protocol documents itself
+// as "never empty … so it cannot merge with a missing value when used as a
+// metric label", and it is used as exactly that in cee_events_by_type_total.
+// Only the CEE converter honoured it — OneFS parsed `protocol` off the wire and
+// dropped it, so every OneFS event emitted protocol="", the artefact the
+// invariant exists to prevent.
+//
+// serverName has the same shape: parsed, unused, and the sole source for
+// cee_events_by_server_total, which was therefore empty on a PowerScale estate
+// while its help text advertises it as the way to see a NAS going quiet.
+func TestOneFSEventCarriesProtocolAndServer(t *testing.T) {
+	evs, err := ParseOneFSEvent([]byte(checkFileCloseOneFS), time.Now())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(evs) == 0 {
+		t.Fatal("no events parsed")
+	}
+	if got := evs[0].Protocol; got == "" {
+		t.Error("Protocol is empty; it is a metric label and must never be")
+	}
+	if got := evs[0].Server; got == "" {
+		t.Error("Server is empty; cee_events_by_server_total has no other source")
 	}
 }

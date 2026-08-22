@@ -130,6 +130,8 @@ docker-push: docker-build
 	docker push $(IMAGE):$(VERSION)
 	docker push $(IMAGE):latest
 
+# 12228 here is CEE's own default port, borrowed — not a CEPA-assigned one.
+# Change the host side if CEE runs on this machine; it owns 12228 there.
 docker-run:
 	docker run --rm \
 	  -p 12228:12228 \

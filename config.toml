@@ -11,7 +11,16 @@
 # hostname = "powerstore-nas01"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HTTP listener
+# HTTP listener — the port CEE sends events TO
+#
+# 12228 is NOT a CEPA default. It is CEE's OWN listener port: the *Common Event
+# Enabler Security Configuration Guide 9.x* (p.8) gives 12228 as the default for
+# Platform-to-CEE messaging, and says of the CEE-to-partner direction — which is
+# this exporter — "the port which the system administrator selected". There is
+# no assigned default; the admin picks it, and it must match CEE's EndPoint.
+#
+# Kept because changing it breaks every existing deployment, not because it is
+# correct. Co-resident with CEE it WILL collide: CEE owns 12228 on its own host.
 # ─────────────────────────────────────────────────────────────────────────────
 [listen]
 addr     = "0.0.0.0:12228"

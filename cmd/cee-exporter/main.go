@@ -65,6 +65,10 @@ type Config struct {
 }
 
 type ListenConfig struct {
+	// Addr is the port CEE sends events to. 12228 is CEE's own listener port
+	// borrowed as a default, not a CEPA-assigned one — the CEE-to-partner port
+	// is chosen by the administrator and must match CEE's EndPoint. Co-resident
+	// with CEE this collides; see config.toml.example.
 	Addr string `toml:"addr"` // e.g. "0.0.0.0:12228"
 	// Deprecated: use TLSMode="manual" instead. Kept for backward compatibility.
 	TLS      bool   `toml:"tls"`

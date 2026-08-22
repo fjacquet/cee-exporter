@@ -96,6 +96,34 @@ var checkFileResponse = []byte(`<CheckFileResponse status="0x0" ceeVersion="9.2.
 </CheckFileResponse>
 `)
 
+// checkEventResponse acknowledges a Dell CEE event batch.
+//
+// A bare HTTP 200 is NOT an acknowledgement, and getting this wrong is silent
+// and total. Measured against a live PowerStore on 2026-08-22:
+//
+//	empty body -> CEE answers the array CheckFileResponse status="0x1" with
+//	              EventResponse auditStatus="0x1". The array counts the batch
+//	              failed and retries the SAME event indefinitely, so its queue
+//	              head never clears and no later event is ever sent. Observed
+//	              for eight days: one event from 2026-08-14, redelivered every
+//	              heartbeat, while every observable stayed green — CEE
+//	              registered the partner, heartbeats returned 0x0, and the
+//	              array raised only "all publishing pools unavailable"
+//	              (0x01301b03), which reads as a network fault.
+//	this body  -> status="0x0", no retries, and the array's backlog flushed:
+//	              1780 events across 14 event types inside 30 seconds.
+//
+// This document is NOT discoverable from CEE's binaries. They contain no
+// "CheckEventResponse" literal in ASCII or UTF-16, in any of CEPPAPIWrapper.dll,
+// CEPPFilter.dll, EvtCxt.dll, Convert.dll or CAVA.exe — which is exactly why an
+// earlier reading of them concluded the empty 200 was the whole contract. The
+// absence of the literal does not mean the absence of the requirement; CEE
+// evidently matches on the parsed document rather than on a stored template.
+// Only the wire settles this, and the wire is what settled it.
+//
+// status is the same 0x0 = success convention CheckFileResponse uses above.
+var checkEventResponse = []byte(`<CheckEventResponse status="0x0"/>` + "\n")
+
 // unhandledPayloadSamples is how many unparseable events render their
 // (redacted) structure before the sampler stops.
 //
@@ -224,9 +252,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if decodeErr != nil {
 		slog.Error("cepa_decode_error",
 			"remote", r.RemoteAddr, "body_bytes", len(body), "error", decodeErr)
-		// Still ACK: a publisher that gets no answer marks us unreachable and
+		// Still answer: a publisher that gets no reply marks us unreachable and
 		// stops publishing entirely, which costs far more than one payload.
-		w.WriteHeader(http.StatusOK)
+		//
+		// A bare 200 is NOT a safe default here, which is the correction this
+		// branch's own checkEventResponse documents: Dell CEE reads an empty
+		// body as a failed delivery and retries the same batch forever. The
+		// dialect is unknowable when the body would not decode, so answer with
+		// the event acknowledgement — it is the only reply whose absence is
+		// known to stall a publisher indefinitely, and OneFS, which wants
+		// <CheckFileResponse>, treats an unexpected document the same way it
+		// treats an empty one.
+		// The return is unconditional either way: respond logs its own write
+		// failure and there is nothing further this branch can do.
+		_, _ = respond(w, r, body, checkEventResponse, "text/xml",
+			"cepa_decode_error_response_write_error")
 		return
 	}
 
@@ -262,7 +302,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		heartbeat := action == parser.OneFSHeartbeatAction
 
 		if heartbeat {
-			metrics.M.RecordPeerRegistration(peer)
+			metrics.M.RecordPeerHeartbeat(peer)
 		}
 
 		n, ok := respond(w, r, body, checkFileResponse, "text/xml",
@@ -313,7 +353,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// error and reply with an empty body — telling CEE nothing about whether
 	// this consumer is online.
 	if dialect == parser.DialectHeartBeatRequest {
-		metrics.M.RecordPeerRegistration(peer)
+		metrics.M.RecordPeerHeartbeat(peer)
 
 		n, ok := respond(w, r, body, heartbeatReply, "text/plain",
 			"cepa_heartbeat_response_write_error")
@@ -345,7 +385,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// batch — its unmarshal must not run inside that budget. It also means
 		// a payload we cannot read still gets an answer, which costs far less
 		// than losing the publisher; the body is logged below either way.
-		w.WriteHeader(http.StatusOK)
+		n, ok := respond(w, r, body, checkEventResponse, "text/xml",
+			"cepa_check_event_response_write_error")
+		if !ok {
+			return
+		}
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
@@ -362,6 +406,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		slog.Info("cepa_cee_events_received",
+			"response_bytes", n,
 			"remote", r.RemoteAddr,
 			"events_in_batch", len(events),
 			"queue_depth", metrics.M.QueueDepth(),
@@ -416,6 +461,11 @@ func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 		hostname = r.Host
 	}
 	for _, e := range events {
+		// Per event, not per batch: a batch can mix types, protocols and even
+		// NAS servers, and attributing all of it to the first one would be a
+		// quiet lie in exactly the breakdown that exists to prevent one.
+		metrics.M.RecordEvent(e.EventType, e.Protocol, e.Server)
+
 		// An eventType OneFS sends that this build has no established meaning
 		// for. The record is still written — the cluster's cursor has already
 		// moved, so dropping it would lose it outright — but it carries the

@@ -147,11 +147,22 @@ func parseOneFSEventDecoded(decoded []byte, receiveTime time.Time) ([]CEPAEvent,
 		return nil, fmt.Errorf("decoding OneFS event path: %w", err)
 	}
 
+	// serverName is base64 UTF-16LE like the other OneFS name attributes. It is
+	// the cluster's own name for the node, which is what cee_events_by_server_total
+	// labels by — the CEE dialect's `server` attribute in a different encoding,
+	// not a different concept.
+	server, err := decodeBase64UTF16(r.NFS.ServerName)
+	if err != nil {
+		server = ""
+	}
+
 	return []CEPAEvent{{
 		EventType:  onefsEventTypeName(r.NFS.EventType),
 		FilePath:   path,
 		UserSID:    r.NFS.UserSid,
 		ClientAddr: r.NFS.ClientIP,
+		Protocol:   ceeProtocolName(r.Args.Protocol),
+		Server:     server,
 		Timestamp:  onefsTimestamp(r.NFS.TimeStamp, r.NFS.TimeStampMicroSeconds, receiveTime),
 
 		BytesRead:      parseInt64(r.NFS.BytesRead),

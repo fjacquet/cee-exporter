@@ -63,6 +63,17 @@ func newRegistry() *prometheus.Registry {
 			},
 			func() float64 { return float64(metrics.M.LastFsyncUnix()) },
 		),
+		prometheus.NewGaugeFunc(
+			prometheus.GaugeOpts{
+				Name: "cee_last_event_unix_seconds",
+				Help: "Unix timestamp of the last event processed. 0 = none yet. " +
+					"This is what separates a quiet estate from a dead pipeline: " +
+					"a zero event rate reads identically in both cases, and they " +
+					"need different responses. Pair it with the rate rather than " +
+					"alerting on the rate alone.",
+			},
+			func() float64 { return float64(metrics.M.LastEventUnix()) },
+		),
 		prometheus.NewCounterFunc(
 			prometheus.CounterOpts{
 				Name: "cee_events_truncated_total",
@@ -81,6 +92,18 @@ func newRegistry() *prometheus.Registry {
 			},
 			func() float64 { return float64(metrics.M.PeersDropped()) },
 		),
+		prometheus.NewCounterFunc(
+			prometheus.CounterOpts{
+				Name: "cee_event_labels_dropped_total",
+				Help: "Total event-breakdown increments discarded because the " +
+					"MaxEventLabels cap was reached. Non-zero means " +
+					"cee_events_by_type_total or cee_events_by_server_total is " +
+					"truncated and a real event type or NAS server may be " +
+					"missing from it; the scalar cee_events_received_total is " +
+					"unaffected and stays authoritative for the total.",
+			},
+			func() float64 { return float64(metrics.M.EventLabelsDropped()) },
+		),
 	)
 
 	reg.MustRegister(cepaCollector{})
@@ -88,7 +111,7 @@ func newRegistry() *prometheus.Registry {
 	return reg
 }
 
-// The two per-publisher series need a dynamic label set, which
+// The per-publisher series need a dynamic label set, which
 // prometheus.CounterFunc and prometheus.GaugeFunc cannot carry — hence a
 // hand-written collector rather than another entry in newRegistry's
 // MustRegister list.
@@ -98,14 +121,50 @@ var (
 		"Unix timestamp of the last CEPA request received from this publisher, "+
 			"whether handshake, event batch, or failed payload. Alert when "+
 			"time()-this exceeds several times CEE's HeartBeatIntervalSecs "+
-			"(default 10). The publisher is a CEE server, not a NAS Data Mover: "+
-			"a Data Mover that stops publishing into a healthy CEE server is not "+
-			"visible here.",
+			"(default 10). A publisher is whatever opened the connection, which "+
+			"is not the same as where the event happened: a CEE server relaying "+
+			"for a NAS appears here under its own address, and the NAS behind it "+
+			"does not appear at all. Arrays that publish directly, such as OneFS "+
+			"nodes, do appear in their own right. A NAS that stops generating "+
+			"events while its CEE server keeps heartbeating is therefore "+
+			"invisible here; cee_events_by_server_total is where that shows.",
 		[]string{"remote"}, nil,
 	)
 	cepaRegistrationsDesc = prometheus.NewDesc(
 		"cee_cepa_registrations_total",
-		"Total CEPA handshakes received from this publisher, in either dialect (PowerStore RegisterRequest or PowerScale CheckFileRequest action 9). Sent per heartbeat, so this is a heartbeat rate.",
+		"Total CEPA RegisterRequest handshakes received from this publisher. "+
+			"Only the PowerStore dialect's RegisterRequest counts. A publisher "+
+			"that heartbeats healthily but has never registered reads zero "+
+			"here, which is the intended signal and not a gap — arrays "+
+			"publishing directly only ever heartbeat. See "+
+			"cee_cepa_heartbeats_total.",
+		[]string{"remote"}, nil,
+	)
+	eventsByTypeDesc = prometheus.NewDesc(
+		"cee_events_by_type_total",
+		"Total CEPA events received, by event type and protocol. The scalar "+
+			"cee_events_received_total says how many; this says what. Note it "+
+			"counts deliveries, not distinct operations — a redelivered event "+
+			"increments its type again, so a single type pinned at a constant "+
+			"rate is worth checking against the wire.",
+		[]string{"event_type", "protocol"}, nil,
+	)
+	eventsByServerDesc = prometheus.NewDesc(
+		"cee_events_by_server_total",
+		"Total CEPA events received, by the NAS server the operation happened "+
+			"on. This is the array's own name for itself, not the publisher "+
+			"that delivered it — an event relayed by a CEE server is attributed "+
+			"to the NAS, which is what cee_cepa_* cannot tell you. The client "+
+			"address is deliberately not a label: it is unbounded.",
+		[]string{"server"}, nil,
+	)
+	cepaHeartbeatsDesc = prometheus.NewDesc(
+		"cee_cepa_heartbeats_total",
+		"Total CEPA liveness exchanges received from this publisher, in either "+
+			"dialect: CEE's HeartBeatRequest probe, or the PowerScale "+
+			"CheckFileRequest with action 9. Both are sent per heartbeat "+
+			"interval, so this is a heartbeat rate. Counted separately from "+
+			"registrations, which they were previously folded into.",
 		[]string{"remote"}, nil,
 	)
 )
@@ -117,6 +176,9 @@ type cepaCollector struct{}
 func (cepaCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cepaLastRequestDesc
 	ch <- cepaRegistrationsDesc
+	ch <- cepaHeartbeatsDesc
+	ch <- eventsByTypeDesc
+	ch <- eventsByServerDesc
 }
 
 func (cepaCollector) Collect(ch chan<- prometheus.Metric) {
@@ -128,6 +190,22 @@ func (cepaCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			cepaRegistrationsDesc, prometheus.CounterValue,
 			float64(p.Registrations), host,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			cepaHeartbeatsDesc, prometheus.CounterValue,
+			float64(p.Heartbeats), host,
+		)
+	}
+	for _, e := range metrics.M.EventTypeSnapshot() {
+		ch <- prometheus.MustNewConstMetric(
+			eventsByTypeDesc, prometheus.CounterValue,
+			float64(e.Count), e.EventType, e.Protocol,
+		)
+	}
+	for _, e := range metrics.M.EventServerSnapshot() {
+		ch <- prometheus.MustNewConstMetric(
+			eventsByServerDesc, prometheus.CounterValue,
+			float64(e.Count), e.Server,
 		)
 	}
 }

@@ -103,11 +103,27 @@ type checkEventRequest struct {
 	} `xml:"EventList"`
 }
 
+// eventExtXML is the EventExt child element, observed on every PowerStore
+// event and absent from the CIFS samples:
+//
+//	<EventExt inode="9450" userId="0" ownerId="0" fsId="0xb0000009f" parentInode="2"/>
+//
+// Only userId is consumed. ownerId is declared but unread, in the same spirit
+// as the unconsumed attributes above: it is the wire shape, machine-checked,
+// and the field an owner-change event will need. inode, fsId and parentInode
+// identify the object rather than the actor, and ObjectName already names it
+// by path.
+type eventExtXML struct {
+	UserID  string `xml:"userId,attr"`
+	OwnerID string `xml:"ownerId,attr"`
+}
+
 type checkEventXML struct {
 	Event         string `xml:"event,attr"`
 	Path          string `xml:"path,attr"`
 	Flag          string `xml:"flag,attr"`
 	Server        string `xml:"server,attr"`
+	Protocol      string `xml:"protocol,attr"`
 	Share         string `xml:"share,attr"`
 	ClientIP      string `xml:"clientIP,attr"`
 	ServerIP      string `xml:"serverIP,attr"`
@@ -134,7 +150,12 @@ type checkEventXML struct {
 	EncodingType        string `xml:"encodingType,attr"`
 	EncodedPath         string `xml:"encodedPath,attr"`
 	EncodedRelativePath string `xml:"encodedRelativePath,attr"`
-	EncodedNewName      string `xml:"encodedNewName,attr"`
+
+	// EventExt is where an NFS event carries its actor. NFS has no Windows
+	// SID to put in userSid, so PowerStore sends the POSIX ids on this child
+	// element instead and omits userSid entirely.
+	Ext            eventExtXML `xml:"EventExt"`
+	EncodedNewName string      `xml:"encodedNewName,attr"`
 }
 
 // ParseCheckEventRequest decodes a CEE <CheckEventRequest> into the same
@@ -176,7 +197,9 @@ func convertCheckEvent(e checkEventXML, fallback time.Time) CEPAEvent {
 	return CEPAEvent{
 		EventType:  ceeEventTypeName(e.Event),
 		FilePath:   ceeEventPath(e),
-		UserSID:    e.UserSid,
+		UserSID:    ceeUserSID(e),
+		Protocol:   ceeProtocolName(e.Protocol),
+		Server:     strings.TrimSpace(e.Server),
 		ClientAddr: e.ClientIP,
 		Timestamp:  ceeTimestamp(e.TimeStamp, fallback),
 
@@ -259,9 +282,31 @@ func parseCEENum(raw string, unprefixedBase int) (uint64, error) {
 	return strconv.ParseUint(s, unprefixedBase, 64)
 }
 
-// ceeTimestamp reads the timeStamp attribute. CEE sends whole seconds since
-// the Unix epoch; a value it cannot represent falls back to receive time
-// rather than to the zero time, which would sort every such record to 1970.
+// ceeTimestamp reads the timeStamp attribute, in either of the two forms CEE
+// sends, and falls back to receive time rather than to the zero time, which
+// would sort every unusable record to 1970.
+//
+// The CIFS/OneFS form is whole seconds since the Unix epoch, decimal:
+//
+//	timeStamp="1786735002"
+//
+// PowerStore sends a packed 64-bit value instead, hex, captured off the wire
+// from NAS01 on 2026-08-22:
+//
+//	timeStamp="0x6a7f7c090008765f"
+//	            ^^^^^^^^ epoch second   ^^^^^^^^ sub-second remainder
+//
+// The high 32 bits are the epoch second (0x6a7f7c09 = 1786739721 =
+// 2026-08-14T20:35:21Z, corroborated by the pstest-1786739721.txt filename in
+// the same event). Reading all 64 bits as a second count yields the year
+// 243179022179, which is what shipped before this split existed.
+//
+// The low word is deliberately discarded. It is a sub-second remainder whose
+// unit is not documented by Dell and could not be determined from the capture
+// — every event in it replayed one identical timestamp, so there was no
+// variation to measure the scale against. Second resolution is what CEPA
+// promises and what the audit record needs; inventing a microsecond or
+// nanosecond reading from one sample would be a fabrication.
 func ceeTimestamp(raw string, fallback time.Time) time.Time {
 	s := strings.TrimSpace(raw)
 	if s == "" {
@@ -270,12 +315,29 @@ func ceeTimestamp(raw string, fallback time.Time) time.Time {
 	// Accept the 0x form too: several sibling attributes carry it, and there
 	// is no guarantee this one never will.
 	n, err := parseCEENum(s, 10)
-	// > MaxInt64 is the case this function claims to handle and did not: the
-	// conversion below wraps it negative, so the record lands before 1970
-	// instead of at receive time — the exact mis-sort the fallback exists to
-	// prevent. parseCEENum returns a full uint64, so the input reaches here.
-	if err != nil || n == 0 || n > math.MaxInt64 {
+	if err != nil || n == 0 {
 		return fallback
+	}
+	// A value too large to be a plain epoch second is the packed form. The
+	// discriminator is exact rather than heuristic: a real epoch second stays
+	// inside 32 bits until the year 2106, and the packed form always carries a
+	// non-zero epoch in its high word, so it always exceeds 32 bits.
+	//
+	// This runs before any range rejection, and the order is load-bearing. An
+	// earlier guard rejected n > MaxInt64 outright, written when the attribute
+	// was believed to be a plain second count — where such a value is nonsense
+	// and the int64 conversion below would wrap it negative, landing the record
+	// before 1970. For a packed value it is not nonsense: the epoch is in the
+	// high word, so every event after 2038-01-19 sets bit 63 and exceeds
+	// MaxInt64. Rejecting first would have discarded a good timestamp for
+	// receive time from 2038 on.
+	//
+	// Unpacking first makes that rejection unnecessary rather than merely
+	// reordered: the shifted value is at most MaxUint32, and a value that was
+	// already inside 32 bits is unchanged, so n is always <= MaxUint32 here and
+	// the conversion cannot wrap.
+	if n > math.MaxUint32 {
+		n >>= 32
 	}
 	return time.Unix(int64(n), 0).UTC()
 }
@@ -297,4 +359,52 @@ func ceeTimestamp(raw string, fallback time.Time) time.Time {
 // CEE never got as far as sending one.
 func IsHeartBeatRequest(body []byte) bool {
 	return rootElementIs(body, "HeartBeatRequest")
+}
+
+// ceeUserSID resolves the event's actor. CIFS events carry a real Windows SID
+// in userSid; NFS events carry no userSid at all and put a POSIX uid on
+// EventExt instead, which left every NFS-sourced record with an empty subject.
+//
+// The uid is rendered S-1-22-1-<uid>, the well-known mapping for a POSIX
+// account and the same form OneFS puts in userSid natively (see the worked
+// payload above ParseCheckFileRequest) — so this is a translation into a
+// representation already present in this protocol, not a synthetic identity.
+// uid 0 is a legitimate actor and must render, hence the empty-string test
+// rather than a zero test.
+func ceeUserSID(e checkEventXML) string {
+	if e.UserSid != "" {
+		return e.UserSid
+	}
+	if e.Ext.UserID != "" {
+		return "S-1-22-1-" + e.Ext.UserID
+	}
+	return ""
+}
+
+// ceeProtocolNames is ProtocolDesc's table, read out of libCEPPFilter.so: the
+// filter resolves the numeric protocol code through a jump table whose arms are
+// a bare `leaq <name>; retq`, so the decode is unambiguous.
+var ceeProtocolNames = map[uint64]string{
+	0: "CIFS",
+	1: "NFS",
+	2: "FTP",
+	3: "Unknown",
+}
+
+// ceeProtocolName resolves the protocol attribute to a label.
+//
+// It never returns the empty string. This value is used as a Prometheus label,
+// and an empty label is indistinguishable from an absent one — a code CEE
+// starts sending that this table does not know would silently merge into
+// whatever else was blank, rather than showing up as traffic nobody can
+// account for.
+func ceeProtocolName(raw string) string {
+	n, err := parseCEENum(raw, 10)
+	if err != nil {
+		return "Unknown"
+	}
+	if name, ok := ceeProtocolNames[n]; ok {
+		return name
+	}
+	return "Unknown"
 }

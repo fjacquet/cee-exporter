@@ -11,7 +11,22 @@
 # hostname = "powerstore-nas01"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HTTP listener
+# HTTP listener — the port CEE sends events TO
+#
+# 12228 is NOT a CEPA default. It is CEE's OWN listener port: the *Common Event
+# Enabler Security Configuration Guide 9.x* (p.8) gives 12228 as the default for
+# Platform-to-CEE messaging, and says of the CEE-to-partner direction — which is
+# this exporter — "the port which the system administrator selected". There is
+# no assigned default; the admin picks it, on both ends, and it must match the
+# port in CEE's EndPoint value.
+#
+# It is kept here because changing it would break every existing deployment for
+# no gain, not because it is correct. Two consequences worth knowing:
+#
+#   - Co-resident with CEE, this WILL collide. CEE owns 12228 on its own host,
+#     so an exporter there must use something else.
+#   - A reference deployment runs the exporter on 12229 with CEE's EndPoint set
+#     to http://<host>:12229, precisely because both once shared a host.
 # ─────────────────────────────────────────────────────────────────────────────
 [listen]
 addr = "0.0.0.0:12228"
@@ -19,7 +34,7 @@ addr = "0.0.0.0:12228"
 # TLS mode — controls how the CEPA listener obtains its TLS certificate.
 #
 # IMPORTANT: Dell PowerStore CEPA sends events over plain HTTP only. TLS on
-# port 12228 does NOT encrypt the PowerStore→exporter path. Use TLS here only
+# the listener port does NOT encrypt the PowerStore→exporter path. Use TLS here only
 # if a TLS-capable reverse proxy sits between PowerStore and cee-exporter.
 #
 #   off         — No TLS (default). Plain HTTP on addr.
@@ -149,7 +164,8 @@ format = "json"  # json (production) | text (development)
 # ─────────────────────────────────────────────────────────────────────────────
 # Prometheus /metrics endpoint
 # Scrape with: curl http://HOST:9228/metrics
-# Default port 9228 is separate from the CEPA listener port 12228.
+# Default port 9228 is separate from the port CEE sends events to (see
+# [listen] above — 12228 there is CEE's own default, borrowed, not assigned).
 # ─────────────────────────────────────────────────────────────────────────────
 [metrics]
 enabled = true

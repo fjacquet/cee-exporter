@@ -37,6 +37,18 @@ type CEPAEvent struct {
 	// Network context
 	ClientAddr string
 
+	// Protocol the operation used, resolved from the wire's numeric code:
+	// CIFS, NFS, FTP or Unknown. Never empty — an unmapped code renders
+	// Unknown rather than blank, so it cannot merge with a missing value when
+	// used as a metric label.
+	Protocol string
+
+	// Server is the NAS server the operation happened on, as the array reports
+	// it. Bounded by the size of the estate, unlike ClientAddr, which is every
+	// workstation that ever touched a share — which is why this is the one
+	// safe to carry as a metric label and that one is not.
+	Server string
+
 	// Event timestamp (parsed from the XML or synthesised from receive time)
 	Timestamp time.Time
 
@@ -245,7 +257,13 @@ func convert(r rawEvent, fallback time.Time) CEPAEvent {
 		UserSID:    r.UserSID,
 		LogonID:    r.LogonID,
 		ClientAddr: r.ClientAddress,
-		Timestamp:  parseTimestamp(r.Timestamp, fallback),
+		// The VCAPS payload carries neither a protocol code nor a server name,
+		// so this is genuinely unknown rather than merely unread. Unknown, not
+		// "": Protocol is a metric label and an empty one is indistinguishable
+		// from an absent one. Server stays empty and RecordEvent's own guard
+		// drops it, because inventing a name would be worse than no series.
+		Protocol:  ceeProtocolName(""),
+		Timestamp: parseTimestamp(r.Timestamp, fallback),
 
 		BytesRead:      parseInt64(r.BytesRead),
 		BytesWritten:   parseInt64(r.BytesWritten),

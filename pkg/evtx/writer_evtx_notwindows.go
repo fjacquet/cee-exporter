@@ -271,6 +271,15 @@ func windowsEventToFields(e WindowsEvent) map[string]string {
 		"AccessMask":        clip(e.AccessMask),
 		"ProcessId":         fmt.Sprintf("%d", e.ProcessID),
 		"ProcessName":       "",
+
+		// IpAddress is the name Windows Security auditing uses for the peer
+		// address (4625, 5145), and it is go-evtx's thirteenth EventData
+		// field, added in v0.9.0 for this. Before that the schema was closed
+		// at twelve and WriteRecord ignored the key in silence: an entry here
+		// passed a unit test that asserted on this map and produced 19 records
+		// containing no address at all. The test that guards it now reads the
+		// record back.
+		"IpAddress": clip(e.ClientAddr),
 	}
 
 	// Second pass: the per-field cap bounds one long value, not eleven.
