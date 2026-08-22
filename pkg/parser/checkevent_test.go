@@ -335,3 +335,54 @@ func TestCEETimestampPlainSecondsStillWorks(t *testing.T) {
 		t.Errorf("ceeTimestamp(plain) = %v, want %v", got, want)
 	}
 }
+
+// liveNFSEvent is the payload PowerStore actually publishes, captured off the
+// wire from NAS01 (10.26.1.199) on 2026-08-22. Note protocol="1" (NFS) and the
+// complete absence of userSid: NFS has no Windows SID to send, so the actor is
+// carried as a POSIX uid on the EventExt child element instead.
+const liveNFSEvent = `<CheckEventRequest><EventList count="1">` +
+	`<Event event="0x8" path="\\nas01.diab.local\CHECK$\FS01\pstest.txt" flag="0x2" ` +
+	`server="10.26.1.224" share="/FS01" clientIP="10.26.1.222" serverIP="10.26.1.224" ` +
+	`sourceID="5" timeStamp="0x6a7f7c090008765f" fileSize="0x0" protocol="1" type="0">` +
+	`<EventExt inode="9450" userId="0" ownerId="0" fsId="0xb0000009f" parentInode="2"/>` +
+	`</Event></EventList></CheckEventRequest>`
+
+// TestCheckEventNFSCarriesActorIdentity: an NFS event must not produce a record
+// with no actor. EventExt/@userId was not parsed at all, so SubjectUserSid and
+// SubjectUserName were empty on every record this array produced — an audit
+// trail that records what happened and to which file, but never by whom.
+//
+// The uid is rendered in the S-1-22-1-<uid> form, which is not an invention
+// here: it is the same representation OneFS itself puts in userSid for a POSIX
+// account (see the worked payload above ParseCheckFileRequest), so a reader
+// that already handles OneFS needs no new case.
+func TestCheckEventNFSCarriesActorIdentity(t *testing.T) {
+	evs, err := ParseCheckEventRequestDecoded([]byte(liveNFSEvent), time.Now())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("got %d events, want 1", len(evs))
+	}
+	if got, want := evs[0].UserSID, "S-1-22-1-0"; got != want {
+		t.Errorf("UserSID = %q, want %q", got, want)
+	}
+}
+
+// TestCheckEventCIFSUserSidWins guards the CIFS path: when the array does send
+// a real userSid, the synthesised POSIX form must not displace it.
+func TestCheckEventCIFSUserSidWins(t *testing.T) {
+	payload := `<CheckEventRequest><EventList count="1">` +
+		`<Event event="0x8" path="\\NAS01\fs01\a.txt" timeStamp="1786735002" ` +
+		`userSid="S-1-5-21-1-2-3-1001" protocol="0">` +
+		`<EventExt inode="1" userId="0" ownerId="0"/>` +
+		`</Event></EventList></CheckEventRequest>`
+
+	evs, err := ParseCheckEventRequestDecoded([]byte(payload), time.Now())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got, want := evs[0].UserSID, "S-1-5-21-1-2-3-1001"; got != want {
+		t.Errorf("UserSID = %q, want the CIFS SID %q", got, want)
+	}
+}

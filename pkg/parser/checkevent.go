@@ -103,6 +103,18 @@ type checkEventRequest struct {
 	} `xml:"EventList"`
 }
 
+// eventExtXML is the EventExt child element, observed on every PowerStore
+// event and absent from the CIFS samples:
+//
+//	<EventExt inode="9450" userId="0" ownerId="0" fsId="0xb0000009f" parentInode="2"/>
+//
+// Only the ids are consumed. inode, fsId and parentInode identify the object
+// rather than the actor, and ObjectName already names it by path.
+type eventExtXML struct {
+	UserID  string `xml:"userId,attr"`
+	OwnerID string `xml:"ownerId,attr"`
+}
+
 type checkEventXML struct {
 	Event         string `xml:"event,attr"`
 	Path          string `xml:"path,attr"`
@@ -134,7 +146,12 @@ type checkEventXML struct {
 	EncodingType        string `xml:"encodingType,attr"`
 	EncodedPath         string `xml:"encodedPath,attr"`
 	EncodedRelativePath string `xml:"encodedRelativePath,attr"`
-	EncodedNewName      string `xml:"encodedNewName,attr"`
+
+	// EventExt is where an NFS event carries its actor. NFS has no Windows
+	// SID to put in userSid, so PowerStore sends the POSIX ids on this child
+	// element instead and omits userSid entirely.
+	Ext            eventExtXML `xml:"EventExt"`
+	EncodedNewName string      `xml:"encodedNewName,attr"`
 }
 
 // ParseCheckEventRequest decodes a CEE <CheckEventRequest> into the same
@@ -176,7 +193,7 @@ func convertCheckEvent(e checkEventXML, fallback time.Time) CEPAEvent {
 	return CEPAEvent{
 		EventType:  ceeEventTypeName(e.Event),
 		FilePath:   ceeEventPath(e),
-		UserSID:    e.UserSid,
+		UserSID:    ceeUserSID(e),
 		ClientAddr: e.ClientIP,
 		Timestamp:  ceeTimestamp(e.TimeStamp, fallback),
 
@@ -326,4 +343,24 @@ func ceeTimestamp(raw string, fallback time.Time) time.Time {
 // CEE never got as far as sending one.
 func IsHeartBeatRequest(body []byte) bool {
 	return rootElementIs(body, "HeartBeatRequest")
+}
+
+// ceeUserSID resolves the event's actor. CIFS events carry a real Windows SID
+// in userSid; NFS events carry no userSid at all and put a POSIX uid on
+// EventExt instead, which left every NFS-sourced record with an empty subject.
+//
+// The uid is rendered S-1-22-1-<uid>, the well-known mapping for a POSIX
+// account and the same form OneFS puts in userSid natively (see the worked
+// payload above ParseCheckFileRequest) — so this is a translation into a
+// representation already present in this protocol, not a synthetic identity.
+// uid 0 is a legitimate actor and must render, hence the empty-string test
+// rather than a zero test.
+func ceeUserSID(e checkEventXML) string {
+	if e.UserSid != "" {
+		return e.UserSid
+	}
+	if e.Ext.UserID != "" {
+		return "S-1-22-1-" + e.Ext.UserID
+	}
+	return ""
 }
