@@ -393,10 +393,17 @@ func TestGELFWriteBatchTCPSingleWrite(t *testing.T) {
 	}
 }
 
-// TestGELFWriteBatchUDPWritesOnePerEvent is the other half of the batching
-// guard: it catches someone later "optimising" UDP into a concatenation,
-// which would produce garbage at the collector — a GELF datagram is one
-// message.
+// TestGELFWriteBatchUDPWritesOnePerEvent catches someone later "optimising"
+// UDP into a concatenation, which would produce garbage at the collector — a
+// GELF datagram is one message.
+//
+// It does NOT discriminate WriteBatch from a per-event WriteEvent loop, and
+// no write-count assertion on UDP can: both produce exactly one datagram per
+// event, because UDP's batching win is the single lock acquisition rather
+// than fewer writes, and a lock acquisition is not observable from the
+// conn. Degrading this writer to writeBatchSerially would leave this test
+// green. Read it as a concatenation guard only — the same caveat the syslog
+// twin of this test carries.
 func TestGELFWriteBatchUDPWritesOnePerEvent(t *testing.T) {
 	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
