@@ -249,3 +249,26 @@ func TestMetricsHandler_EventBreakdownCapped(t *testing.T) {
 		t.Error("cee_event_labels_dropped_total is 0 after exceeding the cap; hitting it must be visible")
 	}
 }
+
+// TestMetricsHandler_LastEventTimestamp: a zero event rate is ambiguous on its
+// own — it reads the same whether the estate is quiet or the pipeline is dead,
+// and those need different responses. The store has always tracked the time of
+// the last processed event; it was only ever visible in the health snapshot, so
+// no dashboard or alert could use it.
+//
+// Zero when nothing has been processed, matching cee_last_fsync_unix_seconds:
+// an exporter that has never seen an event must not look like one whose last
+// event was at the epoch.
+func TestMetricsHandler_LastEventTimestamp(t *testing.T) {
+	metrics.M.ResetEventBreakdown()
+	t.Cleanup(metrics.M.ResetEventBreakdown)
+
+	h := NewMetricsHandler()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := rec.Body.String()
+
+	if !strings.Contains(body, "cee_last_event_unix_seconds") {
+		t.Fatal("cee_last_event_unix_seconds absent; a zero event rate cannot be told from a dead pipeline")
+	}
+}

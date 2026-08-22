@@ -63,6 +63,26 @@ func newRegistry() *prometheus.Registry {
 			},
 			func() float64 { return float64(metrics.M.LastFsyncUnix()) },
 		),
+		prometheus.NewGaugeFunc(
+			prometheus.GaugeOpts{
+				Name: "cee_last_event_unix_seconds",
+				Help: "Unix timestamp of the last event processed. 0 = none yet. " +
+					"This is what separates a quiet estate from a dead pipeline: " +
+					"a zero event rate reads identically in both cases, and they " +
+					"need different responses. Pair it with the rate rather than " +
+					"alerting on the rate alone.",
+			},
+			func() float64 {
+				t := metrics.M.LastEventAt()
+				if t.IsZero() {
+					// Not Unix(0): an exporter that has never seen an event must
+					// not report one at the epoch, which would render as a
+					// 56-year-old event rather than as "none".
+					return 0
+				}
+				return float64(t.Unix())
+			},
+		),
 		prometheus.NewCounterFunc(
 			prometheus.CounterOpts{
 				Name: "cee_events_truncated_total",
