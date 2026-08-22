@@ -5,7 +5,7 @@ go 1.26.6
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/crewjam/rfc5424 v0.1.0
-	github.com/fjacquet/go-evtx v0.8.3
+	github.com/fjacquet/go-evtx v0.9.0
 	github.com/kardianos/service v1.3.0
 	golang.org/x/crypto v0.55.0
 	golang.org/x/sys v0.47.0
@@ -32,5 +32,3 @@ require (
 	github.com/prometheus/procfs v0.21.1 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
-
-replace github.com/fjacquet/go-evtx => ../go-evtx
