@@ -216,6 +216,12 @@ addr    = "0.0.0.0:9228"
 # nothing capping how many could be in flight at once — a handful of
 # concurrent full-size PUTs was an OOM. A realistic 1000-event VCAPS batch is
 # ~350 KB, so these defaults have ample headroom.
+#
+# On saturation, requests WAIT for a free slot rather than being rejected —
+# the body is read before the CEPA ACK, so rejecting would lose the publisher
+# entirely. A too-low max_concurrent_requests therefore shows up as missed
+# 3-second ACKs and publishers going OFFLINE, not as errors in this
+# consumer's log. Watch cee_requests_throttled_total.
 # ─────────────────────────────────────────────────────────────────────────────
 [server]
 max_body_mb             = 8  # per-request body cap; ~23k events
