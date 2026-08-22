@@ -62,7 +62,7 @@
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Registrations per publisher",
+      "title": "Handshakes per publisher",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -72,8 +72,17 @@
       "targets": [
         {
           "expr": "rate(cee_cepa_registrations_total[5m])",
-          "legendFormat": "{{remote}}",
+          "legendFormat": "{{remote}} register",
           "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "cee-prometheus"
+          }
+        },
+        {
+          "expr": "rate(cee_cepa_heartbeats_total[5m])",
+          "legendFormat": "{{remote}} heartbeat",
+          "refId": "B",
           "datasource": {
             "type": "prometheus",
             "uid": "cee-prometheus"
@@ -89,7 +98,8 @@
       "datasource": {
         "type": "prometheus",
         "uid": "cee-prometheus"
-      }
+      },
+      "description": "Registrations and heartbeats are separate series because they mean different things. Only a CEE server sends RegisterRequest; arrays publishing directly (PowerStore Data Movers, OneFS nodes) only ever heartbeat, so zero registrations against a healthy heartbeat rate is normal for them. Until v5.4.2 both were counted as registrations, so this panel showed a registration rate for publishers that had never registered."
     },
     {
       "id": 3,
