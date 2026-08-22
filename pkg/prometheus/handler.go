@@ -88,7 +88,7 @@ func newRegistry() *prometheus.Registry {
 	return reg
 }
 
-// The two per-publisher series need a dynamic label set, which
+// The per-publisher series need a dynamic label set, which
 // prometheus.CounterFunc and prometheus.GaugeFunc cannot carry — hence a
 // hand-written collector rather than another entry in newRegistry's
 // MustRegister list.
@@ -98,14 +98,30 @@ var (
 		"Unix timestamp of the last CEPA request received from this publisher, "+
 			"whether handshake, event batch, or failed payload. Alert when "+
 			"time()-this exceeds several times CEE's HeartBeatIntervalSecs "+
-			"(default 10). The publisher is a CEE server, not a NAS Data Mover: "+
-			"a Data Mover that stops publishing into a healthy CEE server is not "+
-			"visible here.",
+			"(default 10). A publisher is whatever opened the connection: a CEE "+
+			"server relaying for a NAS, or an array publishing to this consumer "+
+			"directly — a PowerStore Data Mover and OneFS nodes both appear here "+
+			"in their own right. A Data Mover that stops publishing into a "+
+			"healthy CEE server is still not visible.",
 		[]string{"remote"}, nil,
 	)
 	cepaRegistrationsDesc = prometheus.NewDesc(
 		"cee_cepa_registrations_total",
-		"Total CEPA handshakes received from this publisher, in either dialect (PowerStore RegisterRequest or PowerScale CheckFileRequest action 9). Sent per heartbeat, so this is a heartbeat rate.",
+		"Total CEPA RegisterRequest handshakes received from this publisher. "+
+			"Only the PowerStore dialect's RegisterRequest counts. A publisher "+
+			"that heartbeats healthily but has never registered reads zero "+
+			"here, which is the intended signal and not a gap — arrays "+
+			"publishing directly only ever heartbeat. See "+
+			"cee_cepa_heartbeats_total.",
+		[]string{"remote"}, nil,
+	)
+	cepaHeartbeatsDesc = prometheus.NewDesc(
+		"cee_cepa_heartbeats_total",
+		"Total CEPA liveness exchanges received from this publisher, in either "+
+			"dialect: CEE's HeartBeatRequest probe, or the PowerScale "+
+			"CheckFileRequest with action 9. Both are sent per heartbeat "+
+			"interval, so this is a heartbeat rate. Counted separately from "+
+			"registrations, which they were previously folded into.",
 		[]string{"remote"}, nil,
 	)
 )
@@ -117,6 +133,7 @@ type cepaCollector struct{}
 func (cepaCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cepaLastRequestDesc
 	ch <- cepaRegistrationsDesc
+	ch <- cepaHeartbeatsDesc
 }
 
 func (cepaCollector) Collect(ch chan<- prometheus.Metric) {
@@ -128,6 +145,10 @@ func (cepaCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			cepaRegistrationsDesc, prometheus.CounterValue,
 			float64(p.Registrations), host,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			cepaHeartbeatsDesc, prometheus.CounterValue,
+			float64(p.Heartbeats), host,
 		)
 	}
 }

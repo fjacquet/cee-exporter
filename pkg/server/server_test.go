@@ -685,3 +685,48 @@ func TestServeHTTP_CountsRegistrationsOnly(t *testing.T) {
 		t.Errorf("Registrations = %d, want 2 (two handshakes; the event batch is not one)", got)
 	}
 }
+
+// TestHeartbeatsAreNotCountedAsRegistrations pins what
+// cee_cepa_registrations_total actually means.
+//
+// RecordPeerRegistration was called from three places — the RegisterRequest
+// handshake, the OneFS CheckFileRequest heartbeat, and CEE's HeartBeatRequest
+// probe — while the metric's own HELP string said "Total CEPA RegisterRequest
+// handshakes received from this publisher". Measured against a live estate,
+// five of six series were heartbeats wearing a registration label: the four
+// OneFS nodes and the PowerStore Data Mover had never sent a RegisterRequest
+// in their lives, and the Grafana "Registrations per publisher" panel plotted
+// their heartbeat cadence as a registration rate.
+//
+// Heartbeats are still counted, under their own name.
+func TestHeartbeatsAreNotCountedAsRegistrations(t *testing.T) {
+	resetPeers(t)
+	h := newTestHandler(t, &stubWriter{}, 10, 1)
+
+	post := func(body []byte, remote string) {
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+		req.RemoteAddr = remote
+		h.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	post(utf16le(powerStoreHeartbeatXML), "10.26.1.224:1000") // OneFS-shaped heartbeat
+	post([]byte(`<HeartBeatRequest />`), "10.26.1.199:1001")  // CEE liveness probe
+	post([]byte(`<RegisterRequest />`), "10.26.1.225:1002")   // the real handshake
+
+	snap := metrics.M.PeerSnapshot()
+
+	for _, host := range []string{"10.26.1.224", "10.26.1.199"} {
+		if got := snap[host].Registrations; got != 0 {
+			t.Errorf("%s registrations = %d, want 0 — it sent a heartbeat, not a handshake", host, got)
+		}
+		if got := snap[host].Heartbeats; got != 1 {
+			t.Errorf("%s heartbeats = %d, want 1", host, got)
+		}
+	}
+	if got := snap["10.26.1.225"].Registrations; got != 1 {
+		t.Errorf("10.26.1.225 registrations = %d, want 1", got)
+	}
+	if got := snap["10.26.1.225"].Heartbeats; got != 0 {
+		t.Errorf("10.26.1.225 heartbeats = %d, want 0", got)
+	}
+}

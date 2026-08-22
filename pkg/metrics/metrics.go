@@ -120,12 +120,14 @@ const MaxPeers = 64
 type peerStat struct {
 	lastRequestUnix atomic.Int64
 	registrations   atomic.Int64
+	heartbeats      atomic.Int64
 }
 
 // PeerStat is an immutable point-in-time copy of one publisher's activity.
 type PeerStat struct {
 	LastRequestUnix int64
 	Registrations   int64
+	Heartbeats      int64
 }
 
 // RecordPeerRequestAt stamps the time of the most recent CEPA request from
@@ -186,8 +188,24 @@ func (s *Store) RecordPeerRegistration(host string) {
 	}
 }
 
+// RecordPeerHeartbeat counts a CEPA liveness exchange from host — CEE's
+// <HeartBeatRequest /> probe, or the OneFS CheckFileRequest whose action marks
+// it a heartbeat rather than an event.
+//
+// Kept apart from RecordPeerRegistration because conflating the two made
+// cee_cepa_registrations_total report a registration rate for publishers that
+// had never registered. Like registrations it never creates a peer; that is
+// RecordPeerRequestAt's job.
+func (s *Store) RecordPeerHeartbeat(host string) {
+	s.peersMu.RLock()
+	defer s.peersMu.RUnlock()
+	if p := s.peers[host]; p != nil {
+		p.heartbeats.Add(1)
+	}
+}
+
 // PeerSnapshot returns an immutable copy of the peer table. One call per
-// scrape keeps the two per-peer series mutually consistent.
+// scrape keeps the per-peer series mutually consistent.
 func (s *Store) PeerSnapshot() map[string]PeerStat {
 	s.peersMu.RLock()
 	defer s.peersMu.RUnlock()
@@ -199,6 +217,7 @@ func (s *Store) PeerSnapshot() map[string]PeerStat {
 	for host, p := range s.peers {
 		out[host] = PeerStat{
 			LastRequestUnix: p.lastRequestUnix.Load(),
+			Heartbeats:      p.heartbeats.Load(),
 			Registrations:   p.registrations.Load(),
 		}
 	}

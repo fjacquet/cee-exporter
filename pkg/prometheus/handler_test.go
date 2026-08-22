@@ -153,3 +153,37 @@ func TestMetricsHandler_CEPAPeerMetricsEmpty(t *testing.T) {
 		t.Errorf("cee_cepa_peers_dropped_total missing from scrape output\nBody:\n%s", body)
 	}
 }
+
+// TestMetricsHandler_CEPAHeartbeatSeries: heartbeats were previously folded
+// into cee_cepa_registrations_total, so splitting them out is only half the
+// fix — the series has to reach the scrape, or a publisher that heartbeats
+// healthily but never registers now shows nothing at all where it used to show
+// a (wrong) registration rate.
+func TestMetricsHandler_CEPAHeartbeatSeries(t *testing.T) {
+	metrics.M.ResetPeers()
+	t.Cleanup(metrics.M.ResetPeers)
+
+	metrics.M.RecordPeerRequestAt("10.26.1.199", time.Unix(1_700_000_000, 0))
+	metrics.M.RecordPeerHeartbeat("10.26.1.199")
+	metrics.M.RecordPeerHeartbeat("10.26.1.199")
+
+	metrics.M.RecordPeerRequestAt("10.26.1.225", time.Unix(1_700_000_000, 0))
+	metrics.M.RecordPeerRegistration("10.26.1.225")
+
+	h := NewMetricsHandler()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := rec.Body.String()
+
+	required := []string{
+		`cee_cepa_heartbeats_total{remote="10.26.1.199"} 2`,
+		`cee_cepa_registrations_total{remote="10.26.1.199"} 0`,
+		`cee_cepa_heartbeats_total{remote="10.26.1.225"} 0`,
+		`cee_cepa_registrations_total{remote="10.26.1.225"} 1`,
+	}
+	for _, want := range required {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in scrape output, not found\nBody:\n%s", want, body)
+		}
+	}
+}

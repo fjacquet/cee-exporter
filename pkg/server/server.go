@@ -262,7 +262,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		heartbeat := action == parser.OneFSHeartbeatAction
 
 		if heartbeat {
-			metrics.M.RecordPeerRegistration(peer)
+			metrics.M.RecordPeerHeartbeat(peer)
 		}
 
 		n, ok := respond(w, r, body, checkFileResponse, "text/xml",
@@ -313,7 +313,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// error and reply with an empty body — telling CEE nothing about whether
 	// this consumer is online.
 	if dialect == parser.DialectHeartBeatRequest {
-		metrics.M.RecordPeerRegistration(peer)
+		metrics.M.RecordPeerHeartbeat(peer)
 
 		n, ok := respond(w, r, body, heartbeatReply, "text/plain",
 			"cepa_heartbeat_response_write_error")
