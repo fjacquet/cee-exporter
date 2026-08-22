@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Every PowerStore event was stamped with the year 243179022179.**
+  `timeStamp` is not a plain second count in the PowerStore dialect: it is a
+  packed 64-bit value whose high 32 bits are the epoch second and whose low 32
+  bits are a sub-second remainder. Read whole, `0x6a7f7c090008765f` became
+  7673988668159719007 seconds. The true event time appeared nowhere in the
+  output — verified against a live `audit.evtx`, where its FILETIME occurred
+  zero times and the record header carried the write time instead.
+
+  The low word is discarded rather than guessed at: its unit is undocumented
+  and the capture could not settle it, because the array replayed one identical
+  event throughout. Second resolution is what CEPA promises.
+
+  Unpacking happens before any range check. An upper bound ordered first would
+  discard every packed timestamp after 2038-01-19, when the epoch sets bit 63;
+  unpacking first also makes the bound unnecessary, since the converted value
+  is then always at most `MaxUint32` and cannot wrap negative.
+
+- **NFS events carried no actor at all.** PowerStore publishes NFS events
+  (`protocol="1"`) with no `userSid` — NFS has no Windows SID to send — and
+  puts the POSIX ids on an `EventExt` child element that the parser did not
+  declare, so `encoding/xml` discarded it. Every such record named the file and
+  nothing about who touched it. The uid is now rendered `S-1-22-1-<uid>`, the
+  form OneFS itself already uses for a POSIX account. A real `userSid` still
+  wins where one is sent.
+
+- **`cee_cepa_registrations_total` counted heartbeats as registrations.** It
+  was incremented from three call sites — the `RegisterRequest` handshake, the
+  PowerScale `CheckFileRequest` action 9, and CEE's `HeartBeatRequest` probe.
+  Against a live estate five of six series were heartbeats wearing a
+  registration label: four OneFS nodes and a PowerStore Data Mover that had
+  never registered. Liveness exchanges are now counted separately as
+  `cee_cepa_heartbeats_total`, and the bundled dashboard plots both.
+
+- **The binary evtx writer dropped the client address.** It was parsed, carried
+  through `WindowsEvent` and emitted by the syslog, GELF, Beats and Win32
+  writers, but go-evtx's `EventData` schema was closed at twelve fields and
+  `WriteRecord` ignored the key in silence. It now writes `IpAddress`, the name
+  Windows Security auditing uses on 4625 and 5145. **Requires go-evtx v0.9.0.**
+
 ## [5.5.0] - 2026-08-22
 
 ### Fixed
