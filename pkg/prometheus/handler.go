@@ -113,13 +113,10 @@ var (
 			"(default 10). A publisher is whatever opened the connection, which "+
 			"is not the same as where the event happened: a CEE server relaying "+
 			"for a NAS appears here under its own address, and the NAS behind it "+
-			"does not appear at all. On a measured estate 10.26.1.199 and "+
-			"10.26.1.225 are the CEE server itself and 10.26.1.150-153 are OneFS "+
-			"nodes publishing directly, while NAS01 (10.26.1.224) — which "+
-			"generates the events CEE relays — is absent. A NAS that stops "+
-			"generating events while its CEE server keeps heartbeating is "+
-			"therefore invisible here; cee_events_by_server_total is where that "+
-			"shows.",
+			"does not appear at all. Arrays that publish directly, such as OneFS "+
+			"nodes, do appear in their own right. A NAS that stops generating "+
+			"events while its CEE server keeps heartbeating is therefore "+
+			"invisible here; cee_events_by_server_total is where that shows.",
 		[]string{"remote"}, nil,
 	)
 	cepaRegistrationsDesc = prometheus.NewDesc(

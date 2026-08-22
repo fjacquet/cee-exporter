@@ -497,7 +497,7 @@
       "id": 10,
       "type": "stat",
       "title": "Publishers reporting",
-      "description": "Distinct CEPA publishers seen. A publisher is whatever opened the connection — a CEE server, or an array publishing directly. On this estate 10.26.1.199 and 10.26.1.225 are CEE itself and 10.26.1.150-153 are OneFS nodes; the array behind CEE (10.26.1.224) never appears here, because CEE relays on its behalf. A drop means someone stopped talking; Publisher silence says who.",
+      "description": "Distinct CEPA publishers seen. A publisher is whatever opened the connection — a CEE server, or an array publishing directly — which is not the same as where the event happened. A NAS whose events a CEE server relays never appears here at all; look for it in Events by NAS server. A drop means someone stopped talking; Publisher silence says who.",
       "gridPos": {
         "h": 7,
         "w": 4,
@@ -899,7 +899,7 @@
       "id": 16,
       "type": "timeseries",
       "title": "Events by NAS server",
-      "description": "Where the operation happened — the array's own name for itself, taken from the event rather than from the connection.\n\nThis is the question cee_cepa_* cannot answer. Those metrics label by publisher, which for a relayed event is the CEE server; here 10.26.1.224 (NAS01) appears in its own right even though it never opens a connection to this exporter. A NAS that stops generating events while its CEE server keeps heartbeating is visible here and nowhere else.\n\nThe client address is deliberately not a label: it is every workstation that ever touched a share, and unbounded labels are how an exporter takes down its own Prometheus. Server is capped too — see cee_event_labels_dropped_total.",
+      "description": "Where the operation happened — the array's own name for itself, taken from the event rather than from the connection.\n\nThis is the question cee_cepa_* cannot answer. Those metrics label by publisher, which for a relayed event is the CEE server, so a NAS behind a CEE server appears here and nowhere else. A NAS that stops generating events while its CEE server keeps heartbeating is visible only on this panel.\n\nThe client address is deliberately not a label: it is every workstation that ever touched a share, and unbounded labels are how an exporter takes down its own Prometheus. Server is capped too — see cee_event_labels_dropped_total.",
       "gridPos": {
         "h": 9,
         "w": 12,
