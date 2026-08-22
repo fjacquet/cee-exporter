@@ -114,7 +114,7 @@
       "targets": [
         {
           "expr": "rate(cee_events_received_total[5m])",
-          "legendFormat": "received",
+          "legendFormat": "{{instance}} received",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -123,7 +123,7 @@
         },
         {
           "expr": "rate(cee_events_written_total[5m])",
-          "legendFormat": "written",
+          "legendFormat": "{{instance}} written",
           "refId": "B",
           "datasource": {
             "type": "prometheus",
@@ -132,7 +132,7 @@
         },
         {
           "expr": "rate(cee_events_dropped_total[5m])",
-          "legendFormat": "dropped",
+          "legendFormat": "{{instance}} dropped",
           "refId": "C",
           "datasource": {
             "type": "prometheus",
@@ -149,7 +149,8 @@
       "datasource": {
         "type": "prometheus",
         "uid": "cee-prometheus"
-      }
+      },
+      "description": "Events per second, split per exporter instance. The counters carry no publisher label — an event batch is attributed to the exporter that parsed it, not to the array that sent it — so {{instance}} is the per-exporter breakdown. Without it two scraped exporters produce two series both legended \"received\" and neither can be identified. received minus written is what the queue has not yet flushed; dropped is what was lost."
     },
     {
       "id": 4,
@@ -164,7 +165,7 @@
       "targets": [
         {
           "expr": "cee_queue_depth",
-          "legendFormat": "depth",
+          "legendFormat": "{{instance}} depth",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
