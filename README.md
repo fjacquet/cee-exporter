@@ -67,6 +67,34 @@ gelf_protocol = "tcp"            # use tcp for production
 addr = "0.0.0.0:12228"
 ```
 
+### If your events come through Dell CEE, read this first
+
+CEE will not send events to a consumer it has not registered, and it only
+registers an identity present in a table compiled into its own binary
+(`CGuidStore`, keyed by *(friendlyName, facility)* → GUID). A self-generated
+GUID is refused with `unknown or invalid GUID`; CEE then answers every array
+heartbeat `0x16 CEPP_NOT_FOUND` and the array silently discards its events.
+Every observable stays green while nothing is published.
+
+So the `[cepa]` block is not optional in that topology:
+
+```toml
+[cepa]
+friendly_name = "PeerSoftwareCollector"                  # must match CEE's EndPoint partner id
+guid          = "49f4da0f-055f-401c-9f83-a95ce61447f6"   # must be that name's GUID for the facility
+```
+
+with CEE configured as
+`EndPoint = PeerSoftwareCollector@http://<this-host>:<port>`.
+
+These are other vendors' registered identities — there is no mechanism for a
+third-party consumer to obtain its own. Choose deliberately: CEE will report
+your consumer under that name, and it would collide with a genuine deployment
+of that product on the same CEE host. Diagnosing any of this needs `Debug=63`
+on the CEE side; at the default `Debug=1` CEE says nothing about why it refused.
+
+Arrays that speak CEPA directly (PowerScale/OneFS) need none of this.
+
 Check health:
 
 ```bash
