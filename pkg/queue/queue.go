@@ -25,6 +25,12 @@ type Queue struct {
 	writer  evtx.Writer
 	workers int
 	wg      sync.WaitGroup
+	// mu guards closed. Enqueue takes RLock and Stop takes Lock, so a send on
+	// q.ch cannot race with close(q.ch): the send holds a read lock that the
+	// close must exclude. RLock is uncontended in the normal case and costs
+	// ~20 ns against an 8.6 µs parse, so the fast path is unaffected.
+	mu     sync.RWMutex
+	closed bool
 }
 
 // New creates a Queue with the given channel capacity and number of workers.
@@ -49,7 +55,25 @@ func (q *Queue) Start(ctx context.Context) {
 
 // Enqueue adds an event to the queue.  If the queue is full the event is
 // dropped and the counter is incremented.  This call never blocks.
+//
+// After Stop it refuses and reports false rather than panicking. main.go
+// reaches Stop even when httpServer.Shutdown timed out, so a live handler
+// calling Enqueue after the channel closed is a reachable state, not a
+// theoretical one.
 func (q *Queue) Enqueue(e evtx.WindowsEvent) bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	if q.closed {
+		metrics.M.EventsDroppedTotal.Add(1)
+		slog.Warn("enqueue_after_stop_event_dropped",
+			"events_dropped_total", metrics.M.EventsDroppedTotal.Load(),
+			"cepa_event_type", e.CEPAEventType,
+			"file_path", e.ObjectName,
+		)
+		return false
+	}
+
 	select {
 	case q.ch <- e:
 		metrics.M.SetQueueDepth(len(q.ch))
@@ -72,9 +96,18 @@ func (q *Queue) Len() int {
 }
 
 // Stop closes the input channel, waits for all workers to finish draining,
-// then closes the writer.
+// then closes the writer. It is idempotent: a second call returns
+// immediately rather than closing the channel twice.
 func (q *Queue) Stop() {
+	q.mu.Lock()
+	if q.closed {
+		q.mu.Unlock()
+		return
+	}
+	q.closed = true
 	close(q.ch)
+	q.mu.Unlock()
+
 	q.wg.Wait()
 	if err := q.writer.Close(); err != nil {
 		slog.Error("writer_close_error", "error", err)

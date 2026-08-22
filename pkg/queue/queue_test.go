@@ -106,3 +106,35 @@ func TestDrainOnStop(t *testing.T) {
 		t.Errorf("expected 3 events written after Stop(), got %d", len(fw.events))
 	}
 }
+
+// TestEnqueueAfterStop pins the guard that keeps a shutdown from panicking.
+// main.go calls q.Stop() even when httpServer.Shutdown returned an error,
+// which is exactly the case where a handler is still live and about to
+// Enqueue. Without the guard this test panics with "send on closed channel"
+// rather than failing — that is the intended mutation signal.
+func TestEnqueueAfterStop(t *testing.T) {
+	metrics.M.EventsDroppedTotal.Store(0)
+
+	fw := &fakeWriter{}
+	q := New(10, 1, fw)
+	q.Start(context.Background())
+	q.Stop()
+
+	if ok := q.Enqueue(evtx.WindowsEvent{EventID: 4663}); ok {
+		t.Fatal("Enqueue after Stop returned true; it must refuse and report false")
+	}
+	if got := metrics.M.EventsDroppedTotal.Load(); got != 1 {
+		t.Errorf("expected the refused event counted as dropped, got EventsDroppedTotal == %d", got)
+	}
+}
+
+// TestStopIsIdempotent covers the same shutdown path: TestEnqueue defers
+// q.Stop() while other call sites invoke it directly, and a second close of
+// the channel is a panic.
+func TestStopIsIdempotent(t *testing.T) {
+	fw := &fakeWriter{}
+	q := New(10, 1, fw)
+	q.Start(context.Background())
+	q.Stop()
+	q.Stop()
+}
