@@ -8,6 +8,7 @@ package evtx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -71,47 +72,118 @@ func (w *SyslogWriter) connect() error {
 	return nil
 }
 
-func (w *SyslogWriter) send(payload []byte) error {
+// sendRaw writes b with a deadline, adding no framing — the caller has
+// already framed the payload, which is what lets the batch path concatenate
+// K frames into a single Write.
+func (w *SyslogWriter) sendRaw(b []byte) error {
 	_ = w.conn.SetWriteDeadline(time.Now().Add(writeDeadline))
-	switch w.cfg.Protocol {
-	case "tcp":
-		// RFC 6587 §3.4.1 octet-counting: "<length> <message>"
-		if _, err := fmt.Fprintf(w.conn, "%d ", len(payload)); err != nil {
-			return fmt.Errorf("syslog tcp length prefix: %w", err)
-		}
-		if _, err := w.conn.Write(payload); err != nil {
-			return fmt.Errorf("syslog tcp payload: %w", err)
-		}
-	default: // udp — single datagram, no framing
-		if _, err := w.conn.Write(payload); err != nil {
-			return fmt.Errorf("syslog udp send: %w", err)
-		}
-	}
-	return nil
+	_, err := w.conn.Write(b)
+	return err
+}
+
+// retrySend runs send, reconnecting and retrying once on failure. Caller
+// must hold w.mu.
+func (w *SyslogWriter) retrySend(send func() error) error {
+	return sendWithRetry(send, func() error {
+		slog.Warn("syslog_reconnect")
+		return w.connect()
+	})
+}
+
+// frameTCP appends payload to dst, prefixed with the RFC 6587 §3.4.1 octet
+// count: "<decimal length> <message>". Uses strconv.AppendInt rather than
+// fmt.Fprintf into a bytes.Buffer: bytes.Buffer.Write returns an error that
+// errcheck requires handling, for a write that cannot fail.
+func frameTCP(dst, payload []byte) []byte {
+	dst = strconv.AppendInt(dst, int64(len(payload)), 10)
+	dst = append(dst, ' ')
+	return append(dst, payload...)
 }
 
 // WriteEvent serialises the event as RFC 5424 syslog and sends it.
-func (w *SyslogWriter) WriteEvent(ctx context.Context, e WindowsEvent) error {
+func (w *SyslogWriter) WriteEvent(_ context.Context, e WindowsEvent) error {
 	payload, err := buildSyslog5424(e, w.cfg.AppName)
 	if err != nil {
 		return fmt.Errorf("syslog build: %w", err)
+	}
+	if w.cfg.Protocol == "tcp" {
+		payload = frameTCP(make([]byte, 0, len(payload)+8), payload)
 	}
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if err := sendWithRetry(
-		func() error { return w.send(payload) },
-		func() error {
-			slog.Warn("syslog_reconnect")
-			return w.connect()
-		},
-	); err != nil {
+	if err := w.retrySend(func() error { return w.sendRaw(payload) }); err != nil {
 		return fmt.Errorf("syslog %w", err)
 	}
 
 	slog.Debug("syslog_event_sent", "event_id", e.EventID)
 	return nil
+}
+
+// WriteBatch sends every event in one lock acquisition.
+//
+// On TCP that is one Write carrying K octet-counted frames. The per-event
+// path issued TWO syscalls per event — fmt.Fprintf for the length prefix,
+// then Write for the payload — so a 500-event batch goes from 1000 writes to
+// one.
+//
+// UDP stays one datagram per message (RFC 5426); only the lock is shared.
+func (w *SyslogWriter) WriteBatch(_ context.Context, events []WindowsEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	// Build before locking: this is the half of the cost that parallelises,
+	// and holding the lock across it would give the batch back nothing.
+	//
+	// One unbuildable event must not cost the batch. RFC 5424 rejects a
+	// hostname that is not 1-255 printable US-ASCII, so a single NAS server
+	// with a non-ASCII name would otherwise discard every other event in the
+	// drain — the same whole-batch loss writeBatchSerially exists to prevent.
+	payloads := make([][]byte, 0, len(events))
+	total := 0
+	var buildErrs []error
+	for i := range events {
+		p, err := buildSyslog5424(events[i], w.cfg.AppName)
+		if err != nil {
+			buildErrs = append(buildErrs, fmt.Errorf("syslog build event %d/%d: %w", i+1, len(events), err))
+			continue
+		}
+		payloads = append(payloads, p)
+		total += len(p) + 8 // payload + decimal length + space
+	}
+	if len(payloads) == 0 {
+		return errors.Join(buildErrs...)
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.cfg.Protocol == "tcp" {
+		frame := make([]byte, 0, total)
+		for _, p := range payloads {
+			frame = frameTCP(frame, p)
+		}
+		if err := w.retrySend(func() error { return w.sendRaw(frame) }); err != nil {
+			return errors.Join(append(buildErrs, fmt.Errorf("syslog batch %w", err))...)
+		}
+		slog.Debug("syslog_batch_sent", "events", len(payloads), "bytes", len(frame))
+		return errors.Join(buildErrs...)
+	}
+
+	// A connected UDP socket surfaces a collector that went away as
+	// ECONNREFUSED on the *next* write, which is transient and routine.
+	// Returning on it would abandon every datagram after the first failure,
+	// and the queue does not re-send.
+	sendErrs := buildErrs
+	for i, p := range payloads {
+		if err := w.retrySend(func() error { return w.sendRaw(p) }); err != nil {
+			sendErrs = append(sendErrs, fmt.Errorf("syslog batch event %d/%d: %w", i+1, len(payloads), err))
+		}
+	}
+	slog.Debug("syslog_batch_sent", "events", len(events), "datagrams", len(payloads))
+	return errors.Join(sendErrs...)
 }
 
 // Close flushes and closes the connection.

@@ -142,6 +142,13 @@ func (w *Win32EventLogWriter) WriteEvent(_ context.Context, e WindowsEvent) erro
 	return nil
 }
 
+// WriteBatch writes each event in turn. Win32 ReportEvent takes one event and
+// offers no batch form, so this exists to satisfy the interface rather than to
+// gain throughput.
+func (w *Win32EventLogWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
+	return writeBatchSerially(ctx, w, events)
+}
+
 // Close releases the event log handle.
 func (w *Win32EventLogWriter) Close() error {
 	return w.log.Close()

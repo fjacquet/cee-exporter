@@ -781,7 +781,7 @@ reports `0` for a certificate that expired eleven hours ago too.
 
 cee-exporter handles `SIGTERM` and `SIGINT`. On receiving a signal it:
 
-1. Stops accepting new HTTP connections (30-second drain).
+1. Stops accepting new HTTP connections (30-second drain, plus a fixed 5-second grace period taken only if that drain times out, so worst case is 35 seconds).
 2. Waits for the event queue to flush.
 3. Closes the writer connection.
 

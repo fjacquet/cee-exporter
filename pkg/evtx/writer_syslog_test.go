@@ -2,9 +2,14 @@ package evtx
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -144,26 +149,24 @@ func TestSyslogTCPFraming(t *testing.T) {
 	// Send in a goroutine so we can read from the other end.
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- w.send(payload)
+		errCh <- w.sendRaw(frameTCP(nil, payload))
 	}()
 
-	// Read from the server side.
-	scanner := bufio.NewScanner(server)
-	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		// Read until we find a space (end of length prefix).
-		for i, b := range data {
-			if b == ' ' {
-				return i + 1, data[:i], nil
-			}
-		}
-		return 0, nil, nil
-	})
-
-	if !scanner.Scan() {
-		t.Fatal("failed to read length prefix from TCP frame")
+	// Read from the server side through a single bufio.Reader. sendRaw now
+	// issues the prefix and payload as ONE Write (that concatenation is the
+	// whole point of the batching change), so net.Pipe delivers both in one
+	// underlying Read once the frame fits in the reader's buffer. Reading
+	// the prefix and payload through two different readers — a
+	// bufio.Scanner, then a raw server.Read — left the payload bytes
+	// stranded in the Scanner's internal buffer and the raw Read blocking
+	// forever; that combination is what to avoid here.
+	br := bufio.NewReader(server)
+	lengthStr, err := br.ReadString(' ')
+	if err != nil {
+		t.Fatalf("failed to read length prefix from TCP frame: %v", err)
 	}
+	lengthStr = strings.TrimSuffix(lengthStr, " ")
 
-	lengthStr := scanner.Text()
 	var frameLen int
 	if _, err := fmt.Sscanf(lengthStr, "%d", &frameLen); err != nil {
 		t.Fatalf("expected numeric length prefix, got %q: %v", lengthStr, err)
@@ -175,7 +178,7 @@ func TestSyslogTCPFraming(t *testing.T) {
 
 	// Read the exact number of bytes declared in the length prefix.
 	buf := make([]byte, frameLen)
-	n, err := server.Read(buf)
+	n, err := io.ReadFull(br, buf)
 	if err != nil {
 		t.Fatalf("failed to read payload: %v", err)
 	}
@@ -187,6 +190,309 @@ func TestSyslogTCPFraming(t *testing.T) {
 	}
 
 	if err := <-errCh; err != nil {
-		t.Errorf("send() returned error: %v", err)
+		t.Errorf("sendRaw() returned error: %v", err)
+	}
+}
+
+// TestSyslogWriteBatchOctetCounting reads the frames back out. One wrong
+// length prefix in a concatenated batch desynchronises the receiver for
+// every subsequent message, and the failure appears at the collector, not
+// here.
+func TestSyslogWriteBatchOctetCounting(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+
+	msgs := make(chan []string, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer func() { _ = c.Close() }()
+		_ = c.SetReadDeadline(time.Now().Add(2 * time.Second))
+		br := bufio.NewReader(c)
+
+		var out []string
+		for i := 0; i < 3; i++ {
+			// RFC 6587 §3.4.1: "<decimal length> <message>"
+			lenStr, err := br.ReadString(' ')
+			if err != nil {
+				break
+			}
+			n, err := strconv.Atoi(strings.TrimSpace(lenStr))
+			if err != nil {
+				break
+			}
+			payload := make([]byte, n)
+			if _, err := io.ReadFull(br, payload); err != nil {
+				break
+			}
+			out = append(out, string(payload))
+		}
+		msgs <- out
+	}()
+
+	host, port := splitHostPort(t, ln.Addr().String())
+	w, err := NewSyslogWriter(SyslogConfig{Host: host, Port: port, Protocol: "tcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+
+	batch := []WindowsEvent{
+		{EventID: 4663, Computer: "NAS01", ObjectName: "/a", CEPAEventType: "CEPP_FILE_WRITE"},
+		{EventID: 4660, Computer: "NAS01", ObjectName: "/b", CEPAEventType: "CEPP_DELETE_FILE"},
+		{EventID: 4670, Computer: "NAS01", ObjectName: "/c", CEPAEventType: "CEPP_SETACL_FILE"},
+	}
+	if err := w.WriteBatch(context.Background(), batch); err != nil {
+		t.Fatalf("WriteBatch: %v", err)
+	}
+
+	got := <-msgs
+	if len(got) != 3 {
+		t.Fatalf("recovered %d framed messages, want 3 — octet counting is wrong", len(got))
+	}
+	for i, m := range got {
+		if !strings.HasPrefix(m, "<") {
+			t.Errorf("message %d does not start with an RFC 5424 PRI: %q", i, m)
+		}
+	}
+}
+
+// TestSyslogWriteBatchTCPSingleWrite is the actual batching guard: it
+// asserts the write count at the writer, not at the sink. TCP is a stream —
+// one Write may split across reads, and several writes may coalesce into
+// one — so a read/write count observed at the sink is flaky in both
+// directions. Counting Write calls on the wrapped net.Conn is exact.
+//
+// Today's per-event path issues two syscalls per event (length prefix,
+// then payload), so 3 events would be 6 writes; this batch must be 1.
+func TestSyslogWriteBatchTCPSingleWrite(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer func() { _ = c.Close() }()
+		buf := make([]byte, 65536)
+		for {
+			if _, err := c.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	host, port := splitHostPort(t, ln.Addr().String())
+	w, err := NewSyslogWriter(SyslogConfig{Host: host, Port: port, Protocol: "tcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cc := &countingConn{Conn: w.conn}
+	w.conn = cc
+
+	batch := []WindowsEvent{
+		{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE"},
+		{EventID: 4660, CEPAEventType: "CEPP_DELETE_FILE"},
+		{EventID: 4670, CEPAEventType: "CEPP_SETACL_FILE"},
+	}
+	writeErr := w.WriteBatch(context.Background(), batch)
+
+	_ = w.Close()
+	_ = ln.Close()
+	wg.Wait()
+
+	if writeErr != nil {
+		t.Fatalf("WriteBatch: %v", writeErr)
+	}
+	if got := cc.count(); got != 1 {
+		t.Errorf("3 events produced %d writes, want 1; the batch is not being concatenated into a single write", got)
+	}
+}
+
+// TestSyslogWriteBatchUDPWritesOnePerEvent guards against a future
+// "optimisation" that concatenates datagrams: RFC 5426 requires one syslog
+// message per UDP datagram. This assertion does not discriminate the
+// writeBatchSerially stub — both produce one datagram per event, because
+// UDP's win is the single lock acquisition rather than fewer writes — but it
+// stands as a regression guard.
+func TestSyslogWriteBatchUDPWritesOnePerEvent(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 65535)
+		for {
+			if _, _, err := pc.ReadFrom(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	host, port := splitHostPort(t, pc.LocalAddr().String())
+	w, err := NewSyslogWriter(SyslogConfig{Host: host, Port: port, Protocol: "udp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cc := &countingConn{Conn: w.conn}
+	w.conn = cc
+
+	batch := []WindowsEvent{
+		{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE"},
+		{EventID: 4660, CEPAEventType: "CEPP_DELETE_FILE"},
+		{EventID: 4670, CEPAEventType: "CEPP_SETACL_FILE"},
+	}
+	writeErr := w.WriteBatch(context.Background(), batch)
+
+	_ = w.Close()
+	_ = pc.Close()
+	wg.Wait()
+
+	if writeErr != nil {
+		t.Fatalf("WriteBatch: %v", writeErr)
+	}
+	if got := cc.count(); got != 3 {
+		t.Errorf("3 events produced %d writes, want 3 — UDP must send one datagram per message, never concatenated", got)
+	}
+}
+
+// TestSyslogBatchSurvivesOneUnbuildableEvent pins that a single event the
+// RFC 5424 encoder rejects costs only that event.
+//
+// buildSyslog5424 sets Hostname from the CEPA event's Computer field, and
+// rfc5424 rejects any hostname that is not 1-255 printable US-ASCII. One NAS
+// server with a non-ASCII name therefore used to discard every other event in
+// the drain — up to max_batch of them, where the pre-batching per-event loop
+// lost exactly the one. That is the whole-batch loss writeBatchSerially
+// exists to prevent, and it had reappeared one layer down.
+func TestSyslogBatchSurvivesOneUnbuildableEvent(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 65535)
+		for {
+			if _, _, err := pc.ReadFrom(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	host, port := splitHostPort(t, pc.LocalAddr().String())
+	w, err := NewSyslogWriter(SyslogConfig{Host: host, Port: port, Protocol: "udp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Confirm the premise before relying on it: this event must actually fail
+	// to build, or the test proves nothing about partial failure.
+	bad := WindowsEvent{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE", Computer: "nås01"}
+	if _, err := buildSyslog5424(bad, "cee-exporter"); err == nil {
+		t.Fatal("a non-ASCII hostname built successfully; the premise of this test no longer holds")
+	}
+
+	cc := &countingConn{Conn: w.conn}
+	w.conn = cc
+
+	batch := []WindowsEvent{
+		bad,
+		{EventID: 4660, CEPAEventType: "CEPP_DELETE_FILE", Computer: "nas01"},
+		{EventID: 4670, CEPAEventType: "CEPP_SETACL_FILE", Computer: "nas01"},
+	}
+	writeErr := w.WriteBatch(context.Background(), batch)
+
+	_ = w.Close()
+	_ = pc.Close()
+	wg.Wait()
+
+	if writeErr == nil {
+		t.Error("WriteBatch returned nil; a batch containing an unbuildable event must still report failure")
+	}
+	if got := cc.count(); got != 2 {
+		t.Errorf("1 bad of 3 events produced %d writes, want 2 — the good events must still be sent", got)
+	}
+}
+
+// errConn fails every Write. Paired with an undialable host it makes
+// retrySend's reconnect fail too, so a send error is terminal for that
+// payload — which is what lets a test observe whether the batch loop stops at
+// the first failure or attempts the rest.
+type errConn struct {
+	net.Conn
+	mu       sync.Mutex
+	attempts int
+}
+
+func (c *errConn) Write(b []byte) (int, error) {
+	c.mu.Lock()
+	c.attempts++
+	c.mu.Unlock()
+	return 0, errors.New("simulated datagram failure")
+}
+
+func (c *errConn) SetWriteDeadline(time.Time) error { return nil }
+
+func (c *errConn) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.attempts
+}
+
+// TestSyslogUDPBatchAttemptsEveryDatagram pins that a failed datagram does not
+// abandon the rest of the batch.
+//
+// A connected UDP socket reports a collector that went away as ECONNREFUSED on
+// the *next* write — routine and transient. Returning on it abandoned every
+// event after the first failure, and the queue does not re-send, so those
+// records were simply gone.
+func TestSyslogUDPBatchAttemptsEveryDatagram(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = pc.Close() }()
+
+	host, port := splitHostPort(t, pc.LocalAddr().String())
+	w, err := NewSyslogWriter(SyslogConfig{Host: host, Port: port, Protocol: "udp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Every write fails, and the reconnect behind it fails too, so each
+	// payload's retrySend is terminal rather than recovering.
+	ec := &errConn{Conn: w.conn}
+	w.conn = ec
+	w.cfg.Host = "no-such-host.invalid"
+
+	batch := []WindowsEvent{
+		{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE", Computer: "nas01"},
+		{EventID: 4660, CEPAEventType: "CEPP_DELETE_FILE", Computer: "nas01"},
+		{EventID: 4670, CEPAEventType: "CEPP_SETACL_FILE", Computer: "nas01"},
+	}
+	if err := w.WriteBatch(context.Background(), batch); err == nil {
+		t.Error("WriteBatch returned nil though every datagram failed")
+	}
+
+	if got := ec.count(); got != 3 {
+		t.Errorf("3 events produced %d write attempts, want 3 — a failed datagram must not abandon the rest of the batch", got)
 	}
 }

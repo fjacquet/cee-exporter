@@ -40,6 +40,27 @@ func newRegistry() *prometheus.Registry {
 			},
 			func() float64 { return float64(metrics.M.WriterErrorsTotal.Load()) },
 		),
+		prometheus.NewCounterFunc(
+			prometheus.CounterOpts{
+				Name: "cee_writer_batches_total",
+				Help: "Total WriteBatch calls issued to the output writer, " +
+					"success or failure. Divide cee_events_written_total by " +
+					"this for the mean batch size: a value near 1 means " +
+					"batching is not happening and the writer is back at its " +
+					"per-event throughput ceiling, which no other series " +
+					"reveals.",
+			},
+			func() float64 { return float64(metrics.M.WriterBatchesTotal.Load()) },
+		),
+		prometheus.NewCounterFunc(
+			prometheus.CounterOpts{
+				Name: "cee_writer_batch_errors_total",
+				Help: "Total failed WriteBatch calls. cee_writer_errors_total " +
+					"counts the events in those batches and keeps its original " +
+					"event-level meaning; this counts the calls.",
+			},
+			func() float64 { return float64(metrics.M.WriterBatchErrorsTotal.Load()) },
+		),
 		prometheus.NewGaugeFunc(
 			prometheus.GaugeOpts{
 				Name: "cee_queue_depth",
@@ -103,6 +124,19 @@ func newRegistry() *prometheus.Registry {
 					"unaffected and stays authoritative for the total.",
 			},
 			func() float64 { return float64(metrics.M.EventLabelsDropped()) },
+		),
+		prometheus.NewCounterFunc(
+			prometheus.CounterOpts{
+				Name: "cee_requests_throttled_total",
+				Help: "Total CEPA requests that had to wait for a concurrency " +
+					"slot before their body was read. Non-zero means " +
+					"max_concurrent_requests is binding: publishers are being " +
+					"held past their 3-second ACK budget and will mark this " +
+					"consumer unavailable. Raise the limit only after checking " +
+					"that live heap has room — each slot is worth roughly " +
+					"4x max_body_mb.",
+			},
+			func() float64 { return float64(metrics.M.RequestsThrottledTotal.Load()) },
 		),
 	)
 

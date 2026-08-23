@@ -140,6 +140,33 @@ const unhandledPayloadSamples = 10
 // without its structure, so the loss never goes completely quiet.
 const unhandledSuppressedInterval = 1000
 
+// LimitsConfig bounds what one request may cost. Both fields exist because a
+// single 64 MiB body measured 269 MiB of live heap and 495 MiB of RSS, and
+// nothing capped how many could be in flight at once.
+type LimitsConfig struct {
+	// MaxBodyMB caps the request body. Default 8, which is ~23k events —
+	// well past any documented VCAPS batch, where a realistic 1000-event
+	// batch is ~350 KB.
+	MaxBodyMB int `toml:"max_body_mb"`
+
+	// MaxConcurrentRequests bounds request bodies in flight. Default 8, so
+	// worst-case live heap is ~270 MiB rather than unbounded. Raising it
+	// raises that ceiling roughly linearly.
+	MaxConcurrentRequests int `toml:"max_concurrent_requests"`
+}
+
+func (c LimitsConfig) withDefaults() LimitsConfig {
+	if c.MaxBodyMB <= 0 {
+		c.MaxBodyMB = 8
+	}
+	if c.MaxConcurrentRequests <= 0 {
+		c.MaxConcurrentRequests = 8
+	}
+	return c
+}
+
+func (c LimitsConfig) maxBodyBytes() int64 { return int64(c.MaxBodyMB) << 20 }
+
 // Handler is the CEPA HTTP handler.
 type Handler struct {
 	q        *queue.Queue
@@ -150,6 +177,14 @@ type Handler struct {
 	// fixed for the handler's lifetime. Building it per request measured ~16 µs
 	// and 87 allocations to produce the same 336 bytes.
 	registerReply []byte
+
+	limits LimitsConfig
+
+	// slots bounds concurrent request bodies in flight. Acquired before
+	// readBody and released at the end of ServeHTTP: the slot must cover
+	// parse, not just the read, because parse is where the ~4.2x body-size
+	// live heap actually lives.
+	slots chan struct{}
 
 	// Counters for the log sampler, one per dialect that can fail to parse.
 	// These decide which occurrences carry their redacted structure; the
@@ -181,15 +216,46 @@ func logUnhandled(event string, seen int64, decoded, body []byte, attrs ...any) 
 // hostname is the value used for the WindowsEvent.Computer field
 // (typically the NAS hostname extracted from the CEPA request context).
 // reg describes this consumer to Dell CEE; a zero value takes the defaults.
-func NewHandler(q *queue.Queue, hostname string, reg RegistrationConfig) *Handler {
+// limits bounds request body size and in-flight concurrency; a zero value
+// takes the defaults.
+func NewHandler(q *queue.Queue, hostname string, reg RegistrationConfig, limits LimitsConfig) *Handler {
 	reg = reg.withDefaults()
+	limits = limits.withDefaults()
 	return &Handler{
 		q:             q,
 		hostname:      hostname,
 		reg:           reg,
 		registerReply: reg.registrationResponseXML(),
+		limits:        limits,
+		slots:         make(chan struct{}, limits.MaxConcurrentRequests),
 	}
 }
+
+// acquireSlot takes a concurrency slot, waiting if none is free.
+//
+// It blocks rather than rejecting. readBody runs before the ACK, so a
+// rejection means no ACK at all and the publisher may retry forever or mark
+// this consumer unavailable. A blocked publisher misses its 3-second ACK and
+// degrades — bad, but it is one publisher and it retries. An OOM takes every
+// publisher's stream down at once and loses the queue with it.
+//
+// The wait has no bound of its own. The server's ReadTimeout bounds reading a
+// request, not a handler parked on this channel send, so a saturated queue can
+// hold an event PUT here indefinitely. That is survivable only because the
+// traffic whose lateness is fatal never reaches this function: ServeHTTP
+// classifies liveness payloads from a bounded prefix and answers them without
+// a slot. See handshakeProbeBytes.
+func (h *Handler) acquireSlot() {
+	select {
+	case h.slots <- struct{}{}:
+		return
+	default:
+	}
+	metrics.M.RequestsThrottledTotal.Add(1)
+	h.slots <- struct{}{}
+}
+
+func (h *Handler) releaseSlot() { <-h.slots }
 
 // respond answers in the encoding the request arrived in, sets the content
 // type, writes the reply and reports the bytes written.
@@ -212,6 +278,35 @@ func respond(w http.ResponseWriter, r *http.Request, reqBody, reply []byte, cont
 		return 0, false
 	}
 	return n, true
+}
+
+// answerUnreadableBody handles a request whose body could not be read to
+// completion — over the cap, or a read that failed or timed out.
+//
+// It counts a drop and answers with the event acknowledgement rather than a
+// bare 400, for the reason the decode-error branch below documents at length:
+// Dell CEE reads anything that is not a well-formed response as a failed
+// delivery and retries the same batch forever. A 400 on an oversized batch
+// therefore does not shed the load, it converts one lost payload into a
+// publisher stuck resending it and delivering nothing else — and with the cap
+// now 8 MiB rather than an unconditional 64 MiB, that is reachable on a large
+// VCAPS burst rather than theoretical.
+//
+// The drop is counted as one because the true count is unknowable: the body
+// was never read, so the events in it were never parsed. One is a floor that
+// makes the loss alertable on the series operators already watch; it is not a
+// measurement of how many records went missing.
+func answerUnreadableBody(w http.ResponseWriter, r *http.Request, probe []byte, event string, err error) {
+	metrics.M.EventsDroppedTotal.Add(1)
+	slog.Error(event,
+		"remote", r.RemoteAddr,
+		"bytes_read", len(probe),
+		"error", err,
+		"note", "batch lost; counted as one drop because the body was never parsed",
+	)
+	// probe carries enough of the body for respond to detect UTF-16LE, which
+	// is the one thing the reply must mirror.
+	_, _ = respond(w, r, probe, checkEventResponse, "text/xml", event+"_response_write_error")
 }
 
 // ServeHTTP implements http.Handler.  Only PUT is accepted; everything else
@@ -237,18 +332,55 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	metrics.M.RecordPeerRequestAt(peer, start)
 
 	defer func() { _ = r.Body.Close() }()
-	body, err := readBody(w, r)
+
+	// Read a bounded prefix before taking a concurrency slot, so CEPA's
+	// liveness traffic never queues behind an event backlog. See
+	// handshakeProbeBytes for why that matters more than the memory it costs.
+	probe, complete, err := readProbe(r, handshakeProbeBytes)
 	if err != nil {
-		slog.Error("cepa_body_read_error", "remote", r.RemoteAddr, "error", err)
-		http.Error(w, "bad request", http.StatusBadRequest)
+		answerUnreadableBody(w, r, probe, "cepa_body_read_error", err)
 		return
+	}
+
+	var (
+		body       []byte
+		dialect    parser.Dialect
+		decoded    []byte
+		decodeErr  error
+		classified bool
+	)
+	if complete {
+		body = probe
+		dialect, decoded, decodeErr = parser.Classify(body)
+		classified = true
+	}
+
+	// The slot must cover everything that allocates, which is every path that
+	// reads or parses an event payload. Liveness traffic is exempt: it is
+	// already whole in probe, it carries no audit record, and answering it
+	// late is what takes a publisher OFFLINE.
+	liveness := classified && decodeErr == nil && isLivenessDialect(dialect, decoded)
+	if !liveness {
+		h.acquireSlot()
+		defer h.releaseSlot()
+
+		if !complete {
+			rest, rerr := readBody(w, r, h.limits.maxBodyBytes()-int64(len(probe)))
+			if rerr != nil {
+				answerUnreadableBody(w, r, probe, "cepa_body_read_error", rerr)
+				return
+			}
+			body = append(probe, rest...)
+		}
+		if !classified {
+			dialect, decoded, decodeErr = parser.Classify(body)
+		}
 	}
 
 	// Transcode once. Every parser.Is* predicate decodes the whole body just to
 	// read its root element, so dispatching through four of them and then
 	// parsing used to decode the same payload five times — 62% of the time and
 	// 92% of the allocations on a 1000-event batch. See parser.Classify.
-	dialect, decoded, decodeErr := parser.Classify(body)
 	if decodeErr != nil {
 		slog.Error("cepa_decode_error",
 			"remote", r.RemoteAddr, "body_bytes", len(body), "error", decodeErr)
@@ -501,10 +633,56 @@ func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 	}
 }
 
-// readBody reads up to 64 MiB from the request body. MaxBytesReader enforces
-// the cap; any excess returns an error that the caller maps to HTTP 400.
-func readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-	const maxBody = 64 << 20 // 64 MiB
+// handshakeProbeBytes bounds the prefix read before a concurrency slot is
+// taken.
+//
+// CEPA's liveness traffic — <RegisterRequest>, <HeartBeatRequest /> and
+// OneFS's heartbeat-action <CheckFileRequest> — is two orders of magnitude
+// below this even in UTF-16LE, so it is classified and answered without
+// queueing behind an event backlog. Anything larger is an event payload and
+// takes a slot before the rest of its body is read.
+//
+// The trade is deliberate and asymmetric. It costs at most this many bytes per
+// in-flight request outside the semaphore. It buys back the case that made the
+// semaphore dangerous: acquireSlot blocks with no bound of its own — the
+// server's ReadTimeout bounds reading a request, not a handler parked on a
+// channel send — so under saturation a heartbeat could sit past CEPA's
+// 3-second ACK deadline. The publisher then marks this consumer OFFLINE and
+// stops sending events entirely, which loses far more than the memory the
+// semaphore was protecting. Liveness payloads carry no audit record, so
+// exempting them risks nothing that events risk.
+const handshakeProbeBytes = 8 << 10
+
+// readProbe reads up to n bytes of the body. complete reports whether the
+// body ended within n, which is what lets the caller classify a small payload
+// without having committed to reading an arbitrarily large one.
+func readProbe(r *http.Request, n int64) (probe []byte, complete bool, err error) {
+	probe, err = io.ReadAll(io.LimitReader(r.Body, n+1))
+	if err != nil {
+		return nil, false, err
+	}
+	return probe, int64(len(probe)) <= n, nil
+}
+
+// isLivenessDialect reports whether a classified payload is CEPA liveness
+// traffic rather than an audit record. OneFS shares one element between its
+// heartbeat and its events, so that dialect is separated by action attribute
+// and never by root element alone.
+func isLivenessDialect(d parser.Dialect, decoded []byte) bool {
+	switch d {
+	case parser.DialectRegisterRequest, parser.DialectHeartBeatRequest:
+		return true
+	case parser.DialectCheckFileRequest:
+		return parser.CheckFileActionDecoded(decoded) == parser.OneFSHeartbeatAction
+	default:
+		return false
+	}
+}
+
+// readBody reads up to maxBody bytes from the request body. MaxBytesReader
+// enforces the cap; any excess returns an error that the caller maps to
+// HTTP 400.
+func readBody(w http.ResponseWriter, r *http.Request, maxBody int64) ([]byte, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	return io.ReadAll(r.Body)
 }

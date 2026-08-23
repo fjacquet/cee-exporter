@@ -2,6 +2,7 @@ package evtx
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"net"
@@ -115,6 +116,79 @@ func TestBuildBeatsEvent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, tc.check)
+	}
+}
+
+// TestBeatsWriteBatchSendsOneWindow reads the Lumberjack window header off the
+// wire. Lumberjack ACKs per window, so K windows of one event costs K
+// round-trips — exactly the cost batching exists to remove. The window count
+// in the header separates "one window of 3" from "3 windows of 1"; nothing
+// observable inside the process does, because the client is a concrete type.
+func TestBeatsWriteBatchSendsOneWindow(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+
+	header := make(chan []byte, 1)
+	// Accept in a loop and close every connection right after reading its
+	// header. sendWithRetry redials on failure, so WriteBatch opens a second
+	// connection for its retry; that one must also be closed promptly, or the
+	// retry's Send blocks for the client's full 30s AwaitACK Timeout with
+	// nothing on the other end to unblock it (see TestBeatsWriterReconnectRace,
+	// which hits the same 30s-per-Send cost and fixes it the same way). Only
+	// the first connection's header is meaningful — the assertion is about
+	// what the batch put on the wire, not about the retry succeeding.
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer func() { _ = c.Close() }()
+				hdr := make([]byte, 6)
+				if _, err := io.ReadFull(c, hdr); err != nil {
+					return
+				}
+				select {
+				case header <- hdr:
+				default:
+				}
+				// Deliberately no ACK: the client's Send will fail and
+				// WriteBatch will return an error, which this test tolerates.
+				// Speaking enough Lumberjack to ACK correctly would mean
+				// parsing the payload frames, and the window header alone
+				// already answers the question. Closing this connection (via
+				// the defer above) as soon as the header is read unblocks the
+				// client's AwaitACK immediately with a connection error
+				// instead of waiting out the 30s deadline.
+			}(c)
+		}
+	}()
+
+	addr := ln.Addr().(*net.TCPAddr)
+	w, err := NewBeatsWriter(BeatsConfig{Host: addr.IP.String(), Port: addr.Port})
+	if err != nil {
+		t.Fatalf("NewBeatsWriter: %v", err)
+	}
+	defer func() { _ = w.Close() }()
+
+	batch := []WindowsEvent{{EventID: 4663}, {EventID: 4660}, {EventID: 4670}}
+	// Error tolerated: the sink never ACKs. The assertion is what went out.
+	_ = w.WriteBatch(context.Background(), batch)
+
+	select {
+	case hdr := <-header:
+		if hdr[0] != '2' || hdr[1] != 'W' {
+			t.Fatalf("first frame = %q, want a version-2 window frame", hdr[:2])
+		}
+		if got := binary.BigEndian.Uint32(hdr[2:6]); got != 3 {
+			t.Errorf("window size = %d, want 3 — the batch was split into separate windows", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no Lumberjack window frame reached the sink")
 	}
 }
 

@@ -44,3 +44,6 @@ __pycache__/
 # Local compose secrets — never commit a real password
 deploy/.env
 .env
+
+# Subagent-driven-development scratch (ledger, briefs, review packages)
+.superpowers/

@@ -25,7 +25,7 @@ GORELEASER_VERSION  ?= v2.12.0
 GOVULNCHECK_VERSION ?= latest
 
 .PHONY: all clean install tools lint format test build vuln sbom security docs coverage-upload release ci \
-        build-windows build-darwin test-race lint-full coverage docker-build docker-push docker-run install-systemd
+        build-windows build-darwin test-race lint-full coverage docker-build docker-push docker-run install-systemd bench
 
 # ── Canonical targets (called by fjacquet/ci reusable workflows) ────────────
 
@@ -75,6 +75,11 @@ release:
 	goreleaser release --clean
 
 ci: lint test build vuln
+
+# On demand only — never wired into ci. Shared runners are too noisy to gate
+# on, and a flaky gate gets disabled, which is worse than no gate.
+bench:
+	go test -run '^$$' -bench . -benchmem ./...
 
 # ── Repo-specific targets (preserved) ───────────────────────────────────────
 

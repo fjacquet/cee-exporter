@@ -55,7 +55,11 @@ CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg
 - **`pkg/server`** — HTTP handler. `ServeHTTP` ACKs immediately (CEPA requires response within 3 s); delegates event processing to the queue. `RegisterRequest` must respond HTTP 200 with a **`<RegisterResponse>` document** — an empty body is a fatal CEPA error (`Top node is not RegisterResponse`). See the CEPA protocol constraints below; this line stated the inverse until 2026-08-22.
 - **`pkg/parser`** — CEE XML → `[]CEPAEvent`. Handles both single-event and VCAPS batch (`<EventBatch>`) payloads.
 - **`pkg/mapper`** — `CEPAEvent` → `WindowsEvent` (CEPA event type → Windows EventID + access mask).
-- **`pkg/queue`** — buffered channel + worker goroutines. Drops events with WARN log when full; exposes depth via `/health`.
+- **`pkg/queue`** — buffered channel + worker goroutines. Workers accumulate
+  up to `max_batch` events or `batch_timeout_ms` and issue one `WriteBatch`
+  per drain; a partial batch is flushed when the channel closes. Drops events
+  with WARN log when full, and refuses `Enqueue` after `Stop` rather than
+  panicking; exposes depth via `/health`.
 - **`pkg/evtx`** — writer backends behind the `Writer` interface:
   - `writer_gelf.go` — GELF 1.1 JSON over UDP or TCP (all platforms)
   - `writer_syslog.go` — RFC 5424 syslog over UDP or TCP (all platforms)
@@ -65,6 +69,9 @@ CEPA HTTP PUT → pkg/server → pkg/parser → pkg/mapper → pkg/queue → pkg
   - `writer_multi.go` — fan-out to multiple backends; forwards `Rotate()` to backends that support it
   - `writer_native_windows.go` / `writer_native_notwindows.go` — `NewNativeEvtxWriter` platform factory
   - Network writers share helpers in `writer.go`: `hostPort` (IPv6-safe host:port), `ShortMessage` (standard message format), `sendWithRetry` (reconnect-once retry loop)
+  - `Writer` requires `WriteBatch` as well as `WriteEvent`. It is mandatory
+    rather than an optional asserted interface precisely so `MultiWriter`
+    cannot silently fall back to the per-event loop the way `Rotate` once did.
 - **`pkg/metrics`** — atomic in-process counters (events received/written/dropped/truncated, writer errors, queue depth, last fsync). Package-level singleton `metrics.M`.
 - **`pkg/prometheus`** — `/metrics` endpoint on its own port (default `0.0.0.0:9228`, see ADR-006). Uses a private registry so Go runtime metrics stay out of the scrape.
 - **`pkg/server/health.go`** — `GET /health` JSON status, including queue depth.

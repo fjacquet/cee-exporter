@@ -16,11 +16,17 @@ type fakeWriter struct {
 	written   int
 	closed    int
 	rotated   int
+	batched   int
 }
 
 func (f *fakeWriter) WriteEvent(_ context.Context, _ WindowsEvent) error {
 	f.written++
 	return f.writeErr
+}
+
+func (f *fakeWriter) WriteBatch(ctx context.Context, events []WindowsEvent) error {
+	f.batched += len(events)
+	return writeBatchSerially(ctx, f, events)
 }
 
 func (f *fakeWriter) Close() error {
@@ -85,6 +91,26 @@ func TestMultiWriter_Close_JoinsErrors(t *testing.T) {
 	}
 	if !errors.Is(err, errX) {
 		t.Fatalf("expected joined err to wrap close-x; got %v", err)
+	}
+}
+
+// TestMultiWriterWriteBatch pins the fan-out. MultiWriter implementing
+// WriteBatch is compile-enforced now, but "reaches every backend with every
+// event" is not — and the Rotate precedent at writer_multi.go:47 is exactly
+// a fan-out method that silently reached nothing.
+func TestMultiWriterWriteBatch(t *testing.T) {
+	a, b := &fakeWriter{}, &fakeWriter{}
+	m := NewMultiWriter(a, b)
+
+	batch := []WindowsEvent{{EventID: 4663}, {EventID: 4660}, {EventID: 4670}}
+	if err := m.WriteBatch(context.Background(), batch); err != nil {
+		t.Fatalf("WriteBatch: %v", err)
+	}
+
+	for name, f := range map[string]*fakeWriter{"a": a, "b": b} {
+		if f.batched != 3 {
+			t.Errorf("backend %s received %d events, want 3", name, f.batched)
+		}
 	}
 }
 
