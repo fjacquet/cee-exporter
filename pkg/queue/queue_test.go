@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -391,14 +392,10 @@ func TestBatchErrorMetricsAreEventCounted(t *testing.T) {
 type blockingWriter struct {
 	entered chan int
 	release chan struct{}
-	// finished closes when WriteBatch returns. A test that unparks the writer
-	// must wait on it before returning: the freed worker still runs
-	// EventsWrittenTotal.Add(len(batch)) on its way out, and that add landing
-	// after the *next* test's metrics reset is what makes that test read a
-	// doubled count. once guards the close because nothing here promises
-	// WriteBatch is called only once.
-	finished chan struct{}
-	once     sync.Once
+	// closed records whether Stop closed the writer. Two writers document
+	// that their mutex does not cover their write path, so closing while a
+	// WriteBatch is in flight is unsynchronised access to writer state.
+	closed atomic.Bool
 }
 
 func (b *blockingWriter) WriteEvent(context.Context, evtx.WindowsEvent) error { return nil }
@@ -409,11 +406,13 @@ func (b *blockingWriter) WriteBatch(_ context.Context, events []evtx.WindowsEven
 	default:
 	}
 	<-b.release
-	b.once.Do(func() { close(b.finished) })
 	return nil
 }
 
-func (b *blockingWriter) Close() error { return nil }
+func (b *blockingWriter) Close() error {
+	b.closed.Store(true)
+	return nil
+}
 
 // TestDrainTimeoutCountsInFlightBatches pins the honest drain-timeout count.
 //
@@ -427,18 +426,25 @@ func (b *blockingWriter) Close() error { return nil }
 func TestDrainTimeoutCountsInFlightBatches(t *testing.T) {
 	metrics.M.EventsDroppedTotal.Store(0)
 
-	bw := &blockingWriter{
-		entered:  make(chan int, 1),
-		release:  make(chan struct{}),
-		finished: make(chan struct{}),
-	}
+	bw := &blockingWriter{entered: make(chan int, 1), release: make(chan struct{})}
+	// Unpark the writer, then wait for the WORKER to exit — not for WriteBatch
+	// to return.
+	//
+	// writeBatch runs EventsWrittenTotal.Add(len(batch)) *after*
+	// writer.WriteBatch returns, so waiting on the writer only narrows the
+	// window to a few instructions: the scheduler can still preempt the freed
+	// worker between the two and land a stale Add after the next test's
+	// Store(0), which is the doubled count this guard exists to prevent.
+	// wg.Done runs after the accounting, so waiting on the WaitGroup is the
+	// only wait that actually orders them.
+	var q *Queue
 	defer func() {
 		close(bw.release)
-		<-bw.finished // do not leak the worker into the next test's counters
+		q.wg.Wait()
 	}()
 
 	fired := make(chan time.Time) // never fires: the batch fills by size
-	q := New(Config{
+	q = New(Config{
 		Capacity:     100,
 		Workers:      1,
 		MaxBatch:     3,
@@ -470,6 +476,16 @@ func TestDrainTimeoutCountsInFlightBatches(t *testing.T) {
 
 	if got := metrics.M.EventsDroppedTotal.Load(); got != 3 {
 		t.Errorf("EventsDroppedTotal = %d, want 3 — the events held inside WriteBatch are lost and must be counted", got)
+	}
+
+	// The worker is still parked inside WriteBatch at this point: Stop has
+	// returned, but release has not been closed. Closing the writer here would
+	// be a close concurrent with a live write, and BinaryEvtxWriter's own doc
+	// comment states its mutex covers closed/closeErr and nothing else, while
+	// Win32EventLogWriter.Close is a bare handle close. Leaking the handle at
+	// process exit is the cheaper failure.
+	if bw.closed.Load() {
+		t.Error("Stop closed the writer while a worker was still inside WriteBatch")
 	}
 }
 

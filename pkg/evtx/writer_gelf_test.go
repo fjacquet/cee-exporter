@@ -458,3 +458,38 @@ func TestBuildGELFValidJSON(t *testing.T) {
 		t.Errorf("version: expected \"1.1\", got %v", v)
 	}
 }
+
+// TestGELFUDPBatchAttemptsEveryDatagram is the GELF half of
+// TestSyslogUDPBatchAttemptsEveryDatagram: a bounced Graylog UDP input reports
+// ECONNREFUSED on the next datagram, and that must not discard the rest of the
+// batch. See errConn in writer_syslog_test.go.
+func TestGELFUDPBatchAttemptsEveryDatagram(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = pc.Close() }()
+
+	host, port := splitHostPort(t, pc.LocalAddr().String())
+	w, err := NewGELFWriter(GELFConfig{Host: host, Port: port, Protocol: "udp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ec := &errConn{Conn: w.conn}
+	w.conn = ec
+	w.cfg.Host = "no-such-host.invalid"
+
+	batch := []WindowsEvent{
+		{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE"},
+		{EventID: 4660, CEPAEventType: "CEPP_DELETE_FILE"},
+		{EventID: 4670, CEPAEventType: "CEPP_SETACL_FILE"},
+	}
+	if err := w.WriteBatch(context.Background(), batch); err == nil {
+		t.Error("WriteBatch returned nil though every datagram failed")
+	}
+
+	if got := ec.count(); got != 3 {
+		t.Errorf("3 events produced %d write attempts, want 3 — a failed datagram must not abandon the rest of the batch", got)
+	}
+}

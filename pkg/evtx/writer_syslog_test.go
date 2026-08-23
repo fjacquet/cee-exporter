@@ -3,6 +3,7 @@ package evtx
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -428,5 +429,70 @@ func TestSyslogBatchSurvivesOneUnbuildableEvent(t *testing.T) {
 	}
 	if got := cc.count(); got != 2 {
 		t.Errorf("1 bad of 3 events produced %d writes, want 2 — the good events must still be sent", got)
+	}
+}
+
+// errConn fails every Write. Paired with an undialable host it makes
+// retrySend's reconnect fail too, so a send error is terminal for that
+// payload — which is what lets a test observe whether the batch loop stops at
+// the first failure or attempts the rest.
+type errConn struct {
+	net.Conn
+	mu       sync.Mutex
+	attempts int
+}
+
+func (c *errConn) Write(b []byte) (int, error) {
+	c.mu.Lock()
+	c.attempts++
+	c.mu.Unlock()
+	return 0, errors.New("simulated datagram failure")
+}
+
+func (c *errConn) SetWriteDeadline(time.Time) error { return nil }
+
+func (c *errConn) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.attempts
+}
+
+// TestSyslogUDPBatchAttemptsEveryDatagram pins that a failed datagram does not
+// abandon the rest of the batch.
+//
+// A connected UDP socket reports a collector that went away as ECONNREFUSED on
+// the *next* write — routine and transient. Returning on it abandoned every
+// event after the first failure, and the queue does not re-send, so those
+// records were simply gone.
+func TestSyslogUDPBatchAttemptsEveryDatagram(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = pc.Close() }()
+
+	host, port := splitHostPort(t, pc.LocalAddr().String())
+	w, err := NewSyslogWriter(SyslogConfig{Host: host, Port: port, Protocol: "udp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Every write fails, and the reconnect behind it fails too, so each
+	// payload's retrySend is terminal rather than recovering.
+	ec := &errConn{Conn: w.conn}
+	w.conn = ec
+	w.cfg.Host = "no-such-host.invalid"
+
+	batch := []WindowsEvent{
+		{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE", Computer: "nas01"},
+		{EventID: 4660, CEPAEventType: "CEPP_DELETE_FILE", Computer: "nas01"},
+		{EventID: 4670, CEPAEventType: "CEPP_SETACL_FILE", Computer: "nas01"},
+	}
+	if err := w.WriteBatch(context.Background(), batch); err == nil {
+		t.Error("WriteBatch returned nil though every datagram failed")
+	}
+
+	if got := ec.count(); got != 3 {
+		t.Errorf("3 events produced %d write attempts, want 3 — a failed datagram must not abandon the rest of the batch", got)
 	}
 }
