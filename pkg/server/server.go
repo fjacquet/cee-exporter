@@ -237,8 +237,14 @@ func NewHandler(q *queue.Queue, hostname string, reg RegistrationConfig, limits 
 // rejection means no ACK at all and the publisher may retry forever or mark
 // this consumer unavailable. A blocked publisher misses its 3-second ACK and
 // degrades — bad, but it is one publisher and it retries. An OOM takes every
-// publisher's stream down at once and loses the queue with it. The wait is
-// bounded by the server's existing 10s ReadTimeout.
+// publisher's stream down at once and loses the queue with it.
+//
+// The wait has no bound of its own. The server's ReadTimeout bounds reading a
+// request, not a handler parked on this channel send, so a saturated queue can
+// hold an event PUT here indefinitely. That is survivable only because the
+// traffic whose lateness is fatal never reaches this function: ServeHTTP
+// classifies liveness payloads from a bounded prefix and answers them without
+// a slot. See handshakeProbeBytes.
 func (h *Handler) acquireSlot() {
 	select {
 	case h.slots <- struct{}{}:
@@ -296,25 +302,58 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	peer := peerHost(r.RemoteAddr)
 	metrics.M.RecordPeerRequestAt(peer, start)
 
-	// After the peer stamp, before the body is read: the stamp must record a
-	// publisher that is alive even when the request goes on to fail, and the
-	// slot must cover everything that allocates.
-	h.acquireSlot()
-	defer h.releaseSlot()
-
 	defer func() { _ = r.Body.Close() }()
-	body, err := readBody(w, r, h.limits.maxBodyBytes())
+
+	// Read a bounded prefix before taking a concurrency slot, so CEPA's
+	// liveness traffic never queues behind an event backlog. See
+	// handshakeProbeBytes for why that matters more than the memory it costs.
+	probe, complete, err := readProbe(r, handshakeProbeBytes)
 	if err != nil {
 		slog.Error("cepa_body_read_error", "remote", r.RemoteAddr, "error", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
+	var (
+		body       []byte
+		dialect    parser.Dialect
+		decoded    []byte
+		decodeErr  error
+		classified bool
+	)
+	if complete {
+		body = probe
+		dialect, decoded, decodeErr = parser.Classify(body)
+		classified = true
+	}
+
+	// The slot must cover everything that allocates, which is every path that
+	// reads or parses an event payload. Liveness traffic is exempt: it is
+	// already whole in probe, it carries no audit record, and answering it
+	// late is what takes a publisher OFFLINE.
+	liveness := classified && decodeErr == nil && isLivenessDialect(dialect, decoded)
+	if !liveness {
+		h.acquireSlot()
+		defer h.releaseSlot()
+
+		if !complete {
+			rest, rerr := readBody(w, r, h.limits.maxBodyBytes()-int64(len(probe)))
+			if rerr != nil {
+				slog.Error("cepa_body_read_error", "remote", r.RemoteAddr, "error", rerr)
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			body = append(probe, rest...)
+		}
+		if !classified {
+			dialect, decoded, decodeErr = parser.Classify(body)
+		}
+	}
+
 	// Transcode once. Every parser.Is* predicate decodes the whole body just to
 	// read its root element, so dispatching through four of them and then
 	// parsing used to decode the same payload five times — 62% of the time and
 	// 92% of the allocations on a 1000-event batch. See parser.Classify.
-	dialect, decoded, decodeErr := parser.Classify(body)
 	if decodeErr != nil {
 		slog.Error("cepa_decode_error",
 			"remote", r.RemoteAddr, "body_bytes", len(body), "error", decodeErr)
@@ -570,6 +609,52 @@ func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 // readBody reads up to maxBody bytes from the request body. MaxBytesReader
 // enforces the cap; any excess returns an error that the caller maps to
 // HTTP 400.
+// handshakeProbeBytes bounds the prefix read before a concurrency slot is
+// taken.
+//
+// CEPA's liveness traffic — <RegisterRequest>, <HeartBeatRequest /> and
+// OneFS's heartbeat-action <CheckFileRequest> — is two orders of magnitude
+// below this even in UTF-16LE, so it is classified and answered without
+// queueing behind an event backlog. Anything larger is an event payload and
+// takes a slot before the rest of its body is read.
+//
+// The trade is deliberate and asymmetric. It costs at most this many bytes per
+// in-flight request outside the semaphore. It buys back the case that made the
+// semaphore dangerous: acquireSlot blocks with no bound of its own — the
+// server's ReadTimeout bounds reading a request, not a handler parked on a
+// channel send — so under saturation a heartbeat could sit past CEPA's
+// 3-second ACK deadline. The publisher then marks this consumer OFFLINE and
+// stops sending events entirely, which loses far more than the memory the
+// semaphore was protecting. Liveness payloads carry no audit record, so
+// exempting them risks nothing that events risk.
+const handshakeProbeBytes = 8 << 10
+
+// readProbe reads up to n bytes of the body. complete reports whether the
+// body ended within n, which is what lets the caller classify a small payload
+// without having committed to reading an arbitrarily large one.
+func readProbe(r *http.Request, n int64) (probe []byte, complete bool, err error) {
+	probe, err = io.ReadAll(io.LimitReader(r.Body, n+1))
+	if err != nil {
+		return nil, false, err
+	}
+	return probe, int64(len(probe)) <= n, nil
+}
+
+// isLivenessDialect reports whether a classified payload is CEPA liveness
+// traffic rather than an audit record. OneFS shares one element between its
+// heartbeat and its events, so that dialect is separated by action attribute
+// and never by root element alone.
+func isLivenessDialect(d parser.Dialect, decoded []byte) bool {
+	switch d {
+	case parser.DialectRegisterRequest, parser.DialectHeartBeatRequest:
+		return true
+	case parser.DialectCheckFileRequest:
+		return parser.CheckFileActionDecoded(decoded) == parser.OneFSHeartbeatAction
+	default:
+		return false
+	}
+}
+
 func readBody(w http.ResponseWriter, r *http.Request, maxBody int64) ([]byte, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	return io.ReadAll(r.Body)

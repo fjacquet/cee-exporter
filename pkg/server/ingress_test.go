@@ -32,8 +32,13 @@ import (
 
 // blockingBody is a request body whose first Read parks until release is
 // closed. It is how a test pins one request inside ServeHTTP — holding its
-// concurrency slot — without a sleep: reading the body is the first thing
-// ServeHTTP does after acquiring the slot.
+// concurrency slot — without a sleep.
+//
+// It must be reached *after* the slot is taken, which means it has to sit
+// behind more than handshakeProbeBytes of padding: ServeHTTP now reads a
+// bounded prefix before acquiring anything, so a bare blockingBody parks in
+// that probe read and holds no slot at all. Use slotHolder rather than
+// wiring one up by hand.
 type blockingBody struct {
 	reading chan struct{} // closed on the first Read
 	release chan struct{} // closed by the test to let the read finish
@@ -88,7 +93,7 @@ func TestServeHTTPBoundsConcurrentRequests(t *testing.T) {
 		body := &blockingBody{reading: make(chan struct{}), release: make(chan struct{})}
 		holders[i] = body
 
-		req := httptest.NewRequest(http.MethodPut, "/", body)
+		req := httptest.NewRequest(http.MethodPut, "/", slotHolder(body))
 		go func() { h.ServeHTTP(httptest.NewRecorder(), req) }()
 
 		// The slot is taken once ServeHTTP has reached the body read.
@@ -100,9 +105,14 @@ func TestServeHTTPBoundsConcurrentRequests(t *testing.T) {
 	}
 
 	// One more request. It must not get through.
+	//
+	// It carries an event payload, deliberately. A handshake body would be
+	// admitted immediately and correctly — liveness traffic is exempt from the
+	// semaphore, see handshakeProbeBytes — so using one here would assert the
+	// opposite of what this test is named for.
 	admitted := make(chan struct{})
 	go func() {
-		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`<RegisterRequest/>`))
+		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(eventPayload))
 		h.ServeHTTP(httptest.NewRecorder(), req)
 		close(admitted)
 	}()
@@ -165,4 +175,116 @@ func TestServeHTTPRejectsOversizedBody(t *testing.T) {
 			}
 		})
 	}
+}
+
+// eventPayload is a minimal but real CheckEventRequest. Tests that need a
+// request the semaphore must gate use this rather than a handshake document.
+const eventPayload = `<CheckEventRequest><EventList count="1">` +
+	`<Event event="0x8" path="\\\\nas01\\CHECK$\\FS01\\p.txt" flag="0x2" ` +
+	`server="10.26.1.224" share="/FS01" clientIP="10.26.1.222" serverIP="10.26.1.224" ` +
+	`timeStamp="0x6a7f7c090008765f" protocol="1">` +
+	`<EventExt inode="9450" userId="0" ownerId="0"/>` +
+	`</Event></EventList></CheckEventRequest>`
+
+// TestLivenessAnswersWhileEverySlotIsHeld is the CEPA deadline guard.
+//
+// acquireSlot blocks with no bound of its own, so before liveness traffic was
+// exempted a heartbeat arriving during a burst waited behind every event
+// request in flight. CEPA gives 3 seconds; past it the publisher marks this
+// consumer OFFLINE and stops sending events, so the semaphore protecting
+// memory would have cost the entire stream it was protecting.
+//
+// Each case must answer 200 with every slot occupied. Deleting the liveness
+// exemption from ServeHTTP hangs all three until the deadline below fires.
+func TestLivenessAnswersWhileEverySlotIsHeld(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"PowerStore heartbeat", `<HeartBeatRequest />`},
+		{"register handshake", `<RegisterRequest/>`},
+		// The action lives on <Args>, not the root, and 9 is the heartbeat.
+		// This is the shape measured on the wire from a real cluster.
+		{"OneFS heartbeat", `<CheckFileRequest><Args action="9" sourceIP="10.26.1.150" sourceID="2" name="cABvAHcAZQByAHMAYwBhAGwAZQAxAA=="/></CheckFileRequest>`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetPeers(t)
+			h := newLimitedHandler(t, LimitsConfig{MaxConcurrentRequests: 1})
+
+			// Occupy the only slot with an event request parked in its body read.
+			held := &blockingBody{reading: make(chan struct{}), release: make(chan struct{})}
+			go func() {
+				h.ServeHTTP(httptest.NewRecorder(),
+					httptest.NewRequest(http.MethodPut, "/", slotHolder(held)))
+			}()
+			select {
+			case <-held.reading:
+			case <-time.After(5 * time.Second):
+				t.Fatal("the event request never took the slot")
+			}
+			defer close(held.release)
+
+			answered := make(chan int, 1)
+			go func() {
+				rec := httptest.NewRecorder()
+				h.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/", strings.NewReader(tc.body)))
+				answered <- rec.Code
+			}()
+
+			select {
+			case code := <-answered:
+				if code != http.StatusOK {
+					t.Errorf("liveness request answered %d, want %d", code, http.StatusOK)
+				}
+			case <-time.After(3 * time.Second):
+				t.Fatal("liveness request did not answer within CEPA's 3-second budget while a slot was held")
+			}
+		})
+	}
+}
+
+// TestOversizedLivenessStillTakesASlot pins the exemption's boundary. A body
+// that does not end within handshakeProbeBytes is not classifiable without
+// reading the rest of it, so it is treated as an event payload no matter what
+// its root element turns out to be — otherwise the exemption would be a way to
+// bypass the memory bound by prefixing a large body with a handshake tag.
+func TestOversizedLivenessStillTakesASlot(t *testing.T) {
+	resetPeers(t)
+	h := newLimitedHandler(t, LimitsConfig{MaxConcurrentRequests: 1})
+
+	held := &blockingBody{reading: make(chan struct{}), release: make(chan struct{})}
+	go func() {
+		h.ServeHTTP(httptest.NewRecorder(),
+			httptest.NewRequest(http.MethodPut, "/", slotHolder(held)))
+	}()
+	select {
+	case <-held.reading:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the event request never took the slot")
+	}
+	defer close(held.release)
+
+	// A RegisterRequest padded past the probe with a comment: still a
+	// handshake by root element, but not knowable as one from the prefix.
+	padded := `<RegisterRequest/><!--` + strings.Repeat("p", handshakeProbeBytes) + `-->`
+	admitted := make(chan struct{})
+	go func() {
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPut, "/", strings.NewReader(padded)))
+		close(admitted)
+	}()
+
+	select {
+	case <-admitted:
+		t.Fatal("a body larger than the probe bypassed the semaphore")
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+// slotHolder wraps a blockingBody in enough padding to outrun the handshake
+// probe, so the request is classified as an event payload, takes a concurrency
+// slot, and only then parks in the body read that the test controls.
+func slotHolder(b *blockingBody) io.Reader {
+	return io.MultiReader(strings.NewReader(strings.Repeat("x", handshakeProbeBytes+1)), b)
 }
