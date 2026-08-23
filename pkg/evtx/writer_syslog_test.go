@@ -369,3 +369,64 @@ func TestSyslogWriteBatchUDPWritesOnePerEvent(t *testing.T) {
 		t.Errorf("3 events produced %d writes, want 3 — UDP must send one datagram per message, never concatenated", got)
 	}
 }
+
+// TestSyslogBatchSurvivesOneUnbuildableEvent pins that a single event the
+// RFC 5424 encoder rejects costs only that event.
+//
+// buildSyslog5424 sets Hostname from the CEPA event's Computer field, and
+// rfc5424 rejects any hostname that is not 1-255 printable US-ASCII. One NAS
+// server with a non-ASCII name therefore used to discard every other event in
+// the drain — up to max_batch of them, where the pre-batching per-event loop
+// lost exactly the one. That is the whole-batch loss writeBatchSerially
+// exists to prevent, and it had reappeared one layer down.
+func TestSyslogBatchSurvivesOneUnbuildableEvent(t *testing.T) {
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 65535)
+		for {
+			if _, _, err := pc.ReadFrom(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	host, port := splitHostPort(t, pc.LocalAddr().String())
+	w, err := NewSyslogWriter(SyslogConfig{Host: host, Port: port, Protocol: "udp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Confirm the premise before relying on it: this event must actually fail
+	// to build, or the test proves nothing about partial failure.
+	bad := WindowsEvent{EventID: 4663, CEPAEventType: "CEPP_FILE_WRITE", Computer: "nås01"}
+	if _, err := buildSyslog5424(bad, "cee-exporter"); err == nil {
+		t.Fatal("a non-ASCII hostname built successfully; the premise of this test no longer holds")
+	}
+
+	cc := &countingConn{Conn: w.conn}
+	w.conn = cc
+
+	batch := []WindowsEvent{
+		bad,
+		{EventID: 4660, CEPAEventType: "CEPP_DELETE_FILE", Computer: "nas01"},
+		{EventID: 4670, CEPAEventType: "CEPP_SETACL_FILE", Computer: "nas01"},
+	}
+	writeErr := w.WriteBatch(context.Background(), batch)
+
+	_ = w.Close()
+	_ = pc.Close()
+	wg.Wait()
+
+	if writeErr == nil {
+		t.Error("WriteBatch returned nil; a batch containing an unbuildable event must still report failure")
+	}
+	if got := cc.count(); got != 2 {
+		t.Errorf("1 bad of 3 events produced %d writes, want 2 — the good events must still be sent", got)
+	}
+}

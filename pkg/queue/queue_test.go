@@ -563,3 +563,17 @@ func TestDrainTimeoutGraceLetsInFlightBatchLand(t *testing.T) {
 		t.Errorf("EventsDroppedTotal = %d, want 0 — a batch that landed must not be reported dropped", got)
 	}
 }
+
+// TestStopWithoutStartDoesNotPanic covers the queue that is constructed and
+// then stopped without ever running — a startup path that fails between New
+// and Start, and the shape two tests in this file already have to tiptoe
+// around.
+//
+// writeCancel is set only by Start, and Stop called it unconditionally, so
+// this panicked with a nil pointer dereference at the writeCancel call from
+// the moment that field was introduced. Nothing here caught it because every
+// other test starts the queue first.
+func TestStopWithoutStartDoesNotPanic(t *testing.T) {
+	q := New(Config{Capacity: 1, Workers: 1}, &fakeWriter{})
+	q.Stop() // must not panic
+}

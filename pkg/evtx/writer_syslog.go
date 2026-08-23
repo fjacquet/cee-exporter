@@ -8,6 +8,7 @@ package evtx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -135,15 +136,25 @@ func (w *SyslogWriter) WriteBatch(_ context.Context, events []WindowsEvent) erro
 
 	// Build before locking: this is the half of the cost that parallelises,
 	// and holding the lock across it would give the batch back nothing.
+	//
+	// One unbuildable event must not cost the batch. RFC 5424 rejects a
+	// hostname that is not 1-255 printable US-ASCII, so a single NAS server
+	// with a non-ASCII name would otherwise discard every other event in the
+	// drain — the same whole-batch loss writeBatchSerially exists to prevent.
 	payloads := make([][]byte, 0, len(events))
 	total := 0
+	var buildErrs []error
 	for i := range events {
 		p, err := buildSyslog5424(events[i], w.cfg.AppName)
 		if err != nil {
-			return fmt.Errorf("syslog build event %d/%d: %w", i+1, len(events), err)
+			buildErrs = append(buildErrs, fmt.Errorf("syslog build event %d/%d: %w", i+1, len(events), err))
+			continue
 		}
 		payloads = append(payloads, p)
 		total += len(p) + 8 // payload + decimal length + space
+	}
+	if len(payloads) == 0 {
+		return errors.Join(buildErrs...)
 	}
 
 	w.mu.Lock()
@@ -155,19 +166,24 @@ func (w *SyslogWriter) WriteBatch(_ context.Context, events []WindowsEvent) erro
 			frame = frameTCP(frame, p)
 		}
 		if err := w.retrySend(func() error { return w.sendRaw(frame) }); err != nil {
-			return fmt.Errorf("syslog batch %w", err)
+			return errors.Join(append(buildErrs, fmt.Errorf("syslog batch %w", err))...)
 		}
-		slog.Debug("syslog_batch_sent", "events", len(events), "bytes", len(frame))
-		return nil
+		slog.Debug("syslog_batch_sent", "events", len(payloads), "bytes", len(frame))
+		return errors.Join(buildErrs...)
 	}
 
+	// A connected UDP socket surfaces a collector that went away as
+	// ECONNREFUSED on the *next* write, which is transient and routine.
+	// Returning on it would abandon every datagram after the first failure,
+	// and the queue does not re-send.
+	sendErrs := buildErrs
 	for i, p := range payloads {
 		if err := w.retrySend(func() error { return w.sendRaw(p) }); err != nil {
-			return fmt.Errorf("syslog batch event %d/%d: %w", i+1, len(events), err)
+			sendErrs = append(sendErrs, fmt.Errorf("syslog batch event %d/%d: %w", i+1, len(payloads), err))
 		}
 	}
-	slog.Debug("syslog_batch_sent", "events", len(events), "datagrams", len(events))
-	return nil
+	slog.Debug("syslog_batch_sent", "events", len(events), "datagrams", len(payloads))
+	return errors.Join(sendErrs...)
 }
 
 // Close flushes and closes the connection.

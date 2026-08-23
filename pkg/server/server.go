@@ -280,6 +280,35 @@ func respond(w http.ResponseWriter, r *http.Request, reqBody, reply []byte, cont
 	return n, true
 }
 
+// answerUnreadableBody handles a request whose body could not be read to
+// completion — over the cap, or a read that failed or timed out.
+//
+// It counts a drop and answers with the event acknowledgement rather than a
+// bare 400, for the reason the decode-error branch below documents at length:
+// Dell CEE reads anything that is not a well-formed response as a failed
+// delivery and retries the same batch forever. A 400 on an oversized batch
+// therefore does not shed the load, it converts one lost payload into a
+// publisher stuck resending it and delivering nothing else — and with the cap
+// now 8 MiB rather than an unconditional 64 MiB, that is reachable on a large
+// VCAPS burst rather than theoretical.
+//
+// The drop is counted as one because the true count is unknowable: the body
+// was never read, so the events in it were never parsed. One is a floor that
+// makes the loss alertable on the series operators already watch; it is not a
+// measurement of how many records went missing.
+func answerUnreadableBody(w http.ResponseWriter, r *http.Request, probe []byte, event string, err error) {
+	metrics.M.EventsDroppedTotal.Add(1)
+	slog.Error(event,
+		"remote", r.RemoteAddr,
+		"bytes_read", len(probe),
+		"error", err,
+		"note", "batch lost; counted as one drop because the body was never parsed",
+	)
+	// probe carries enough of the body for respond to detect UTF-16LE, which
+	// is the one thing the reply must mirror.
+	_, _ = respond(w, r, probe, checkEventResponse, "text/xml", event+"_response_write_error")
+}
+
 // ServeHTTP implements http.Handler.  Only PUT is accepted; everything else
 // returns 405.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -309,8 +338,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// handshakeProbeBytes for why that matters more than the memory it costs.
 	probe, complete, err := readProbe(r, handshakeProbeBytes)
 	if err != nil {
-		slog.Error("cepa_body_read_error", "remote", r.RemoteAddr, "error", err)
-		http.Error(w, "bad request", http.StatusBadRequest)
+		answerUnreadableBody(w, r, probe, "cepa_body_read_error", err)
 		return
 	}
 
@@ -339,8 +367,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !complete {
 			rest, rerr := readBody(w, r, h.limits.maxBodyBytes()-int64(len(probe)))
 			if rerr != nil {
-				slog.Error("cepa_body_read_error", "remote", r.RemoteAddr, "error", rerr)
-				http.Error(w, "bad request", http.StatusBadRequest)
+				answerUnreadableBody(w, r, probe, "cepa_body_read_error", rerr)
 				return
 			}
 			body = append(probe, rest...)
@@ -606,9 +633,6 @@ func (h *Handler) enqueue(events []parser.CEPAEvent, r *http.Request) {
 	}
 }
 
-// readBody reads up to maxBody bytes from the request body. MaxBytesReader
-// enforces the cap; any excess returns an error that the caller maps to
-// HTTP 400.
 // handshakeProbeBytes bounds the prefix read before a concurrency slot is
 // taken.
 //
@@ -655,6 +679,9 @@ func isLivenessDialect(d parser.Dialect, decoded []byte) bool {
 	}
 }
 
+// readBody reads up to maxBody bytes from the request body. MaxBytesReader
+// enforces the cap; any excess returns an error that the caller maps to
+// HTTP 400.
 func readBody(w http.ResponseWriter, r *http.Request, maxBody int64) ([]byte, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	return io.ReadAll(r.Body)

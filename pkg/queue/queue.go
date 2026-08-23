@@ -229,12 +229,17 @@ func (q *Queue) Stop() {
 		timedOut = true
 	}
 
-	// Cancel any write still stalled, then close. Writers serialise Close
-	// against their write path with their own mutex, so this cannot tear a
-	// write in progress. See the writeCancel field comment: no writer honours
-	// the context on its write path today, so this does not by itself shorten
-	// anything — the grace wait below is what bounds it.
-	q.writeCancel()
+	// Cancel any write still stalled. See the writeCancel field comment: no
+	// writer honours the context on its write path today, so this does not by
+	// itself shorten anything — the grace wait below is what bounds it.
+	//
+	// Nil when Start was never called. A queue that is constructed and then
+	// stopped without ever running is a legitimate shape — tests do it, and so
+	// does any startup path that fails between New and Start — and Stop
+	// panicked on it from the moment writeCancel was introduced.
+	if q.writeCancel != nil {
+		q.writeCancel()
+	}
 
 	if timedOut {
 		// One more short wait before giving up. A worker inside WriteBatch
@@ -267,8 +272,27 @@ func (q *Queue) Stop() {
 		)
 	}
 
-	if err := q.writer.Close(); err != nil {
-		slog.Error("writer_close_error", "error", err)
+	// Close only once no worker can still be inside the writer.
+	//
+	// Not all writers serialise Close against their own write path, and two
+	// say so explicitly: BinaryEvtxWriter's doc comment states its mutex
+	// covers closed/closeErr and nothing else, and Win32EventLogWriter.Close
+	// is a bare handle close. Closing under them while a WriteBatch is in
+	// flight is unsynchronised access to writer state, not a clean shutdown.
+	//
+	// So on the timeout path the writer is deliberately left open. The process
+	// is exiting; the OS reclaims the handle, and an unflushed tail is already
+	// counted as dropped above. Tearing a write in progress to save a close
+	// would trade a counted loss for a corrupt one.
+	select {
+	case <-done:
+		if err := q.writer.Close(); err != nil {
+			slog.Error("writer_close_error", "error", err)
+		}
+	default:
+		slog.Error("writer_close_skipped",
+			"reason", "workers still inside the writer after the drain grace; closing would race their writes",
+		)
 	}
 }
 

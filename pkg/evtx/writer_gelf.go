@@ -33,6 +33,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -167,15 +168,24 @@ func (w *GELFWriter) WriteBatch(_ context.Context, events []WindowsEvent) error 
 
 	// Build before locking: this is the half of the cost that parallelises,
 	// and holding the lock across it would give the batch back nothing.
+	// One unbuildable event must not cost the batch — see the equivalent
+	// comment in writer_syslog.go. Far less likely here (json.Encoder over a
+	// map of strings effectively cannot fail) but the shape must match, or the
+	// two writers disagree about what a partial failure means.
 	payloads := make([][]byte, 0, len(events))
 	total := 0
+	var buildErrs []error
 	for i := range events {
 		p, err := buildGELF(events[i])
 		if err != nil {
-			return fmt.Errorf("gelf build event %d/%d: %w", i+1, len(events), err)
+			buildErrs = append(buildErrs, fmt.Errorf("gelf build event %d/%d: %w", i+1, len(events), err))
+			continue
 		}
 		payloads = append(payloads, p)
 		total += len(p) + 1
+	}
+	if len(payloads) == 0 {
+		return errors.Join(buildErrs...)
 	}
 
 	w.mu.Lock()
@@ -191,19 +201,22 @@ func (w *GELFWriter) WriteBatch(_ context.Context, events []WindowsEvent) error 
 			frame = append(frame, 0x00)
 		}
 		if err := w.retrySend(func() error { return w.sendRaw(frame) }); err != nil {
-			return fmt.Errorf("gelf batch %w", err)
+			return errors.Join(append(buildErrs, fmt.Errorf("gelf batch %w", err))...)
 		}
-		slog.Debug("gelf_batch_sent", "events", len(events), "bytes", len(frame))
-		return nil
+		slog.Debug("gelf_batch_sent", "events", len(payloads), "bytes", len(frame))
+		return errors.Join(buildErrs...)
 	}
 
+	// ECONNREFUSED from a bounced Graylog UDP input arrives on the next
+	// datagram; abandoning the suffix would lose events nothing re-sends.
+	sendErrs := buildErrs
 	for i, p := range payloads {
 		if err := w.retrySend(func() error { return w.sendRaw(p) }); err != nil {
-			return fmt.Errorf("gelf batch event %d/%d: %w", i+1, len(events), err)
+			sendErrs = append(sendErrs, fmt.Errorf("gelf batch event %d/%d: %w", i+1, len(payloads), err))
 		}
 	}
-	slog.Debug("gelf_batch_sent", "events", len(events), "datagrams", len(events))
-	return nil
+	slog.Debug("gelf_batch_sent", "events", len(events), "datagrams", len(payloads))
+	return errors.Join(sendErrs...)
 }
 
 // Close flushes and closes the connection.

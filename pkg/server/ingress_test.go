@@ -144,23 +144,29 @@ func TestServeHTTPBoundsConcurrentRequests(t *testing.T) {
 
 // TestServeHTTPRejectsOversizedBody drives the body cap through ServeHTTP with
 // a non-default MaxBodyMB, so both halves of the config -> behaviour link are
-// asserted: a hardcoded 1<<40 accepts the oversized body and answers 200, and
-// a hardcoded 8<<20 accepts it too, because the cap under test is 1 MiB.
+// asserted: a hardcoded 1<<40 or 8<<20 as the cap lets the oversized body
+// through and drops nothing, because the cap under test is 1 MiB.
+//
+// Both sizes answer 200. The status code is not what separates them — an
+// oversized batch is acknowledged rather than 400'd, or Dell CEE retries it
+// forever (see answerUnreadableBody) — so the discriminator is the drop
+// counter and the fact that the oversized body never reaches the queue.
 func TestServeHTTPRejectsOversizedBody(t *testing.T) {
 	const capMB = 1
 
 	cases := []struct {
 		name     string
 		bodyLen  int
-		wantCode int
+		wantDrop int64
 	}{
-		{"one byte over the cap", (capMB << 20) + 1, http.StatusBadRequest},
-		{"one byte under the cap", (capMB << 20) - 1, http.StatusOK},
+		{"one byte over the cap", (capMB << 20) + 1, 1},
+		{"one byte under the cap", (capMB << 20) - 1, 0},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			resetPeers(t)
+			metrics.M.EventsDroppedTotal.Store(0)
 			h := newLimitedHandler(t, LimitsConfig{MaxBodyMB: capMB})
 
 			req := httptest.NewRequest(http.MethodPut, "/",
@@ -169,9 +175,15 @@ func TestServeHTTPRejectsOversizedBody(t *testing.T) {
 
 			h.ServeHTTP(rec, req)
 
-			if rec.Code != tc.wantCode {
-				t.Errorf("ServeHTTP on a %d-byte body under a %d MiB cap returned %d, want %d",
-					tc.bodyLen, capMB, rec.Code, tc.wantCode)
+			// Every publisher-facing reply must be a well-formed response
+			// document; a bare error body stalls CEE indefinitely.
+			if rec.Code != http.StatusOK {
+				t.Errorf("ServeHTTP on a %d-byte body returned %d, want %d — an unparseable reply makes CEE retry forever",
+					tc.bodyLen, rec.Code, http.StatusOK)
+			}
+			if got := metrics.M.EventsDroppedTotal.Load(); got != tc.wantDrop {
+				t.Errorf("EventsDroppedTotal = %d, want %d on a %d-byte body under a %d MiB cap",
+					got, tc.wantDrop, tc.bodyLen, capMB)
 			}
 		})
 	}
