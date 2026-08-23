@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-08-23
+
+The pipeline was mutex-bound, not IO-bound. Every writer held its lock across a
+full network round trip, so lock-hold time — not the network — set the
+throughput ceiling. Writes are now batched: one `WriteBatch` per queue drain,
+one TCP write per batch. On loopback that is 9.53 → 4.20 µs/event for GELF TCP
+and 6.26 → 1.64 µs/event for syslog TCP; EVTX is unchanged, because `go-evtx`
+fsyncs per chunk regardless of batch size.
+
+**Those are loopback numbers and they measure the wrong regime for the claim.**
+In production the lock-hold time batching removes is dominated by real network
+latency the benchmarks do not have, so the effect against a real collector is
+unmeasured — it could be larger or smaller. `docs/PROMISES.md` records the
+throughput claim as Unverified for exactly this reason. The benchmarks run on
+`workflow_dispatch` only and gate nothing.
+
+### Changed
+
+- **An oversized request body is now acknowledged, not rejected.** A body over
+  `max_body_mb` previously answered HTTP 400. Dell CEE reads any reply that is
+  not a well-formed response document as a failed delivery and retries the
+  same batch forever, so rejecting converted one lost payload into a publisher
+  stalled indefinitely, delivering nothing. It now answers
+  `<CheckEventResponse>` and counts the loss on `cee_events_dropped_total`.
+  **Anyone alerting on 4xx from this service will see that signal go quiet;**
+  watch the drop counter instead.
+- Delivery is explicitly at-least-once. A TCP write that fails after partially
+  landing replays the whole batch, so the duplicate window is now up to
+  `max_batch` events rather than one. Stated in `config.toml` beside the knob.
+- Worst-case shutdown is `drain_timeout_s` plus a fixed 5-second grace period,
+  taken only when the drain times out.
+
+### Added
+
+- `[queue] max_batch` (500) and `batch_timeout_ms` (200) — a drain flushes on
+  whichever comes first. `drain_timeout_s` is now documented in the shipped
+  config for the first time.
+- `[server] max_body_mb` (8) and `max_concurrent_requests` (8), bounding
+  ingress-driven request memory. The previous unconditional 64 MiB cap admitted
+  ~190k events at ~4.2x body size in live heap — 269 MiB per request.
+- CEPA liveness traffic — `RegisterRequest`, `HeartBeatRequest` and OneFS's
+  heartbeat-action `CheckFileRequest` — is classified from a bounded 8 KiB
+  prefix and answered **without** taking a concurrency slot, so a saturated
+  queue cannot push a heartbeat past CEPA's 3-second ACK deadline and drop the
+  publisher to OFFLINE.
+- `cee_writer_batches_total` and `cee_writer_batch_errors_total`, counted per
+  call, alongside the existing per-event counters.
+- `WriteBatch` is now mandatory on the `Writer` interface rather than an
+  optionally-asserted one, so a fan-out writer cannot silently fall back to a
+  per-event loop the way `Rotate` once did.
+
+### Fixed
+
+- `Enqueue` after `Stop` refused instead of panicking on a closed channel;
+  `Stop` made idempotent; the drain now runs under a context the queue owns, so
+  a cancelled parent cannot abort it mid-flush.
+- `Stop` no longer panics when `Start` was never called, and no longer closes
+  the writer while workers are still inside `WriteBatch` — two writers document
+  that their mutex does not cover their write path.
+- A shutdown that timed out could lose up to `workers × max_batch` events while
+  logging `events_undrained=0` with every counter at zero. In-flight batches are
+  now counted.
+- One unwritable event no longer costs the whole batch. The serial fallback and
+  both UDP batch loops attempt every event and join the failures; previously a
+  single NAS server with a non-ASCII hostname discarded every other event in
+  the drain.
+
+### Verification
+
+`docs/PROMISES.md` tracks 62 user-facing claims and names the test behind each.
+Every guarantee added here is mutation-tested: the behaviour is broken, the
+test is watched to fail, and the failure line is recorded beside the claim.
+
 ## [6.0.0] - 2026-08-22
 
 Every array that ever pointed at this exporter was publishing nothing, and
