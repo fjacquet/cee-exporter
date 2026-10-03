@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-Requires Go 1.26.6 (see `go.mod`).
+Requires Go 1.27.1 (see `go.mod`).
 
 The canonical targets are the `fjacquet/ci` standard interface — the reusable
 CI workflows call these names, so keep their behaviour stable.
@@ -142,7 +142,7 @@ can and does run `-race`.
 
 - Cross-compilation to Windows requires no C toolchain.
 - `golang.org/x/sys/windows` uses syscall (not CGO) — Win32 API calls work without a C compiler.
-- The Docker builder image must be at least `golang:1.26-alpine`. The official
+- The Docker builder image must be at least `golang:1.27-alpine`. The official
   Go images ship `GOTOOLCHAIN=local`, so a builder older than the `go` directive
   in `go.mod` fails unconditionally rather than downloading a toolchain.
 

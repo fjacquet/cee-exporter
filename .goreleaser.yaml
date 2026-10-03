@@ -58,7 +58,7 @@ checksum:
 
 # dockers_v2 (goreleaser >= 2.12) builds a single multi-arch manifest via
 # buildx directly — the older dockers:/docker_manifests: pair is deprecated
-# and the Makefile already pins GORELEASER_VERSION to 2.12.0, so we target
+# and the Makefile already pins GORELEASER_VERSION to 2.18.0, so we target
 # the current mechanism instead of the one being phased out.
 dockers_v2:
   - id: cee-exporter
