@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.1] - 2026-10-03
+
+### Security
+
+- `golang.org/x/crypto` 0.55.0 -> 0.57.0. **GO-2026-5932** on `x/crypto` has no fix available yet;
+  `govulncheck` reports it as not called.
+
+### Added
+
+- CI: security workflow added, calling the shared `go-security` reusable workflow from `fjacquet/ci`.
+
+### Changed
+
+- Go 1.26.6 -> 1.27.1 (`go` directive in `go.mod`, Dockerfile builder image).
+- Makefile tool pins: golangci-lint v2.12.2 -> v2.13.2, goreleaser v2.12.0 -> v2.18.0.
+- Docker builder image `golang:1.26-alpine` -> `golang:1.27.1-alpine`.
+- Dependencies refreshed with `go get -u ./...`: `github.com/fjacquet/go-evtx` 0.9.0 -> 0.11.0,
+  `golang.org/x/sys` 0.47.0 -> 0.48.0, `golang.org/x/net` 0.58.0 -> 0.59.0, `prometheus/common` 0.70.1 -> 0.72.0,
+  `klauspost/compress` 1.19.2 -> 1.20.1.
+- README, `CLAUDE.md`, `docs/index.md` and `docs/operator-guide.md` now state Go 1.27.1.
+
 ## [6.1.0] - 2026-08-23
 
 The pipeline was mutex-bound, not IO-bound. Every writer held its lock across a
