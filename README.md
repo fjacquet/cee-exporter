@@ -112,7 +112,7 @@ curl http://localhost:12228/health
 
 ## Building from Source
 
-Requires Go 1.26.6, no CGO.
+Requires Go 1.27.1, no CGO.
 
 ```bash
 make build-linux    # Linux/amd64   → ./cee-exporter

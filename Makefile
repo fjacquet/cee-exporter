@@ -20,8 +20,8 @@ BINARY_INSTALL_PATH := /usr/local/bin/cee-exporter
 DIST  ?= dist
 COVER ?= coverage.out
 
-GOLANGCI_VERSION    ?= v2.12.2
-GORELEASER_VERSION  ?= v2.12.0
+GOLANGCI_VERSION    ?= v2.13.2
+GORELEASER_VERSION  ?= v2.18.0
 GOVULNCHECK_VERSION ?= latest
 
 .PHONY: all clean install tools lint format test build vuln sbom security docs coverage-upload release ci \
