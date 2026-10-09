@@ -1,16 +1,16 @@
 module github.com/fjacquet/cee-exporter
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/crewjam/rfc5424 v0.1.0
 	github.com/elastic/go-lumber v0.2.0
-	github.com/fjacquet/go-evtx v0.11.0
+	github.com/fjacquet/go-evtx v0.11.1
 	github.com/kardianos/service v1.3.0
-	github.com/prometheus/client_golang v1.24.1
+	github.com/prometheus/client_golang v1.25.0
 	golang.org/x/crypto v0.57.0
-	golang.org/x/sys v0.48.0
+	golang.org/x/sys v0.49.0
 )
 
 require (
@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.72.0 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
