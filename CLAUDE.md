@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-Requires Go 1.27.1 (see `go.mod`).
+Requires Go 1.27.2 (see `go.mod`).
 
 The canonical targets are the `fjacquet/ci` standard interface — the reusable
 CI workflows call these names, so keep their behaviour stable.
